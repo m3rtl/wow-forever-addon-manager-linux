@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # ubuntu-22.04: aeltere glibc, damit die Datei auf moeglichst vielen Distributionen laeuft
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgirepository1.0-dev libcairo2-dev gir1.2-gtk-3.0 pkg-config
+
+      - name: Python packages
+        run: pip install "PyGObject==3.48.2" pycairo pyinstaller
+
+      - name: Build
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name wow-forever-addon-manager \
+            --add-data assets:assets \
+            --hidden-import wfa_gui --hidden-import wfa_cli --hidden-import wfa_core \
+            wow-forever-addon-manager.py
+
+      - name: Smoke test
+        env:
+          WOW_FA_HOME: ${{ runner.temp }}/wfa-home
+        run: |
+          ./dist/wow-forever-addon-manager --version
+          ./dist/wow-forever-addon-manager --help
+          # ohne AddOns-Ordner: sauberer Exit mit Code 1, kein Absturz
+          rc=0; ./dist/wow-forever-addon-manager --check || rc=$?
+          test "$rc" -eq 1
+
+      - name: Package
+        run: |
+          cp dist/wow-forever-addon-manager wow-forever-addon-manager-x86_64-linux
+          chmod +x wow-forever-addon-manager-x86_64-linux
+          sha256sum wow-forever-addon-manager-x86_64-linux > SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wow-forever-addon-manager-x86_64-linux
+          path: |
+            wow-forever-addon-manager-x86_64-linux
+            SHA256SUMS
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes \
+            wow-forever-addon-manager-x86_64-linux SHA256SUMS
