@@ -1,80 +1,76 @@
 # WoW: Forever Addon-Manager (Linux)
 
-An unofficial addon manager for **WoW: Forever** (Interface 16xxx) on Linux. It works with installations running under Steam/Proton, Lutris, Wine, Bottles or Heroic. It scans your `AddOns` folder, recognises your addons, shows available updates and installs them with an automatic backup.
+Ein inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Linux. Er funktioniert mit Installationen unter Steam/Proton, Lutris, Wine, Bottles oder Heroic, durchsucht deinen `AddOns`-Ordner, erkennt deine Addons, zeigt verfügbare Updates an und installiert sie mit automatischem Backup.
 
-![Main window](docs/screenshots/main.png)
+![Hauptfenster](docs/screenshots/main.png)
 
-## Features
+## Funktionen
 
-- **CurseForge detection by fingerprint**: installed addons are identified by file hash, no manual setup needed.
-- **Forever-only files**: picks the `_Forever` build of a release and checks the `.toc` for Interface 16xxx.
-- **GitHub fallback** for addons that are published as GitHub releases.
-- **Browser fallback**: if a download is not available through the API, the exact file page (or a file list prefiltered to the Forever game version) opens and the manager waits for the new zip. With several marked addons the browser downloads are processed one after another (skip or cancel anytime), followed by a summary.
-- **Download folder detected from your browser**: the manager reads the download setting of your default browser (Chrome/Chromium family, Firefox family incl. Flatpak/Snap), and also watches the other detected browsers and the XDG download folder. A manual folder can be set under ☰ → Einstellungen. Only the download keys are read, nothing else from the profiles.
-- **Classic look**: dark fantasy theme with gold accents and hand-drawn ornaments, switchable under ☰ → Einstellungen ("Klassisches Theme"; off = system theme).
-- **Install new addons**: popular list, search, CurseForge project ID, `gh:owner/repo`, GitHub URL, direct zip link or a local zip.
-- **Backups and restore**: replaced folders are moved to a backup set first (last 5 are kept). `WTF`/SavedVariables are never touched.
-- **Uninstall**: removes an addon package by moving its folders to a backup set (restorable via Backups); dependencies on other addons are reported first. Settings (`WTF`/SavedVariables) stay.
-- **Compatibility check** before every installation, with a warning for packages that WoW: Forever will not load. A warning is shown if WoW seems to be running (detected heuristically, so it may miss it).
+- **CurseForge-Erkennung per Fingerprint**: Installierte Addons werden anhand ihrer Dateien erkannt, ganz ohne manuelle Zuordnung.
+- **Nur Forever-Dateien**: Es wird gezielt der Forever-Build eines Releases geladen und die `.toc` auf Interface 16xxx geprüft.
+- **GitHub als Ausweichquelle** für Addons, die als GitHub-Release veröffentlicht werden.
+- **Browser als Ausweichweg**: Ist ein Download nicht über die API möglich, öffnet sich die exakte Dateiseite (oder eine auf die Forever-Spielversion vorgefilterte Dateiliste) und der Manager wartet auf die neue Zip-Datei. Sind mehrere Addons markiert, werden die Browser-Downloads nacheinander abgearbeitet (jederzeit überspringen oder abbrechen), am Ende gibt es eine Übersicht.
+- **Download-Ordner aus dem Browser**: Der Manager liest die Download-Einstellung deines Standardbrowsers (Chrome/Chromium-Familie, Firefox-Familie inkl. Flatpak/Snap) und überwacht zusätzlich die Ordner der übrigen erkannten Browser sowie den XDG-Download-Ordner. Ein eigener Ordner lässt sich unter ☰ → Einstellungen festlegen. Aus den Browser-Profilen werden nur die Download-Einstellungen gelesen, sonst nichts.
+- **Klassischer Look**: dunkles Fantasy-Theme mit Goldakzenten und selbst gezeichneten Ornamenten, abschaltbar unter ☰ → Einstellungen („Klassisches Theme“; aus = Systemtheme).
+- **Neue Addons installieren**: über die Liste beliebter Forever-Addons, die Suche, eine CurseForge-Projekt-ID, `gh:owner/repo`, eine GitHub-URL, einen direkten Zip-Link oder eine lokale Zip-Datei.
+- **Backups und Wiederherstellen**: Ersetzte Ordner werden zuerst in einen Backup-Satz verschoben (die letzten 5 bleiben erhalten). `WTF`/SavedVariables werden nie angefasst.
+- **Deinstallieren**: Entfernt ein Addon-Paket, indem seine Ordner in einen Backup-Satz verschoben werden (über „Backups“ wiederherstellbar). Abhängigkeiten anderer Addons werden vorher angezeigt. Deine Einstellungen (`WTF`/SavedVariables) bleiben erhalten.
+- **Kompatibilitätsprüfung** vor jeder Installation, mit Warnung bei Paketen, die WoW: Forever nicht laden wird. Läuft WoW scheinbar gerade, erscheint ein Hinweis (die Erkennung ist eine Heuristik und kann danebenliegen).
 
-![Install a new addon](docs/screenshots/new-addon.png)
+![Neues Addon installieren](docs/screenshots/new-addon.png)
 
-## Download (easiest way)
+## Download (einfachster Weg)
 
-1. Get `wow-forever-addon-manager-x86_64-linux` from the [latest release](https://github.com/m3rtl/wow-forever-addon-manager-linux/releases/latest) (verify it with `SHA256SUMS`).
-2. Make it executable and start it:
+1. Lade `wow-forever-addon-manager-x86_64-linux` aus dem [neuesten Release](https://github.com/m3rtl/wow-forever-addon-manager-linux/releases/latest) herunter (prüfbar mit `SHA256SUMS`).
+2. Ausführbar machen und starten:
    ```sh
    chmod +x wow-forever-addon-manager-x86_64-linux
    ./wow-forever-addon-manager-x86_64-linux
    ```
-3. Optional: menu ☰ → "Startmenü-Eintrag anlegen" adds a launcher to your application menu (or run it with `--install-desktop-entry`).
+3. Optional: Menü ☰ → „Startmenü-Eintrag anlegen“ fügt den Manager deinem Anwendungsmenü hinzu (alternativ mit `--install-desktop-entry` starten).
 
-The binary is built on Ubuntu 22.04 (glibc 2.35 or newer required) and bundles Python and GTK. It may not run on other or older distributions; in that case use the source version (`python3-gi` and GTK 3 for the GUI, otherwise the command line mode works without them).
+Die Datei wird auf Ubuntu 22.04 gebaut (benötigt glibc 2.35 oder neuer) und bringt Python und GTK selbst mit. Auf anderen oder älteren Distributionen läuft sie eventuell nicht; dann die Quellcode-Version nutzen (für die GUI `python3-gi` und GTK 3, der Kommandozeilenmodus kommt ohne aus).
 
-## Run from source
+## Aus dem Quellcode starten
 
-Requirements: Python 3.10 or newer. For the GUI additionally `python3-gi` and GTK 3 (`gir1.2-gtk-3.0`). The command line mode needs nothing but the standard library.
+Voraussetzungen: Python 3.10 oder neuer. Für die GUI zusätzlich `python3-gi` und GTK 3 (`gir1.2-gtk-3.0`). Der Kommandozeilenmodus braucht nur die Standardbibliothek.
 
 ```sh
-./start.sh                 # GUI (falls back to the command line without a display / PyGObject)
-./start.sh --cli           # interactive command line
-./start.sh --check         # print the table only
-./start.sh --check --addons-dir PATH
+./start.sh                 # GUI (ohne Display / PyGObject automatisch Kommandozeile)
+./start.sh --cli           # interaktive Kommandozeile
+./start.sh --check         # nur die Tabelle ausgeben
+./start.sh --check --addons-dir PFAD
 ```
 
-To build the single-file binary yourself: `./build.sh` (result in `dist/`).
+Die Einzeldatei selbst bauen: `./build.sh` (Ergebnis in `dist/`).
 
-## CurseForge API key
+## CurseForge-API-Key
 
-Free at <https://console.curseforge.com>. Enter it under ☰ → Einstellungen, or set the environment variable `CF_API_KEY` (takes precedence). Without a key only GitHub-based and manually assigned packages can be checked.
-Some keys are not allowed to use the search endpoint; in that case use the "Popular" list, a project ID or the browser search.
+Kostenlos unter <https://console.curseforge.com>. Eintragen unter ☰ → Einstellungen oder über die Umgebungsvariable `CF_API_KEY` (hat Vorrang). Ohne Key lassen sich nur GitHub-basierte und manuell zugeordnete Pakete prüfen.
+Manche Keys dürfen die Suche nicht nutzen; dann helfen die Liste „Beliebt“, eine Projekt-ID oder die Suche im Browser.
 
-## Where data is stored
+## Wo Daten gespeichert werden
 
-- Run from source: next to the program (`config.json`, `backups/`, `cache/`).
-- Release binary: XDG folders (`~/.config`, `~/.local/share`, `~/.cache` below `wow-forever-addon-manager`).
-- `WOW_FA_HOME=<folder>` overrides both.
+- Aus dem Quellcode gestartet: neben dem Programm (`config.json`, `backups/`, `cache/`).
+- Release-Datei: in den XDG-Ordnern (`~/.config`, `~/.local/share`, `~/.cache`, jeweils unter `wow-forever-addon-manager`).
+- `WOW_FA_HOME=<Ordner>` überschreibt beides.
 
-## Privacy
+## Datenschutz
 
-Your API key is stored only locally in `config.json` (permissions 0600) and is never part of this repository. The program talks only to the CurseForge API, GitHub and the download hosts of the packages you install. No telemetry.
+Dein API-Key wird nur lokal in `config.json` gespeichert (Rechte 0600) und ist nie Teil dieses Repositorys. Das Programm spricht nur mit der CurseForge-API, GitHub und den Download-Servern der Pakete, die du installierst. Keine Telemetrie.
 
-## Compatibility rules
+## Kompatibilitätsregeln
 
-The client interface is read from your installation (currently 16001). For every addon folder the first existing TOC of `<Name>_Forever.toc`, `<Name>-Forever.toc`, `<Name>.toc` counts. Only compatible folders (or folders that are already installed) are installed; the rest is skipped and listed.
+Das Client-Interface wird aus deiner Installation gelesen (derzeit 16001). Für jeden Addon-Ordner zählt die erste vorhandene TOC-Datei aus `<Name>_Forever.toc`, `<Name>-Forever.toc`, `<Name>.toc`. Installiert werden nur kompatible Ordner (oder solche, die bereits installiert sind); alle anderen werden übersprungen und aufgelistet.
 
-## Fonts and artwork
+## Schrift und Grafiken
 
-The title font is [Cinzel](https://github.com/NDISCOVER/Cinzel), licensed under the SIL Open Font License 1.1 (`assets/fonts/cinzel/OFL.txt`). It is registered at runtime only for this program; without it a fallback serif font is used. All ornaments are original drawings; no Blizzard logos, graphics or fonts are used.
+Die Titelschrift ist [Cinzel](https://github.com/NDISCOVER/Cinzel) unter der SIL Open Font License 1.1 (`assets/fonts/cinzel/OFL.txt`). Sie wird zur Laufzeit nur für dieses Programm registriert; ohne sie wird eine Ersatz-Serifenschrift verwendet. Alle Ornamente sind eigene Zeichnungen; es werden keine Logos, Grafiken oder Schriften von Blizzard verwendet.
 
-## Disclaimer
+## Haftungsausschluss
 
-Unofficial community tool. Not affiliated with or endorsed by Blizzard Entertainment or CurseForge/Overwolf. All trademarks belong to their owners. Use at your own risk; backups are made, but keep your own as well.
+Inoffizielles Community-Werkzeug. Nicht verbunden mit oder unterstützt von Blizzard Entertainment oder CurseForge/Overwolf. Alle Marken gehören ihren jeweiligen Inhabern. Nutzung auf eigene Gefahr; es werden Backups angelegt, eigene Sicherungen schaden trotzdem nicht.
 
-## License
+## Lizenz
 
 [MIT](LICENSE), Copyright (c) 2026 m3rtl.
-
-## Zusammenfassung (Deutsch)
-
-Inoffizieller Addon-Manager für WoW: Forever unter Linux (Steam/Proton, Lutris, Wine, Bottles, Heroic). Erkennt installierte Addons per Fingerprint bei CurseForge, lädt die Forever-Version, installiert mit automatischem Backup und kann Addons deinstallieren (Ordner landen im Backup) und Backups wiederherstellen. Einfachster Weg: Datei aus den GitHub-Releases laden, `chmod +x`, starten. Aus dem Quellcode: `./start.sh` (GUI braucht `python3-gi` + GTK 3). Ein kostenloser CurseForge-API-Key (console.curseforge.com) wird unter ☰ → Einstellungen eingetragen und nur lokal gespeichert. Lizenz: MIT.
