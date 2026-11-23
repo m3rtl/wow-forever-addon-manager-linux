@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import sys
 import threading
 import time
@@ -20,11 +21,173 @@ from wfa_core import ApiError, Manager  # noqa: E402
 TITLE = "WoW: Forever Addon-Manager"
 REPO_URL = "https://github.com/m3rtl/wow-forever-addon-manager-linux"
 RED, ORANGE, GREY, GREEN = "#e74c3c", "#e67e22", "#8a8a8a", "#2e9e5b"
-STATUS_COLOR = {core.UPDATE: ORANGE, core.ERROR: RED, core.NO_FOREVER: RED, core.NOKEY: GREY,
-                core.UNCHECKED: GREY, core.UNASSIGNED: GREY, core.UNKNOWN: GREY}
+STATUS_COLOR = {}
+SKIP, ABORT = 1, 2  # Antworten des Warte-Dialogs
+BANNER_TITLE = "WoW: Forever"
+BANNER_SUB = "Addon-Manager für Linux"
+FONT_STACK = 'Cinzel, "Cormorant Garamond", "Liberation Serif", serif'
+THEME = {"on": False, "provider": None, "widgets": []}
+
+
+def set_status_colors(dark):
+    global RED, ORANGE, GREY, GREEN
+    RED, ORANGE, GREY, GREEN = ("#ff8a78", "#f2a65a", "#a9abb8", "#5fd699") if dark else \
+        ("#e74c3c", "#e67e22", "#8a8a8a", "#2e9e5b")
+    STATUS_COLOR.clear()
+    STATUS_COLOR.update({core.UPDATE: ORANGE, core.ERROR: RED, core.NO_FOREVER: RED, core.NOKEY: GREY,
+                         core.UNCHECKED: GREY, core.UNASSIGNED: GREY, core.UNKNOWN: GREY})
+
+
+set_status_colors(False)
 
 # ListStore-Spalten
 C_CHECK, C_NAME, C_LOCAL, C_REMOTE, C_SOURCE, C_FOREVER, C_STATUS, C_KEY, C_WEIGHT, C_SCOLOR, C_FCOLOR, C_CAN, C_SSET, C_FSET = range(14)
+
+
+# ---------------------------------------------------------------- Theme
+CSS = """
+@define-color wfa_bg #141a2b;
+@define-color wfa_panel #1b2338;
+@define-color wfa_input #0f1424;
+@define-color wfa_text #e8e2d0;
+@define-color wfa_muted #a9a58f;
+@define-color wfa_bronze #8c6a2f;
+@define-color wfa_gold #c9a227;
+@define-color wfa_gold_hi #e6c66a;
+window, dialog, .background { background-color: @wfa_bg; color: @wfa_text; }
+headerbar, .titlebar { background-image: linear-gradient(#27315a, #1a2240); border: none;
+  border-bottom: 1px solid @wfa_bronze; box-shadow: none; color: @wfa_gold_hi; }
+headerbar .title { font-family: FONTS; font-weight: bold; color: @wfa_gold_hi; }
+headerbar .subtitle { color: @wfa_muted; }
+.wfa-banner { background-image: linear-gradient(#222c52, #161d36); border-bottom: 1px solid @wfa_bronze; }
+.wfa-title { font-family: FONTS; font-weight: 700; font-size: 30px; color: @wfa_gold_hi; text-shadow: 0 1px 2px #000; }
+.wfa-sub { font-family: FONTS; font-size: 13px; letter-spacing: 3px; color: @wfa_muted; }
+.wfa-line { min-height: 1px; background-image: linear-gradient(to right, rgba(201,162,39,0), #c9a227); }
+.wfa-line-r { min-height: 1px; background-image: linear-gradient(to left, rgba(201,162,39,0), #c9a227); }
+label { text-shadow: none; }
+button { background-image: linear-gradient(#2c3760, #1b2340); border: 1px solid @wfa_bronze; border-radius: 4px;
+  color: @wfa_text; box-shadow: none; text-shadow: none; }
+button:hover { background-image: linear-gradient(#3a4777, #26325c); border-color: @wfa_gold_hi; color: #ffffff; }
+button:active, button:checked { background-image: linear-gradient(#1b2340, #2c3760); border-color: @wfa_gold_hi; color: @wfa_gold_hi; }
+button:disabled { opacity: 0.5; }
+button.suggested-action { background-image: linear-gradient(#efd78b, #b98a1d); border-color: #f4e2a5; color: #2a1d02; font-weight: bold; }
+button.suggested-action:hover { background-image: linear-gradient(#f8e4a0, #cfa52a); color: #1c1300; }
+button.destructive-action { background-image: linear-gradient(#8f3030, #5c1a1a); border-color: #c97a5a; color: #ffffff; }
+button.link, button.link:visited, button.link label, *:link, *:visited { background-image: none; border-color: transparent; color: @wfa_gold_hi; }
+button.titlebutton { background-image: none; background-color: transparent; border-color: transparent; color: @wfa_gold_hi; }
+button.titlebutton:hover { background-color: rgba(230, 198, 106, 0.2); }
+entry, spinbutton { background-color: @wfa_input; background-image: none; color: @wfa_text; border: 1px solid @wfa_bronze;
+  box-shadow: none; caret-color: @wfa_gold_hi; }
+entry:focus { border-color: @wfa_gold_hi; }
+textview, textview text, .view, iconview { background-color: @wfa_input; color: @wfa_text; }
+selection, textview text selection, entry selection { background-color: #8a6a1c; color: #fff8e0; }
+treeview.view { background-color: @wfa_panel; color: @wfa_text; }
+treeview.view:hover { background-color: #2b3659; }
+treeview.view:selected, treeview.view:selected:focus { background-color: #8a6a1c; color: #fff8e0; }
+treeview.view check, treeview.view radio { color: #2a1d02; }
+treeview header button { background-image: linear-gradient(#2c3760, #1e2748); color: @wfa_gold_hi; font-weight: bold;
+  border: none; border-bottom: 1px solid @wfa_bronze; border-right: 1px solid #3a4468; border-radius: 0; }
+scrolledwindow.frame, scrolledwindow { border-color: @wfa_bronze; }
+scrollbar slider { background-color: @wfa_bronze; border-radius: 6px; }
+scrollbar slider:hover { background-color: @wfa_gold; }
+scrollbar trough { background-color: rgba(0, 0, 0, 0.25); }
+check, radio { background-image: linear-gradient(#2c3760, #1b2340); border: 1px solid @wfa_bronze; color: #2a1d02; box-shadow: none; }
+check:checked, radio:checked { background-image: linear-gradient(#efd78b, #b98a1d); border-color: #f4e2a5; }
+menu, .menu, popover, popover.background { background-color: @wfa_panel; border: 1px solid @wfa_bronze; color: @wfa_text; }
+menuitem:hover, modelbutton:hover { background-color: #8a6a1c; color: #fff8e0; }
+stackswitcher button:checked { background-image: linear-gradient(#efd78b, #b98a1d); color: #2a1d02; }
+notebook header { background-color: #1a2240; }
+tooltip, tooltip.background { background-color: @wfa_panel; color: @wfa_text; border: 1px solid @wfa_bronze; }
+separator { background-color: @wfa_bronze; }
+expander title { color: @wfa_gold_hi; }
+progressbar progress { background-image: linear-gradient(#efd78b, #b98a1d); }
+""".replace("FONTS", FONT_STACK)
+
+
+def register_fonts():
+    """Cinzel (OFL) zur Laufzeit bei fontconfig anmelden; Fehler bleiben still (Fallback-Schriften)."""
+    try:
+        fc = ctypes.CDLL("libfontconfig.so.1")
+        fc.FcConfigAppFontAddFile.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        fc.FcConfigAppFontAddFile.restype = ctypes.c_int
+        for f in sorted(core.asset_path("fonts/cinzel").glob("*.ttf")):
+            fc.FcConfigAppFontAddFile(None, str(f).encode())
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def apply_theme(on):
+    """Eigenes Fantasy-Theme nur fuer die Fenster dieses Programms (Provider auf Screen-Ebene des Prozesses)."""
+    scr = Gdk.Screen.get_default()
+    on = bool(on) and scr is not None
+    if on and THEME["provider"] is None:
+        prov = Gtk.CssProvider()
+        try:
+            prov.load_from_data(CSS.encode())
+        except GLib.Error as e:
+            print(f"Theme nicht ladbar: {e}", file=sys.stderr)
+            on = False
+        else:
+            Gtk.StyleContext.add_provider_for_screen(scr, prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            THEME["provider"] = prov
+    elif not on and THEME["provider"] is not None:
+        Gtk.StyleContext.remove_provider_for_screen(scr, THEME["provider"])
+        THEME["provider"] = None
+    THEME["on"] = on
+    set_status_colors(on)
+    for w in THEME["widgets"]:
+        w.set_visible(on)
+
+
+def _svg(name, w, h, flip=False):
+    try:
+        pb = GdkPixbuf.Pixbuf.new_from_file_at_size(str(core.asset_path(name)), w, h)
+        return Gtk.Image.new_from_pixbuf(pb.flip(True) if flip else pb)
+    except Exception:  # noqa: BLE001
+        return Gtk.Box()
+
+
+def divider(register=True):
+    """Ornament-Trenner: Goldlinien mit Edelstein in der Mitte."""
+    box = Gtk.Box(spacing=0, margin_top=2, margin_bottom=2)
+    left = Gtk.Box(hexpand=True, valign=Gtk.Align.CENTER)
+    right = Gtk.Box(hexpand=True, valign=Gtk.Align.CENTER)
+    left.get_style_context().add_class("wfa-line")
+    right.get_style_context().add_class("wfa-line-r")
+    box.pack_start(left, True, True, 0)
+    box.pack_start(_svg("ornament-gem.svg", 176, 19), False, False, 0)
+    box.pack_start(right, True, True, 0)
+    box.show_all()
+    box.set_no_show_all(True)
+    box.set_visible(THEME["on"])
+    if register:
+        THEME["widgets"].append(box)
+    return box
+
+
+def make_banner():
+    box = Gtk.Box(spacing=8)
+    box.get_style_context().add_class("wfa-banner")
+    box.pack_start(_svg("ornament-corner.svg", 90, 60), False, False, 0)
+    mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0, valign=Gtk.Align.CENTER, margin_top=6, margin_bottom=2)
+    t = Gtk.Label(label=BANNER_TITLE)
+    t.get_style_context().add_class("wfa-title")
+    st = Gtk.Label(label=BANNER_SUB.upper())
+    st.get_style_context().add_class("wfa-sub")
+    mid.pack_start(t, False, False, 0)
+    mid.pack_start(st, False, False, 0)
+    gem = divider(False)
+    gem.set_margin_start(60)
+    gem.set_margin_end(60)
+    mid.pack_start(gem, False, False, 0)
+    box.pack_start(mid, True, True, 0)
+    box.pack_end(_svg("ornament-corner.svg", 90, 60, flip=True), False, False, 0)
+    box.show_all()
+    box.set_no_show_all(True)
+    box.set_visible(THEME["on"])
+    gem.set_visible(True)
+    THEME["widgets"].append(box)
+    return box
 
 
 def short_path(p):
@@ -40,6 +203,8 @@ def make_dialog(title, parent, width=-1, height=-1):
     box.set_spacing(8)
     for m in ("margin_start", "margin_end", "margin_top", "margin_bottom"):
         box.set_property(m, 12)
+    if THEME["on"]:
+        box.pack_start(divider(False), False, False, 0)
     return d
 
 
@@ -190,6 +355,8 @@ class NewAddonDialog(Gtk.Dialog):
         box.set_spacing(8)
         for m in ("margin_start", "margin_end", "margin_top", "margin_bottom"):
             box.set_property(m, 12)
+        if THEME["on"]:
+            box.pack_start(divider(False), False, False, 0)
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         sw = Gtk.StackSwitcher(stack=self.stack, halign=Gtk.Align.CENTER)
         box.pack_start(sw, False, False, 0)
@@ -351,7 +518,7 @@ class App:
     # ------------------------------------------------------------ Aufbau
     def build_window(self):
         w = self.win = Gtk.Window(title=TITLE)
-        w.set_default_size(1100, 640)
+        w.set_default_size(1100, 700)
         hb = self.header = Gtk.HeaderBar(show_close_button=True, title=TITLE)
         w.set_titlebar(hb)
         menu_btn = self.menu_btn = Gtk.MenuButton()
@@ -367,10 +534,13 @@ class App:
         hb.pack_end(menu_btn)
         self.update_subtitle()
 
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        root.pack_start(make_banner(), False, False, 0)
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         for m in ("margin_start", "margin_end", "margin_top", "margin_bottom"):
             outer.set_property(m, 10)
-        w.add(outer)
+        root.pack_start(outer, True, True, 0)
+        w.add(root)
 
         info = Gtk.Box(spacing=8)
         self.info_label = Gtk.Label(xalign=0, wrap=True, use_markup=True)
@@ -405,6 +575,7 @@ class App:
         sw.add(self.tree)
         outer.pack_start(sw, True, True, 0)
 
+        outer.pack_start(divider(), False, False, 0)
         bar = Gtk.Box(spacing=6)
         self.buttons = []
 
@@ -619,7 +790,8 @@ class App:
         self.bg(lambda: [self.mgr.plan_uninstall(p) for p in sel], planned, "Prüfe Abhängigkeiten …")
 
     def install_flow(self, planners):
-        """planners: [(Name, Callable -> InstallPlan, Kontext)]. Planen im Worker, dann Bestätigung und apply."""
+        """planners: [(Name, Callable -> InstallPlan, Kontext)]. Planen im Worker, dann Bestätigung und apply.
+        Pakete mit Download-Fehler werden danach nacheinander im Browser geladen."""
         def work():
             plans, errs = [], []
             for label, fn, ctx in planners:
@@ -629,22 +801,33 @@ class App:
                     errs.append((label, e, ctx))
             return plans, errs
 
+        def is_dl(e):
+            return isinstance(e, ApiError) and e.kind == "download"
+
         def done(res, _err):
             plans, errs = res
-            browser = None
+            queue = []
             if errs:
                 lines = [f"{n}: {err_text(e)}" for n, e, _c in errs]
-                dl = next((c for _n, e, c in errs if isinstance(e, ApiError) and e.kind == "download"), None)
-                if dl is not None and ask(self.win, "Download fehlgeschlagen", "\n".join(lines) +
-                                          "\n\nDatei stattdessen im Browser herunterladen?", "Im Browser laden"):
-                    browser = dl
-                elif dl is None:
+                dl = [(n, c) for n, e, c in errs if is_dl(e)]
+                if dl:
+                    what = ("Datei stattdessen im Browser herunterladen?" if len(dl) == 1 else
+                            f"Die {len(dl)} Dateien nacheinander im Browser herunterladen?")
+                    if ask(self.win, "Download fehlgeschlagen", "\n".join(lines) + "\n\n" + what, "Im Browser laden"):
+                        queue = [(n, c, None) for n, c in dl]
+                else:
                     message(self.win, "Nicht alles konnte vorbereitet werden", "\n".join(lines), Gtk.MessageType.WARNING)
-            after = (lambda: self.browser_flow(browser)) if browser is not None else None
-            self.confirm_and_apply(plans, after)
+            if queue:
+                col = dict(installed=[], skipped=[], errors=[])
+                col["errors"] += [(n, err_text(e)) for n, e, _c in errs if not is_dl(e)]
+                self.confirm_and_apply(plans, lambda: self.browser_queue(queue, col), col)
+            else:
+                self.confirm_and_apply(plans)
         self.bg(work, done, "Lade und prüfe Pakete …")
 
-    def confirm_and_apply(self, plans, after=None):
+    def confirm_and_apply(self, plans, after=None, col=None):
+        """col: Sammler (installed/skipped/errors) für Durchläufe mit Abschlussübersicht; dann kein Einzelergebnis
+        und kein Rescan."""
         if not plans:
             if after:
                 after()
@@ -674,16 +857,30 @@ class App:
                     "Es wird möglicherweise nicht geladen oder verursacht Fehler.", "Trotzdem installieren",
                     kind=Gtk.MessageType.WARNING):
                 self.mgr.discard(p)
+                if col is not None:
+                    col["skipped"].append(p.name)
             elif ok:
                 keep.append(p)
             else:
                 self.mgr.discard(p)
+                if col is not None:
+                    col["skipped"].append(p.name)
         if not keep:
             if after:
                 after()
             return
 
         def finished(results, err):
+            if col is not None:
+                if err:
+                    col["errors"] += [(p.name, err_text(err)) for p in keep]
+                else:
+                    for r in results:
+                        (col["installed"] if r.ok else col["errors"]).append(
+                            r.name if r.ok else (r.name, r.message))
+                if after:
+                    after()
+                return
             if err:
                 message(self.win, "Installation fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
             else:
@@ -710,36 +907,108 @@ class App:
 
     def browser_flow(self, target=None, url=None):
         """target: Package/Candidate (oder None mit url). Öffnet Browser, wartet auf neue Zip, installiert."""
-        mgr = self.mgr
-        url = url or mgr.browser_url(target)
-        hint = target.key if hasattr(target, "key") else None
-        since = time.time()
-        mgr.open_browser(url)
-        cancel = threading.Event()
-        d = make_dialog("Browser-Download", self.win, 480)
-        add_button(d, "Abbrechen", Gtk.ResponseType.CANCEL)
-        row = Gtk.Box(spacing=12)
-        sp = Gtk.Spinner()
-        sp.start()
-        row.pack_start(sp, False, False, 0)
-        row.pack_start(Gtk.Label(xalign=0, wrap=True, label=(
-            "Lade die Datei für WoW: Forever herunter …\n\n"
-            f"Warte auf neue Zip in {short_path(mgr.cfg['download_dir'])}")), True, True, 0)
-        d.get_content_area().pack_start(row, True, True, 0)
-        d.connect("response", lambda *_: cancel.set())
-        d.show_all()
+        self.browser_queue([(getattr(target, "name", None) or "Download", target, url)])
 
-        def done(path, err):
-            d.destroy()
-            if err:
-                message(self.win, "Fehler beim Warten", err_text(err), Gtk.MessageType.ERROR)
-            elif path is None:
-                if not cancel.is_set():
-                    message(self.win, "Keine Datei erkannt", "Es wurde keine neue Zip-Datei gefunden (Zeitlimit).")
+    def show_summary(self, col):
+        parts = []
+        for title, key in (("Installiert", "installed"), ("Übersprungen", "skipped"), ("Fehler", "errors")):
+            items = [i if isinstance(i, str) else f"{i[0]}: {i[1]}" for i in col[key]]
+            if items:
+                parts.append(f"{title} ({len(items)}):\n" + "\n".join(f"  • {i}" for i in items))
+        d = make_dialog("Gesamtergebnis", self.win, 600, 320)
+        add_button(d, "Schließen", Gtk.ResponseType.CLOSE, suggested=True)
+        d.get_content_area().pack_start(
+            text_view_scroller("\n\n".join(parts) or "Nichts zu tun.", 520, 220), True, True, 0)
+        d.show_all()
+        d.run()
+        d.destroy()
+
+    def browser_queue(self, items, col=None):
+        """items: [(Name, Package/Candidate/None, url/None)]. Nacheinander: Browser öffnen, auf Zip warten,
+        planen, bestätigen, installieren. col=None: Einzel-Download (ein Eintrag), sonst Sammelübersicht am Ende."""
+        mgr, n, solo = self.mgr, len(items), col is None
+
+        def finish():
+            if not solo:
+                self.show_summary(col)
+                self.rescan()
+
+        def step(i):
+            if i >= n:
+                return finish()
+            name, target, url = items[i]
+            url = url or mgr.browser_url(target)
+            hint = getattr(target, "key", None)
+            since = time.time()
+            watch = mgr.download_watch()
+            folders = watch["folders"]
+            mgr.open_browser(url)
+            cancel, state = threading.Event(), {}
+            d = make_dialog("Browser-Download", self.win, 500)
+            if solo:
+                add_button(d, "Abbrechen", Gtk.ResponseType.CANCEL)
             else:
-                self.install_flow([(path.name, lambda: mgr.plan_zip(path, hint), None)])
-            return False
-        run_in_thread(lambda: mgr.wait_for_download(since, cancel=cancel), done)
+                d.add_button("Überspringen", SKIP)
+                d.add_button("Alle abbrechen", ABORT)
+            head = f"Browser-Download {i + 1} von {n}: {name}" if n > 1 else f"Browser-Download: {name}"
+            text = (f"<b>{GLib.markup_escape_text(head)}</b>\n\nLade die Datei für WoW: Forever herunter …\n"
+                    "Falls nicht vorgefiltert: Filter „Game Version/Flavor“ → „Forever“ wählen.\n\n"
+                    "Überwachte Ordner: " + (", ".join(core.tilde(f) for f in folders) or "(keiner gefunden)"))
+            if watch["ask"]:
+                text += "\n\nBrowser fragt nach Speicherort – bitte in einen dieser Ordner speichern."
+            row = Gtk.Box(spacing=12)
+            sp = Gtk.Spinner()
+            sp.start()
+            row.pack_start(sp, False, False, 0)
+            row.pack_start(Gtk.Label(xalign=0, wrap=True, use_markup=True, label=text, max_width_chars=60),
+                           True, True, 0)
+            d.get_content_area().pack_start(row, True, True, 0)
+
+            def on_resp(_d, r):
+                state["resp"] = r
+                cancel.set()
+            d.connect("response", on_resp)
+            d.show_all()
+
+            def done(path, err):
+                d.destroy()
+                resp = state.get("resp")
+                if err:
+                    if solo:
+                        message(self.win, "Fehler beim Warten", err_text(err), Gtk.MessageType.ERROR)
+                    else:
+                        col["errors"].append((name, err_text(err)))
+                        step(i + 1)
+                elif path is None:
+                    if resp is None:
+                        if solo:
+                            message(self.win, "Keine Datei erkannt",
+                                    "Es wurde keine neue Zip-Datei gefunden (Zeitlimit).")
+                        else:
+                            col["errors"].append((name, "Zeitlimit: keine neue Zip gefunden"))
+                    if solo:
+                        return False
+                    if resp == SKIP:
+                        col["skipped"].append(name)
+                        step(i + 1)
+                    elif resp is None:
+                        step(i + 1)
+                    else:
+                        col["skipped"] += [x[0] for x in items[i:]]
+                        finish()
+                elif solo:
+                    self.install_flow([(path.name, lambda: mgr.plan_zip(path, hint), None)])
+                else:
+                    def planned(plan, perr):
+                        if perr:
+                            col["errors"].append((name, err_text(perr)))
+                            step(i + 1)
+                        else:
+                            self.confirm_and_apply([plan], lambda: step(i + 1), col)
+                    self.bg(lambda: mgr.plan_zip(path, hint), planned, "Prüfe Zip …")
+                return False
+            run_in_thread(lambda: mgr.wait_for_download(since, cancel=cancel, folders=folders), done)
+        step(0)
 
     # ------------------------------------------------------------ Neues Addon
     def on_new_addon(self, *_):
@@ -847,6 +1116,9 @@ class App:
         beta = Gtk.CheckButton(label="Beta-Versionen anzeigen")
         beta.set_active(bool(m.cfg["include_beta"]))
         box.pack_start(beta, False, False, 6)
+        classic = Gtk.CheckButton(label="Klassisches Theme (dunkel, Gold-Akzente)")
+        classic.set_active(bool(m.cfg["classic_theme"]))
+        box.pack_start(classic, False, False, 0)
         box.pack_start(Gtk.Label(xalign=0, use_markup=True, label="<b>AddOns-Ordner</b>"), False, False, 0)
         path = Gtk.Label(xalign=0, selectable=True, wrap=True, label=short_path(m.addons_dir) if m.addons_dir else "–")
         box.pack_start(path, False, False, 0)
@@ -861,8 +1133,34 @@ class App:
         b1.connect("clicked", change)
         row.pack_start(b1, False, False, 0)
         box.pack_start(row, False, False, 0)
+        box.pack_start(Gtk.Label(xalign=0, use_markup=True, label="<b>Download-Ordner</b>"), False, False, 6)
+        dl_label = Gtk.Label(xalign=0, selectable=True, wrap=True, max_width_chars=60, label=m.download_summary())
+        box.pack_start(dl_label, False, False, 0)
+        drow = Gtk.Box(spacing=6)
+
+        def pick_dl(*_):
+            f = choose_folder(d, "Download-Ordner wählen")
+            if f:
+                m.set_download_dir(f)
+                dl_label.set_text(m.download_summary())
+
+        def auto_dl(*_):
+            m.set_download_dir(None)
+            dl_label.set_text(m.download_summary())
+        b2 = Gtk.Button(label="Ordner wählen …")
+        b2.connect("clicked", pick_dl)
+        b3 = Gtk.Button(label="Automatisch (aus Browser)")
+        b3.connect("clicked", auto_dl)
+        drow.pack_start(b2, False, False, 0)
+        drow.pack_start(b3, False, False, 0)
+        box.pack_start(drow, False, False, 0)
         d.show_all()
         if d.run() == Gtk.ResponseType.OK:
+            if classic.get_active() != bool(m.cfg["classic_theme"]):
+                with m.cfg.lock:
+                    m.cfg["classic_theme"] = classic.get_active()
+                    m.cfg.save()
+                self.set_theme(classic.get_active())
             if clear.get_active():
                 m.set_cf_key("")
             elif key.get_text().strip():
@@ -873,6 +1171,13 @@ class App:
         if changed:
             self.update_subtitle()
             self.rescan()
+
+    def set_theme(self, on):
+        marked = {r[C_KEY] for r in self.store if r[C_CHECK]}
+        apply_theme(on)
+        self.render()
+        for r in self.store:
+            r[C_CHECK] = r[C_KEY] in marked
 
     def on_desktop_entry(self, *_):
         try:
@@ -962,6 +1267,8 @@ def main(argv):
 
     holder = {}
     mgr = Manager(log=lambda s: holder["app"].log(s) if "app" in holder else None)
+    register_fonts()
+    apply_theme(mgr.cfg["classic_theme"])
     if mgr.needs_setup():
         if args.screenshot or not choose_addons_dir(mgr):
             return 1

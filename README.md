@@ -9,7 +9,9 @@ An unofficial addon manager for **WoW: Forever** (Interface 16xxx) on Linux. It 
 - **CurseForge detection by fingerprint**: installed addons are identified by file hash, no manual setup needed.
 - **Forever-only files**: picks the `_Forever` build of a release and checks the `.toc` for Interface 16xxx.
 - **GitHub fallback** for addons that are published as GitHub releases.
-- **Browser fallback**: if a download is not available through the API, the project page opens and the manager waits for the new zip in your download folder.
+- **Browser fallback**: if a download is not available through the API, the exact file page (or a file list prefiltered to the Forever game version) opens and the manager waits for the new zip. With several marked addons the browser downloads are processed one after another (skip or cancel anytime), followed by a summary.
+- **Download folder detected from your browser**: the manager reads the download setting of your default browser (Chrome/Chromium family, Firefox family incl. Flatpak/Snap), and also watches the other detected browsers and the XDG download folder. A manual folder can be set under ☰ → Einstellungen. Only the download keys are read, nothing else from the profiles.
+- **Classic look**: dark fantasy theme with gold accents and hand-drawn ornaments, switchable under ☰ → Einstellungen ("Klassisches Theme"; off = system theme).
 - **Install new addons**: popular list, search, CurseForge project ID, `gh:owner/repo`, GitHub URL, direct zip link or a local zip.
 - **Backups and restore**: replaced folders are moved to a backup set first (last 5 are kept). `WTF`/SavedVariables are never touched.
 - **Uninstall**: removes an addon package by moving its folders to a backup set (restorable via Backups); dependencies on other addons are reported first. Settings (`WTF`/SavedVariables) stay.
@@ -60,6 +62,10 @@ Your API key is stored only locally in `config.json` (permissions 0600) and is n
 ## Compatibility rules
 
 The client interface is read from your installation (currently 16001). For every addon folder the first existing TOC of `<Name>_Forever.toc`, `<Name>-Forever.toc`, `<Name>.toc` counts. Only compatible folders (or folders that are already installed) are installed; the rest is skipped and listed.
+
+## Fonts and artwork
+
+The title font is [Cinzel](https://github.com/NDISCOVER/Cinzel), licensed under the SIL Open Font License 1.1 (`assets/fonts/cinzel/OFL.txt`). It is registered at runtime only for this program; without it a fallback serif font is used. All ornaments are original drawings; no Blizzard logos, graphics or fonts are used.
 
 ## Disclaimer
 

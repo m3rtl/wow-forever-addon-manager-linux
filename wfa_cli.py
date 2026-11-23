@@ -106,6 +106,7 @@ def header(mgr):
     print(paint(f"== WoW: Forever Addon-Manager {core.__version__} ==", "bold"))
     print(f"AddOns:     {mgr.addons_dir}")
     print(f"Interface:  {mgr.client_interface} (Client)")
+    print(f"Download-Ordner: {mgr.download_summary()}")
     state = mgr.cf_key_state()
     if state == "fehlt":
         print(paint(f"CurseForge: kein API-Key – kostenlos unter {core.CF_KEY_URL} erzeugen, dann Taste k.", "yellow"))
@@ -149,10 +150,12 @@ def show_plan(plan):
 
 
 def confirm_apply(mgr, plans):
+    """-> Liste der Installationsergebnisse (leer, wenn nichts installiert wurde)."""
     plans = list(plans)
+    results = []
     try:
         if not plans:
-            return
+            return results
         keep = []
         for p in plans:
             show_plan(p)
@@ -163,38 +166,73 @@ def confirm_apply(mgr, plans):
                     continue
             keep.append(p)
         if not keep:
-            return
+            return results
         if mgr.wow_running() and not yn(paint("WoW scheint zu laufen! Trotzdem fortfahren?", "yellow")):
-            return
+            return results
         if not yn(f"{len(keep)} Paket(e) installieren?"):
             print("Abgebrochen.")
-            return
+            return results
         for r in mgr.apply(keep):
+            results.append(r)
             print(paint(f"{r.name}: {r.message}", "green" if r.ok else "red")
                   + (f"  (Sicherung: {r.backup_set})" if r.backup_set else ""))
     finally:
         for p in plans:
             mgr.discard(p)
+    return results
 
 
-def browser_flow(mgr, url, hint_key=None):
+def browser_flow(mgr, url, hint_key=None, label=None, queue=False):
+    """-> (Status, Ergebnisse); Status: "done" | "skip" | "abort" | "none".
+    queue=True: Strg+C fragt "s = überspringen, q = abbrechen"."""
+    watch = mgr.download_watch()
     print(f"Öffne {url}")
-    print(paint("Lade die Datei für WoW: Forever herunter.", "bold"))
+    print(paint((f"{label}: " if label else "") + "Lade die Datei für WoW: Forever herunter.", "bold"))
+    print("Falls nicht vorgefiltert: Filter 'Game Version/Flavor' → 'Forever' wählen.")
+    if watch["ask"]:
+        print("Browser fragt nach Speicherort – bitte in einen dieser Ordner speichern.")
     since = time.time()
     mgr.open_browser(url)
-    print(f"Warte auf neue .zip in {mgr.cfg['download_dir']} (Strg+C bricht ab, max. 10 Minuten) ...")
+    print("Überwachte Ordner: " + (", ".join(core.tilde(f) for f in watch["folders"]) or "(keiner gefunden)"))
+    print("Warte auf neue .zip (Strg+C bricht ab, max. 10 Minuten) ...")
     cancel = threading.Event()
     try:
-        z = mgr.wait_for_download(since, 600, cancel)
+        z = mgr.wait_for_download(since, 600, cancel, watch["folders"])
     except KeyboardInterrupt:
         cancel.set()
-        print("\nAbgebrochen.")
-        return
+        print()
+        if queue and ask("s = überspringen, q = alle abbrechen [s/q]: ").lower() != "q":
+            return "skip", []
+        print("Abgebrochen.")
+        return "abort", []
     if not z:
         print("Keine neue Zip gefunden.")
-        return
+        return "none", []
     print(f"Gefunden: {z.name}")
-    confirm_apply(mgr, [mgr.plan_zip(z, hint_key)])
+    try:
+        plan = mgr.plan_zip(z, hint_key)
+    except ApiError as e:
+        print(paint(f"{z.name}: {e}", "red"))
+        return "done", []
+    return "done", confirm_apply(mgr, [plan])
+
+
+def browser_queue(mgr, items):
+    """items: [(Name, Paket)]. Nacheinander abarbeiten, am Ende Gesamtübersicht."""
+    installed, skipped, errors = [], [], []
+    for i, (name, p) in enumerate(items):
+        status, results = browser_flow(mgr, mgr.browser_url(p), p.key, f"Browser-Download {i + 1} von {len(items)}: {name}", True)
+        for r in results:
+            (installed if r.ok else errors).append(r.name if r.ok else f"{r.name}: {r.message}")
+        if status in ("skip", "none") or (status == "done" and not results):
+            skipped.append(name)
+        if status == "abort":
+            skipped += [n for n, _p in items[i:]]
+            break
+    print(paint("\nGesamtergebnis", "bold"))
+    for title, lst in (("Installiert", installed), ("Übersprungen", skipped), ("Fehler", errors)):
+        if lst:
+            print(f"  {title} ({len(lst)}): " + "; ".join(lst))
 
 
 def menu_updates(mgr, pkgs):
@@ -212,7 +250,7 @@ def menu_updates(mgr, pkgs):
     if not sel:
         print("Nichts auszuwählen.")
         return
-    plans = []
+    plans, queue = [], []
     try:
         for i in sel:
             p = pkgs[i - 1]
@@ -220,13 +258,15 @@ def menu_updates(mgr, pkgs):
                 plans.append(mgr.plan_update(p))
             except ApiError as e:
                 print(paint(f"{p.name}: {e}", "red"))
-                if e.kind == "download" and yn("Browser-Download verwenden?"):
-                    browser_flow(mgr, mgr.browser_url(p), p.key)
+                if e.kind == "download":
+                    queue.append((p.name, p))
     except BaseException:
         for pl in plans:
             mgr.discard(pl)
         raise
     confirm_apply(mgr, plans)
+    if queue and yn(f"{len(queue)} Datei(en) nacheinander im Browser laden?"):
+        browser_queue(mgr, queue)
 
 
 def pick(cands, what="Nummer (Enter = zurück): "):
