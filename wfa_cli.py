@@ -391,6 +391,34 @@ def menu_restore(mgr):
     return r.ok
 
 
+def menu_uninstall(mgr, pkgs):
+    s = ask("Nummern der zu deinstallierenden Pakete (z. B. 1 3 5-7, Enter = zurück): ")
+    sel = parse_selection(s, len(pkgs)) if s else None
+    if s and sel is None:
+        print("Ungültige Eingabe.")
+    if not sel:
+        return False
+    plans = [mgr.plan_uninstall(pkgs[i - 1]) for i in sel]
+    for p in plans:
+        print(paint(f"--- {p.name}", "bold"))
+        print("  Ordner: " + (", ".join(p.folders) or "(keine)"))
+        for w in p.warnings:
+            print(paint("  ! " + w, "yellow"))
+    print("Die Ordner werden in ein Backup verschoben (Menü w: Wiederherstellen). Einstellungen (SavedVariables/WTF) bleiben erhalten.")
+    plans = [p for p in plans if p.folders]
+    if not plans:
+        return False
+    if mgr.wow_running() and not yn(paint("WoW scheint zu laufen! Trotzdem fortfahren?", "yellow")):
+        return False
+    if not yn(f"{len(plans)} Paket(e) deinstallieren?"):
+        print("Abgebrochen.")
+        return False
+    for r in mgr.uninstall(plans):
+        print(paint(f"{r.name}: {r.message}", "green" if r.ok else "red")
+              + (f"  (Sicherung: {r.backup_set})" if r.backup_set else ""))
+    return True
+
+
 def run(mgr):
     pkgs = refresh(mgr)
     while True:
@@ -398,7 +426,7 @@ def run(mgr):
         header(mgr)
         table(mgr, pkgs)
         print("\n[u] Updates  [n] Neu installieren  [z] Zuordnen  [b] Browser-Download  [k] CF-Key  "
-              f"[e] Beta: {'an' if mgr.cfg['include_beta'] else 'aus'}  [r] Neu prüfen  [w] Wiederherstellen  [q] Ende")
+              f"[e] Beta: {'an' if mgr.cfg['include_beta'] else 'aus'}  [r] Neu prüfen  [d] Deinstallieren  [w] Wiederherstellen  [q] Ende")
         c = ask("> ").lower()
         if c == "q":
             return
@@ -421,6 +449,8 @@ def run(mgr):
             elif c == "e":
                 mgr.set_include_beta(not mgr.cfg["include_beta"])
                 again = True
+            elif c == "d":
+                again = menu_uninstall(mgr, pkgs)
             elif c == "w":
                 again = menu_restore(mgr)
             elif c:

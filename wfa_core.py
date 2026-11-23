@@ -154,6 +154,15 @@ class Result:
 
 
 @dataclass
+class UninstallPlan:
+    key: str
+    name: str
+    folders: list
+    dependents: dict = field(default_factory=dict)  # fremder Ordner -> benoetigte Ordner
+    warnings: list = field(default_factory=list)
+
+
+@dataclass
 class BackupSet:
     name: str
     path: Path
@@ -399,6 +408,18 @@ def forever_toc(folder, client=DEFAULT_CLIENT):
         if ver and "@" in ver:
             ver = None
     return status, ver, chosen
+
+
+def toc_dependencies(folder, client=DEFAULT_CLIENT):
+    """Ordnernamen (klein geschrieben), die der Forever-TOC als Abhaengigkeit verlangt."""
+    toc = forever_toc(folder, client)[2]
+    if not toc:
+        return set()
+    out = set()
+    for k, v in parse_toc(toc).items():
+        if k.startswith("dep") or k == "requireddeps":
+            out |= {x.strip().lower() for x in v.split(",") if x.strip()}
+    return out
 
 
 def client_interface(addons):
@@ -689,7 +710,10 @@ def safe_extract(zpath, dest):
             target = dest.joinpath(*parts)
             if dest not in target.resolve().parents and target.resolve() != dest:
                 raise ValueError(f"Unsicherer Pfad im Zip: {i.filename}")
-            if i.is_dir():
+            for anc in target.parents:
+                if dest in anc.parents and anc.is_file() and anc.stat().st_size == 0:
+                    anc.unlink()  # leere Datei an Stelle eines Ordners
+            if name.endswith("/") or i.is_dir():
                 target.mkdir(parents=True, exist_ok=True)
             else:
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -1632,6 +1656,79 @@ class Manager:
                                             if (self.cfg["cf_fp_cache"].get(n) or {}).get("mod_id")}))
             except ApiError as e:
                 self.log(f"Erkennung nach Installation nicht möglich: {e}")
+
+    def plan_uninstall(self, pkg):
+        names = [n for n in pkg.folders if (self.addons_dir / n).exists() or (self.addons_dir / n).is_symlink()]
+        gone = {n.lower() for n in names}
+        warnings = []
+        if len(names) < len(pkg.folders):
+            warnings.append("Nicht vorhanden: " + ", ".join(n for n in pkg.folders if n not in names))
+        dependents = {}
+        for f in self._addon_folders():
+            if f.lower() in gone:
+                continue
+            deps = toc_dependencies(self.addons_dir / f, self.client_interface)
+            need = sorted(n for n in names if n.lower() in deps)
+            if need:
+                dependents[f] = need
+        for f, need in dependents.items():
+            warnings.append(f"{f} benötigt {', '.join(need)}")
+        return UninstallPlan(pkg.key, pkg.name, names, dependents, warnings)
+
+    def uninstall(self, plans):
+        """Verschiebt die Ordner in einen neuen Backup-Satz (per restore rueckgaengig machbar)."""
+        results = []
+        with self._apply_lock:
+            bdir = self._new_backup_dir()
+            try:
+                for plan in plans:
+                    if not plan.folders:
+                        results.append(Result(plan.key, plan.name, False, "Keine Ordner vorhanden."))
+                        continue
+                    try:
+                        self._move_out(plan.folders, bdir)
+                    except Exception as e:
+                        results.append(Result(plan.key, plan.name, False, f"Fehler: {e} (Zustand wiederhergestellt)"))
+                        continue
+                    try:
+                        self._forget(plan.folders)
+                    except Exception as e:
+                        self.log(f"Konfiguration konnte nicht gespeichert werden: {e}")
+                    results.append(Result(plan.key, plan.name, True, f"{len(plan.folders)} Ordner entfernt", bdir.name))
+            finally:
+                with contextlib.suppress(OSError):
+                    bdir.rmdir()
+                with contextlib.suppress(OSError):
+                    self._prune_backups()
+        return results
+
+    def _move_out(self, names, bdir):
+        a, moved = self.addons_dir, []
+        try:
+            for n in names:
+                shutil.move(str(a / n), str(bdir / n))
+                moved.append(n)
+        except BaseException:
+            for n in moved:
+                with contextlib.suppress(OSError):
+                    shutil.move(str(bdir / n), str(a / n))
+            raise
+
+    def _forget(self, names):
+        gone = set(names)
+        with self.cfg.lock:
+            for sect in ("installed", "packages"):
+                for k, rec in list(self.cfg[sect].items()):
+                    old = rec.get("folders", [])
+                    left = [f for f in old if f not in gone]
+                    if len(left) != len(old):
+                        if left:
+                            rec["folders"] = left
+                        else:
+                            del self.cfg[sect][k]
+            for n in names:
+                self.cfg["cf_fp_cache"].pop(n, None)
+            self.cfg.save()
 
     def list_backups(self):
         root = self.paths.backups

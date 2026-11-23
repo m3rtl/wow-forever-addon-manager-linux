@@ -12,6 +12,7 @@ An unofficial addon manager for **WoW: Forever** (Interface 16xxx) on Linux. It 
 - **Browser fallback**: if a download is not available through the API, the project page opens and the manager waits for the new zip in your download folder.
 - **Install new addons**: popular list, search, CurseForge project ID, `gh:owner/repo`, GitHub URL, direct zip link or a local zip.
 - **Backups and restore**: replaced folders are moved to a backup set first (last 5 are kept). `WTF`/SavedVariables are never touched.
+- **Uninstall**: removes an addon package by moving its folders to a backup set (restorable via Backups); dependencies on other addons are reported first. Settings (`WTF`/SavedVariables) stay.
 - **Compatibility check** before every installation, with a warning for packages that WoW: Forever will not load. A warning is shown if WoW seems to be running (detected heuristically, so it may miss it).
 
 ![Install a new addon](docs/screenshots/new-addon.png)
@@ -70,4 +71,4 @@ Unofficial community tool. Not affiliated with or endorsed by Blizzard Entertain
 
 ## Zusammenfassung (Deutsch)
 
-Inoffizieller Addon-Manager für WoW: Forever unter Linux (Steam/Proton, Lutris, Wine, Bottles, Heroic). Erkennt installierte Addons per Fingerprint bei CurseForge, lädt die Forever-Version, installiert mit automatischem Backup und kann Backups wiederherstellen. Einfachster Weg: Datei aus den GitHub-Releases laden, `chmod +x`, starten. Aus dem Quellcode: `./start.sh` (GUI braucht `python3-gi` + GTK 3). Ein kostenloser CurseForge-API-Key (console.curseforge.com) wird unter ☰ → Einstellungen eingetragen und nur lokal gespeichert. Lizenz: MIT.
+Inoffizieller Addon-Manager für WoW: Forever unter Linux (Steam/Proton, Lutris, Wine, Bottles, Heroic). Erkennt installierte Addons per Fingerprint bei CurseForge, lädt die Forever-Version, installiert mit automatischem Backup und kann Addons deinstallieren (Ordner landen im Backup) und Backups wiederherstellen. Einfachster Weg: Datei aus den GitHub-Releases laden, `chmod +x`, starten. Aus dem Quellcode: `./start.sh` (GUI braucht `python3-gi` + GTK 3). Ein kostenloser CurseForge-API-Key (console.curseforge.com) wird unter ☰ → Einstellungen eingetragen und nur lokal gespeichert. Lizenz: MIT.

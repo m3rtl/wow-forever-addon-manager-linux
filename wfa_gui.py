@@ -420,6 +420,7 @@ class App:
         btn("Alle Updates markieren", self.on_mark_all)
         btn("Ausgewählte aktualisieren", self.on_update_selected, True)
         btn("Neues Addon …", self.on_new_addon)
+        btn("Deinstallieren …", self.on_uninstall)
         btn("Im Browser laden …", self.on_browser_selected)
         outer.pack_start(bar, False, False, 0)
 
@@ -515,7 +516,7 @@ class App:
         self.rows = {}
         for p in self.pkgs:
             self.rows[p.key] = p
-            can = p.status == core.UPDATE and p.remote is not None
+            can = True
             self.store.append([False, p.name, core.display_version(p.local_version) or "?",
                                core.display_version(p.remote.version) if p.remote else "–", p.source,
                                p.forever, p.status, p.key, 700 if p.status == core.UPDATE else 400,
@@ -562,11 +563,60 @@ class App:
 
     # ------------------------------------------------------------ Installieren
     def on_update_selected(self, *_):
-        sel = [self.rows[r[C_KEY]] for r in self.store if r[C_CHECK]]
-        if not sel:
+        marked = [self.rows[r[C_KEY]] for r in self.store if r[C_CHECK]]
+        if not marked:
             message(self.win, "Nichts ausgewählt", "Markiere Addons mit einem Häkchen.")
             return
+        sel = [p for p in marked if p.status == core.UPDATE and p.remote is not None]
+        if len(sel) < len(marked):
+            skipped = ", ".join(p.name for p in marked if p not in sel)
+            message(self.win, "Ohne Update übersprungen", skipped)
+            if not sel:
+                return
         self.install_flow([(p.name, (lambda p=p: self.mgr.plan_update(p)), p) for p in sel])
+
+    def on_uninstall(self, *_):
+        sel = [self.rows[r[C_KEY]] for r in self.store if r[C_CHECK]]
+        if not sel:
+            message(self.win, "Nichts ausgewählt", "Markiere die Addons mit einem Häkchen.")
+            return
+
+        def planned(plans, err):
+            if err:
+                message(self.win, "Deinstallation nicht möglich", err_text(err), Gtk.MessageType.ERROR)
+                return
+            plans = [p for p in plans if p.folders]
+            if not plans:
+                message(self.win, "Nichts zu deinstallieren", "Die Ordner existieren nicht mehr.")
+                self.rescan()
+                return
+            lines = []
+            if self.mgr.wow_running():
+                lines.append("ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden.\n")
+            for p in plans:
+                lines.append(f"• {p.name}\n    Ordner: " + ", ".join(p.folders))
+                lines += [f"    ! {w}" for w in p.warnings]
+            lines.append("\nDie Ordner werden in ein Backup verschoben und lassen sich unter ☰ → Backups "
+                         "wiederherstellen. Einstellungen (SavedVariables/WTF) bleiben erhalten.")
+            d = make_dialog("Deinstallation bestätigen", self.win, 640, 420)
+            d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
+            add_button(d, "Deinstallieren", Gtk.ResponseType.OK, destructive=True)
+            d.get_content_area().pack_start(text_view_scroller("\n".join(lines)), True, True, 0)
+            d.show_all()
+            ok = d.run() == Gtk.ResponseType.OK
+            d.destroy()
+            if not ok:
+                return
+
+            def finished(results, err2):
+                if err2:
+                    message(self.win, "Deinstallation fehlgeschlagen", err_text(err2), Gtk.MessageType.ERROR)
+                else:
+                    out = [f"{'OK    ' if r.ok else 'FEHLER'}  {r.name}: {r.message}" for r in results]
+                    message(self.win, "Deinstallation abgeschlossen", "\n".join(out))
+                self.rescan()
+            self.bg(lambda: self.mgr.uninstall(plans), finished, "Deinstalliere …")
+        self.bg(lambda: [self.mgr.plan_uninstall(p) for p in sel], planned, "Prüfe Abhängigkeiten …")
 
     def install_flow(self, planners):
         """planners: [(Name, Callable -> InstallPlan, Kontext)]. Planen im Worker, dann Bestätigung und apply."""
