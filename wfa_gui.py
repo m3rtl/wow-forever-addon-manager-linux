@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ctypes
 import os
 import subprocess
@@ -1666,6 +1667,11 @@ class App:
     def run_screenshots(self):
         a = self.args
         delay = int(a.screenshot_delay * 1000)
+
+        # Zeiger in die Ecke: steht er ueber einer Liste, oeffnet sich ein Tooltip, der im Bild als
+        # schwarze Flaeche landet (unter Xvfb steht der Zeiger anfangs in der Bildschirmmitte).
+        with contextlib.suppress(Exception):
+            Gdk.Display.get_default().get_default_seat().get_pointer().warp(self.win.get_screen(), 0, 0)
 
         def save(win, path):
             gw = win.get_window()
