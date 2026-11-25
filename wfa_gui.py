@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import os
+import subprocess
 import sys
 import threading
 import time
@@ -13,12 +15,13 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango  # noqa: E402
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango  # noqa: E402
 
 import wfa_core as core  # noqa: E402
 from wfa_core import ApiError, Manager  # noqa: E402
 
 TITLE = "WoW: Forever Addon-Manager"
+APP_ID = "io.github.m3rtl.WowForeverAddonManager"
 REPO_URL = "https://github.com/m3rtl/wow-forever-addon-manager-linux"
 RED, ORANGE, GREY, GREEN = "#e74c3c", "#e67e22", "#8a8a8a", "#2e9e5b"
 STATUS_COLOR = {}
@@ -41,7 +44,10 @@ def set_status_colors(dark):
 set_status_colors(False)
 
 # ListStore-Spalten
-C_CHECK, C_NAME, C_LOCAL, C_REMOTE, C_SOURCE, C_FOREVER, C_STATUS, C_KEY, C_WEIGHT, C_SCOLOR, C_FCOLOR, C_CAN, C_SSET, C_FSET = range(14)
+(C_CHECK, C_NAME, C_LOCAL, C_REMOTE, C_SOURCE, C_FOREVER, C_STATUS, C_KEY, C_WEIGHT, C_SCOLOR, C_FCOLOR, C_CAN,
+ C_SSET, C_FSET, C_STYLE, C_DIM, C_DIMCOLOR) = range(17)
+COL_TYPES = (bool, str, str, str, str, str, str, str, int, str, str, bool, bool, bool, int, bool, str)
+FOREVER_SHOW = {"ok": "✓", "veraltet": "⚠ veraltet", "nein": "✗"}
 
 
 # ---------------------------------------------------------------- Theme
@@ -59,9 +65,17 @@ headerbar, .titlebar { background-image: linear-gradient(#27315a, #1a2240); bord
   border-bottom: 1px solid @wfa_bronze; box-shadow: none; color: @wfa_gold_hi; }
 headerbar .title { font-family: FONTS; font-weight: bold; color: @wfa_gold_hi; }
 headerbar .subtitle { color: @wfa_muted; }
-.wfa-banner { background-image: linear-gradient(#222c52, #161d36); border-bottom: 1px solid @wfa_bronze; }
-.wfa-title { font-family: FONTS; font-weight: 700; font-size: 30px; color: @wfa_gold_hi; text-shadow: 0 1px 2px #000; }
-.wfa-sub { font-family: FONTS; font-size: 13px; letter-spacing: 3px; color: @wfa_muted; }
+.wfa-banner { background-image: linear-gradient(#222c52, #161d36); border-bottom: 2px solid @wfa_gold; }
+.wfa-title { font-family: FONTS; font-weight: 700; font-size: 22px; color: @wfa_gold_hi; text-shadow: 0 1px 2px #000; }
+.wfa-sub { font-family: FONTS; font-size: 11px; letter-spacing: 3px; color: @wfa_muted; }
+.wfa-summary { font-weight: bold; color: @wfa_gold_hi; }
+.wfa-dim { color: @wfa_muted; font-size: 90%; }
+.wfa-table { border: 1px solid @wfa_bronze; border-radius: 0; }
+.wfa-empty { color: @wfa_muted; }
+infobar { background-image: linear-gradient(#3a3a1c, #2a2a14); border: none; border-bottom: 1px solid @wfa_gold; }
+infobar label { color: @wfa_text; }
+button.wfa-flat { background-image: none; background-color: transparent; border-color: transparent; color: @wfa_muted; }
+button.wfa-flat:hover { background-color: rgba(230, 198, 106, 0.15); border-color: @wfa_bronze; color: @wfa_gold_hi; }
 .wfa-line { min-height: 1px; background-image: linear-gradient(to right, rgba(201,162,39,0), #c9a227); }
 .wfa-line-r { min-height: 1px; background-image: linear-gradient(to left, rgba(201,162,39,0), #c9a227); }
 label { text-shadow: none; }
@@ -168,24 +182,19 @@ def divider(register=True):
 def make_banner():
     box = Gtk.Box(spacing=8)
     box.get_style_context().add_class("wfa-banner")
-    box.pack_start(_svg("ornament-corner.svg", 90, 60), False, False, 0)
-    mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0, valign=Gtk.Align.CENTER, margin_top=6, margin_bottom=2)
+    box.pack_start(_svg("ornament-corner.svg", 66, 44), False, False, 0)
+    mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0, valign=Gtk.Align.CENTER, margin_top=4, margin_bottom=4)
     t = Gtk.Label(label=BANNER_TITLE)
     t.get_style_context().add_class("wfa-title")
     st = Gtk.Label(label=BANNER_SUB.upper())
     st.get_style_context().add_class("wfa-sub")
     mid.pack_start(t, False, False, 0)
     mid.pack_start(st, False, False, 0)
-    gem = divider(False)
-    gem.set_margin_start(60)
-    gem.set_margin_end(60)
-    mid.pack_start(gem, False, False, 0)
     box.pack_start(mid, True, True, 0)
-    box.pack_end(_svg("ornament-corner.svg", 90, 60, flip=True), False, False, 0)
+    box.pack_end(_svg("ornament-corner.svg", 66, 44, flip=True), False, False, 0)
     box.show_all()
     box.set_no_show_all(True)
     box.set_visible(THEME["on"])
-    gem.set_visible(True)
     THEME["widgets"].append(box)
     return box
 
@@ -339,203 +348,71 @@ def choose_addons_dir(mgr, parent=None):
     return saved
 
 
-class NewAddonDialog(Gtk.Dialog):
-    """Ergebnis in self.result: ("cand", Candidate) | ("zip", Path) | ("input", str) | ("browser", str) | None."""
-
-    def __init__(self, parent, mgr):
-        super().__init__(title="Neues Addon", transient_for=parent, modal=True, use_header_bar=True)
-        self.mgr = mgr
-        self.result = None
-        self.featured_loaded = False
-        self.set_default_size(720, 520)
-        self.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        self.install_btn = add_button(self, "Installieren", Gtk.ResponseType.OK, suggested=True)
-        self.install_btn.set_sensitive(False)
-        box = self.get_content_area()
-        box.set_spacing(8)
-        for m in ("margin_start", "margin_end", "margin_top", "margin_bottom"):
-            box.set_property(m, 12)
-        if THEME["on"]:
-            box.pack_start(divider(False), False, False, 0)
-        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
-        sw = Gtk.StackSwitcher(stack=self.stack, halign=Gtk.Align.CENTER)
-        box.pack_start(sw, False, False, 0)
-        box.pack_start(self.stack, True, True, 0)
-        self.fstore, self.ftree, fpage = self._list_page()
-        self.fstatus = Gtk.Label(xalign=0, label="Lade beliebte Addons …")
-        fpage.pack_end(self.fstatus, False, False, 0)
-        self.stack.add_titled(fpage, "featured", "Beliebt")
-        self._build_search()
-        self._build_direct()
-        self.stack.connect("notify::visible-child-name", lambda *_: self._update_btn())
-        self.show_all()
-        self.search_hint_box.hide()
-        run_in_thread(mgr.featured, self._featured_done)
-
-    def _list_page(self):
-        store = Gtk.ListStore(object, str, str, str, str)  # Candidate, Name, Autor, Downloads, Status
-        tree = Gtk.TreeView(model=store)
-        for i, (t, expand) in enumerate((("Addon", True), ("Autor", False), ("Downloads", False), ("", False))):
-            r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END if expand else Pango.EllipsizeMode.NONE)
-            c = Gtk.TreeViewColumn(t, r, text=i + 1)
-            c.set_expand(expand)
-            tree.append_column(c)
-        tree.get_selection().connect("changed", lambda *_: self._update_btn())
-        tree.connect("row-activated", lambda *_: self.response(Gtk.ResponseType.OK))
-        sw = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-        sw.add(tree)
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        page.pack_start(sw, True, True, 0)
-        return store, tree, page
-
-    @staticmethod
-    def _fill(store, cands):
-        store.clear()
-        for c in cands:
-            store.append([c, c.name, c.author or "", f"{c.downloads:,}".replace(",", "."),
-                          "installiert" if c.installed else ("keine Forever-Datei" if c.has_forever is False else "")])
-
-    def _featured_done(self, res, err):
-        self.featured_loaded = True
-        if err:
-            self.fstatus.set_text(err_text(err))
-        else:
-            self._fill(self.fstore, res)
-            self.fstatus.set_text(f"{len(res)} Addons")
-        return False
-
-    def _build_search(self):
-        self.sstore, self.stree, page = self._list_page()
-        row = Gtk.Box(spacing=6)
-        self.sentry = Gtk.SearchEntry(hexpand=True, placeholder_text="Addon-Name …")
-        self.sbtn = Gtk.Button(label="Suchen")
-        row.pack_start(self.sentry, True, True, 0)
-        row.pack_start(self.sbtn, False, False, 0)
-        page.pack_start(row, False, False, 0)
-        page.reorder_child(row, 0)
-        self.sstatus = Gtk.Label(xalign=0)
-        page.pack_end(self.sstatus, False, False, 0)
-        self.search_hint_box = Gtk.Box(spacing=8)
-        self.search_hint_box.pack_start(Gtk.Label(
-            xalign=0, wrap=True, hexpand=True,
-            label="Die Suche ist für diesen API-Key nicht freigeschaltet."), True, True, 0)
-        b = Gtk.Button(label="Im Browser suchen")
-        b.connect("clicked", self._browser_search)
-        self.search_hint_box.pack_start(b, False, False, 0)
-        page.pack_end(self.search_hint_box, False, False, 0)
-        self.sentry.connect("activate", self._do_search)
-        self.sbtn.connect("clicked", self._do_search)
-        self.stack.add_titled(page, "search", "Suchen")
-
-    def _do_search(self, *_):
-        q = self.sentry.get_text().strip()
-        if not q:
-            return
-        self.sbtn.set_sensitive(False)
-        self.sstatus.set_text("Suche …")
-        self.search_hint_box.hide()
-
-        def done(res, err):
-            self.sbtn.set_sensitive(True)
-            if isinstance(err, ApiError) and err.kind == "forbidden":
-                self.sstatus.set_text("")
-                self.search_hint_box.show_all()
-            elif err:
-                self.sstatus.set_text(err_text(err))
-            else:
-                self._fill(self.sstore, res)
-                self.sstatus.set_text(f"{len(res)} Treffer")
-            return False
-        run_in_thread(lambda: self.mgr.search(q), done)
-
-    def _browser_search(self, *_):
-        self.result = ("browser", self.sentry.get_text().strip())
-        self.response(Gtk.ResponseType.OK)
-
-    def _build_direct(self):
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        page.pack_start(Gtk.Label(
-            xalign=0, wrap=True,
-            label="CurseForge-Projekt-ID, gh:Besitzer/Repo, GitHub-URL oder direkter Zip-Link:"), False, False, 0)
-        self.dentry = Gtk.Entry(placeholder_text="z. B. 3358  oder  gh:Besitzer/Repo  oder  https://…/addon.zip")
-        self.dentry.connect("changed", lambda *_: self._update_btn())
-        self.dentry.connect("activate", lambda *_: self.install_btn.get_sensitive() and self.response(Gtk.ResponseType.OK))
-        page.pack_start(self.dentry, False, False, 0)
-        b = Gtk.Button(label="Zip-Datei wählen …", halign=Gtk.Align.START)
-        b.connect("clicked", self._pick_zip)
-        page.pack_start(b, False, False, 0)
-        self.stack.add_titled(page, "direct", "Direkt")
-
-    def _pick_zip(self, *_):
-        d = Gtk.FileChooserDialog(title="Zip-Datei wählen", transient_for=self, action=Gtk.FileChooserAction.OPEN)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        add_button(d, "Öffnen", Gtk.ResponseType.OK, suggested=True)
-        f = Gtk.FileFilter()
-        f.set_name("Zip-Archive")
-        f.add_pattern("*.zip")
-        f.add_pattern("*.ZIP")
-        d.add_filter(f)
-        path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
-        d.destroy()
-        if path:
-            self.result = ("zip", Path(path))
-            self.response(Gtk.ResponseType.OK)
-
-    def _selected(self):
-        tree = self.ftree if self.stack.get_visible_child_name() == "featured" else self.stree
-        model, it = tree.get_selection().get_selected()
-        return model[it][0] if it else None
-
-    def _update_btn(self):
-        page = self.stack.get_visible_child_name()
-        if page == "direct":
-            self.install_btn.set_sensitive(bool(self.dentry.get_text().strip()))
-        else:
-            self.install_btn.set_sensitive(self._selected() is not None)
-
-    def finish(self):
-        """Ergebnis nach response OK festhalten."""
-        if self.result:
-            return
-        page = self.stack.get_visible_child_name()
-        if page == "direct":
-            self.result = ("input", self.dentry.get_text().strip())
-        else:
-            c = self._selected()
-            self.result = ("cand", c) if c else None
-
-
 class App:
-    def __init__(self, mgr, args):
+    def __init__(self, mgr, args, gapp=None):
         self.mgr = mgr
         self.args = args
+        self.gapp = gapp
         self.pkgs = []
         self.rows = {}
-        self.busy = 0
+        self._busy = 0
         self.ready = False
+        self.exit_code = 0
+        self.background = None
+        self.log_win = None
+        self.log_view = None
+        self.changelogs = {}
+        self.loading_cl = set()
+        self.listeners = []
+        self.self_rel = None
+        self._quitting = False
+        self._last_log = ""
+        self._asking = False
         self.build_window()
+
+    @property
+    def busy(self):
+        return self._busy > 0
 
     # ------------------------------------------------------------ Aufbau
     def build_window(self):
         w = self.win = Gtk.Window(title=TITLE)
-        w.set_default_size(1100, 700)
+        w.set_default_size(1100, 680)
         hb = self.header = Gtk.HeaderBar(show_close_button=True, title=TITLE)
         w.set_titlebar(hb)
+        self.refresh_btn = Gtk.Button(tooltip_text="Auf Updates prüfen (F5)")
+        self.refresh_stack = Gtk.Stack()
+        self.refresh_stack.add_named(Gtk.Image.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON), "icon")
+        self.refresh_spinner = Gtk.Spinner()
+        self.refresh_stack.add_named(self.refresh_spinner, "spin")
+        self.refresh_btn.add(self.refresh_stack)
+        self.refresh_btn.connect("clicked", lambda *_: self.rescan())
+        hb.pack_start(self.refresh_btn)
+        ag = Gtk.AccelGroup()
+        w.add_accel_group(ag)
+        for key, mod in ((Gdk.KEY_F5, 0), (Gdk.KEY_r, Gdk.ModifierType.CONTROL_MASK)):
+            ag.connect(key, mod, Gtk.AccelFlags.VISIBLE, lambda *_: (self.refresh_btn.get_sensitive() and self.rescan(), True)[1])
         menu_btn = self.menu_btn = Gtk.MenuButton()
         menu_btn.add(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
         menu = Gtk.Menu()
-        for label, cb in (("Backups …", self.on_backups), ("Einstellungen …", self.on_settings),
-                          ("Startmenü-Eintrag anlegen", self.on_desktop_entry), ("Über", self.on_about)):
-            mi = Gtk.MenuItem(label=label)
-            mi.connect("activate", cb)
+        for label, cb in (("Protokoll …", self.show_log), ("Backups …", self.on_backups),
+                          ("Einstellungen …", self.on_settings), ("Startmenü-Eintrag anlegen", self.on_desktop_entry),
+                          ("Nach Programm-Updates suchen …", lambda *_: self.check_self_update(True)),
+                          ("Über", self.on_about), (None, None), ("Beenden", self.on_quit_item)):
+            mi = Gtk.SeparatorMenuItem() if label is None else Gtk.MenuItem(label=label)
+            if cb:
+                mi.connect("activate", cb)
             menu.append(mi)
         menu.show_all()
         menu_btn.set_popup(menu)
         hb.pack_end(menu_btn)
+        hb.show_all()
         self.update_subtitle()
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         root.pack_start(make_banner(), False, False, 0)
+        self.infobar_holder = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        root.pack_start(self.infobar_holder, False, False, 0)
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         for m in ("margin_start", "margin_end", "margin_top", "margin_bottom"):
             outer.set_property(m, 10)
@@ -543,83 +420,141 @@ class App:
         w.add(root)
 
         info = Gtk.Box(spacing=8)
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        self.summary_label = Gtk.Label(xalign=0, use_markup=True)
+        self.summary_label.get_style_context().add_class("wfa-summary")
         self.info_label = Gtk.Label(xalign=0, wrap=True, use_markup=True)
-        info.pack_start(self.info_label, True, True, 0)
-        self.key_btn = Gtk.Button(label="Key eintragen …")
+        self.info_label.get_style_context().add_class("wfa-dim")
+        col.pack_start(self.summary_label, False, False, 0)
+        col.pack_start(self.info_label, False, False, 0)
+        info.pack_start(col, True, True, 0)
+        self.key_btn = Gtk.Button(label="Key eintragen …", valign=Gtk.Align.CENTER)
         self.key_btn.connect("clicked", self.on_settings)
         info.pack_end(self.key_btn, False, False, 0)
         outer.pack_start(info, False, False, 0)
 
-        self.store = Gtk.ListStore(bool, str, str, str, str, str, str, str, int, str, str, bool, bool, bool)
-        self.tree = Gtk.TreeView(model=self.store)
+        self.store = Gtk.ListStore(*COL_TYPES)
+        self.tree = Gtk.TreeView(model=self.store, has_tooltip=True)
         tog = Gtk.CellRendererToggle()
         tog.connect("toggled", self.on_toggled)
-        c = Gtk.TreeViewColumn("", tog, active=C_CHECK, visible=C_CAN, activatable=C_CAN)
-        self.tree.append_column(c)
-        cols = (("Addon", C_NAME, True, C_NAME), ("Installiert", C_LOCAL, False, None),
-                ("Verfügbar", C_REMOTE, False, None), ("Quelle", C_SOURCE, False, None),
-                ("Forever", C_FOREVER, False, None), ("Status", C_STATUS, False, C_STATUS))
-        for title, col, expand, sort in cols:
-            r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END if expand else Pango.EllipsizeMode.NONE)
-            tc = Gtk.TreeViewColumn(title, r, text=col)
-            if col in (C_STATUS, C_FOREVER):
-                tc.set_cell_data_func(r, self.style_cell, col)
+        self.tree.append_column(Gtk.TreeViewColumn("", tog, active=C_CHECK, visible=C_CAN, activatable=C_CAN))
+        cols = (("Addon", C_NAME, True, 0.0), ("Installiert", C_LOCAL, False, 0.0), ("Verfügbar", C_REMOTE, False, 0.0),
+                ("Quelle", C_SOURCE, False, 0.0), ("Forever", C_FOREVER, False, 0.5), ("Status", C_STATUS, False, 0.0))
+        for title, col_id, expand, xal in cols:
+            r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END if expand else Pango.EllipsizeMode.NONE, xalign=xal)
+            if col_id == C_STATUS:
+                tc = Gtk.TreeViewColumn(title, r, text=col_id, foreground=C_SCOLOR, foreground_set=C_SSET,
+                                        weight=C_WEIGHT, style=C_STYLE)
+            elif col_id == C_FOREVER:
+                tc = Gtk.TreeViewColumn(title, r, text=col_id, foreground=C_FCOLOR, foreground_set=C_FSET)
+            else:
+                tc = Gtk.TreeViewColumn(title, r, text=col_id, foreground=C_DIMCOLOR, foreground_set=C_DIM, style=C_STYLE)
+            tc.set_alignment(xal)
             tc.set_resizable(True)
             tc.set_expand(expand)
-            if sort is not None:
-                tc.set_sort_column_id(sort)
+            if col_id in (C_NAME, C_STATUS):
+                tc.set_sort_column_id(col_id)
+            if col_id == C_NAME:
+                tc.set_min_width(240)
             self.tree.append_column(tc)
         self.tree.set_search_column(C_NAME)
+        self.tree.connect("button-press-event", self.on_tree_button)
+        self.tree.connect("popup-menu", self.on_tree_popup)
+        self.tree.connect("query-tooltip", self.on_query_tooltip)
         sw = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        sw.get_style_context().add_class("wfa-table")
         sw.set_shadow_type(Gtk.ShadowType.IN)
         sw.add(self.tree)
-        outer.pack_start(sw, True, True, 0)
+        self.empty_label = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, use_markup=True)
+        self.empty_label.get_style_context().add_class("wfa-empty")
+        self.table_stack = Gtk.Stack()
+        self.table_stack.add_named(sw, "list")
+        self.table_stack.add_named(self.empty_label, "empty")
+        outer.pack_start(self.table_stack, True, True, 0)
 
         outer.pack_start(divider(), False, False, 0)
         bar = Gtk.Box(spacing=6)
-        self.buttons = []
-
-        def btn(label, cb, suggested=False):
-            b = Gtk.Button(label=label)
-            if suggested:
-                b.get_style_context().add_class("suggested-action")
-            b.connect("clicked", cb)
+        self.update_btn = Gtk.Button(label="Aktualisieren")
+        self.update_btn.get_style_context().add_class("suggested-action")
+        self.update_btn.connect("clicked", self.on_update_selected)
+        self.mark_btn = Gtk.Button(label="Alle Updates markieren")
+        self.mark_btn.connect("clicked", self.on_mark_all)
+        self.uninstall_btn = Gtk.Button(label="Deinstallieren …")
+        self.uninstall_btn.connect("clicked", self.on_uninstall)
+        self.browser_btn = Gtk.Button(label="Im Browser laden …")
+        self.browser_btn.connect("clicked", self.on_browser_selected)
+        for b in (self.uninstall_btn, self.browser_btn):
+            b.get_style_context().add_class("wfa-flat")
+        self.new_btn = Gtk.Button(label="Neues Addon …")
+        self.new_btn.connect("clicked", self.on_new_addon)
+        for b in (self.update_btn, self.mark_btn, self.uninstall_btn, self.browser_btn):
             bar.pack_start(b, False, False, 0)
-            self.buttons.append(b)
-            return b
-        btn("Prüfen", lambda *_: self.rescan())
-        btn("Alle Updates markieren", self.on_mark_all)
-        btn("Ausgewählte aktualisieren", self.on_update_selected, True)
-        btn("Neues Addon …", self.on_new_addon)
-        btn("Deinstallieren …", self.on_uninstall)
-        btn("Im Browser laden …", self.on_browser_selected)
+        bar.pack_end(self.new_btn, False, False, 0)
+        self.buttons = [self.update_btn, self.mark_btn, self.uninstall_btn, self.browser_btn, self.new_btn]
         outer.pack_start(bar, False, False, 0)
 
         self.log_buf = Gtk.TextBuffer()
-        exp = Gtk.Expander(label="Protokoll")
-        lsw = Gtk.ScrolledWindow()
-        lsw.set_min_content_height(130)
-        self.log_view = Gtk.TextView(buffer=self.log_buf, editable=False, monospace=True, wrap_mode=Gtk.WrapMode.WORD_CHAR)
-        lsw.add(self.log_view)
-        exp.add(lsw)
-        outer.pack_start(exp, False, False, 0)
-
         status = Gtk.Box(spacing=8)
         self.spinner = Gtk.Spinner()
         self.status_label = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.status_label.get_style_context().add_class("wfa-dim")
         status.pack_start(self.spinner, False, False, 0)
         status.pack_start(self.status_label, True, True, 0)
         outer.pack_start(status, False, False, 0)
+        root.show_all()
+        self.spinner.set_visible(False)
         self.update_info()
+        self.update_actions()
+
+    def present(self):
+        self.win.show()
+        self.win.deiconify()
+        self.win.present()
 
     def log(self, text):
         def add():
             self.log_buf.insert(self.log_buf.get_end_iter(), text + "\n")
-            mark = self.log_buf.create_mark(None, self.log_buf.get_end_iter(), False)
-            self.log_view.scroll_to_mark(mark, 0, False, 0, 0)
-            self.log_buf.delete_mark(mark)
+            if self.log_view is not None:
+                mark = self.log_buf.create_mark(None, self.log_buf.get_end_iter(), False)
+                self.log_view.scroll_to_mark(mark, 0, False, 0, 0)
+                self.log_buf.delete_mark(mark)
+            self._last_log = text.split("\n")[0]
+            if not self.busy:
+                self.status_label.set_text(self._last_log)
             return False
         GLib.idle_add(add)
+
+    def show_log(self, *_):
+        if self.log_win is not None:
+            self.log_win.present()
+            return
+        w = self.log_win = Gtk.Window(title="Protokoll")
+        w.set_default_size(760, 420)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for m in ("margin_start", "margin_end", "margin_top", "margin_bottom"):
+            box.set_property(m, 10)
+        sw = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        sw.set_shadow_type(Gtk.ShadowType.IN)
+        self.log_view = Gtk.TextView(buffer=self.log_buf, editable=False, monospace=True, wrap_mode=Gtk.WrapMode.WORD_CHAR)
+        sw.add(self.log_view)
+        box.pack_start(sw, True, True, 0)
+        row = Gtk.Box(spacing=6)
+        cp = Gtk.Button(label="Kopieren")
+        cp.connect("clicked", lambda *_: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(
+            self.log_buf.get_text(self.log_buf.get_start_iter(), self.log_buf.get_end_iter(), False), -1))
+        cl = Gtk.Button(label="Schließen")
+        cl.connect("clicked", lambda *_: w.destroy())
+        row.pack_end(cl, False, False, 0)
+        row.pack_end(cp, False, False, 0)
+        box.pack_start(row, False, False, 0)
+        w.add(box)
+
+        def gone(*_):
+            self.log_win = None
+            self.log_view = None
+        w.connect("destroy", gone)
+        w.show_all()
+        GLib.idle_add(lambda: (self.log_view.scroll_to_iter(self.log_buf.get_end_iter(), 0, False, 0, 0), False)[1])
 
     def update_subtitle(self):
         self.header.set_subtitle(short_path(self.mgr.addons_dir) if self.mgr.addons_dir else "")
@@ -627,7 +562,7 @@ class App:
     def update_info(self):
         m = self.mgr
         state = m.cf_key_state()
-        parts = [f"Client-Interface: <b>{m.client_interface}</b>"]
+        parts = [f"Client-Interface {m.client_interface}"]
         if state == "fehlt":
             parts.append(f'<span foreground="{ORANGE}">CurseForge: kein API-Key – kostenlos unter '
                          f'{GLib.markup_escape_text(core.CF_KEY_URL)} erzeugen.</span>')
@@ -637,38 +572,89 @@ class App:
             parts.append(f"CurseForge: Key {state}")
         for n in dict.fromkeys(m.notes):
             parts.append(f'<span foreground="{ORANGE}">{GLib.markup_escape_text(n)}</span>')
-        self.info_label.set_markup("   ·   ".join(parts))
+        self.info_label.set_markup("  ·  ".join(parts))
         self.key_btn.set_visible(state in ("fehlt", "ungültig"))
+        n, u = len(self.pkgs), len(self.mgr.updatable(self.pkgs))
+        ign = sum(1 for p in self.pkgs if p.ignored)
+        s = f"{n} {'Addon' if n == 1 else 'Addons'} · {u} {'Update' if u == 1 else 'Updates'}"
+        if ign:
+            s += f" · {ign} ignoriert"
+        self.summary_label.set_markup(f"<b>{s if self.ready or n else 'Prüfe …'}</b>")
 
-    @staticmethod
-    def style_cell(_col, cell, model, it, col):
-        val = model[it][col]
-        color = {"ok": GREEN, "veraltet": ORANGE, "nein": RED, core.UPDATE: ORANGE}.get(val)
-        cell.set_property("text", val)
-        cell.set_property("foreground-set", color is not None)
-        if color:
-            cell.set_property("foreground", color)
-        if col == C_STATUS:
-            cell.set_property("weight", 700 if val == core.UPDATE else 400)
+    def update_actions(self):
+        working = self.busy
+        n = sum(1 for r in self.store if r[C_CHECK] and self.rows.get(r[C_KEY]) is not None
+                and self.rows[r[C_KEY]].status == core.UPDATE and self.rows[r[C_KEY]].remote is not None)
+        self.update_btn.set_label(f"{n} aktualisieren" if n else "Aktualisieren")
+        self.update_btn.set_sensitive(n > 0 and not working)
+        self.mark_btn.set_sensitive(not working)
+        for b in (self.uninstall_btn, self.browser_btn, self.new_btn):
+            b.set_sensitive(not working)
 
     def on_delete(self, *_):
+        bg = self.background
+        if bg is not None and bg.available and self.mgr.cfg["close_to_tray"]:
+            self.win.hide()
+            return True
         if self.busy and not ask(self.win, "Vorgang läuft", "Vorgang läuft – trotzdem beenden?",
                                  "Beenden", kind=Gtk.MessageType.WARNING):
             return True
-        return False
+        self.quit(force=True)
+        return True
+
+    def on_quit_item(self, *_):
+        if self.busy and not ask(self.win, "Vorgang läuft", "Vorgang läuft – trotzdem beenden?",
+                                 "Beenden", kind=Gtk.MessageType.WARNING):
+            return
+        self.quit(force=True)
+
+    def confirm_quit_busy(self):
+        """Nachfrage bei laufendem Vorgang; waehrend der Dialog offen ist, kein zweiter."""
+        if self._asking:
+            return False
+        self._asking = True
+        try:
+            self.present()
+            return ask(self.win, "Vorgang läuft", "Vorgang läuft – trotzdem beenden?",
+                       "Beenden", kind=Gtk.MessageType.WARNING)
+        finally:
+            self._asking = False
+
+    def quit(self, force=False):
+        """Echtes Beenden (nicht nur ins Tray). Ohne force wird bei laufendem Vorgang nachgefragt
+        (Aufrufer aus dem Hintergrund, z. B. Tray-Menue)."""
+        if self._quitting:
+            return
+        if self.busy and not force and not self.confirm_quit_busy():
+            return
+        self._quitting = True
+        if self.background is not None:
+            try:
+                self.background.stop()
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
+        self.win.destroy()
+        if self.gapp is not None:
+            self.gapp.quit()
+        else:
+            Gtk.main_quit()
 
     def set_busy(self, on, text=""):
-        self.busy = max(0, self.busy + (1 if on else -1))
-        working = self.busy > 0
-        for b in self.buttons + [self.menu_btn, self.key_btn]:
+        self._busy = max(0, self._busy + (1 if on else -1))
+        working = self.busy
+        for b in (self.menu_btn, self.key_btn, self.refresh_btn):
             b.set_sensitive(not working)
         self.tree.set_sensitive(not working)
         self.spinner.set_visible(working)
+        self.refresh_stack.set_visible_child_name("spin" if working else "icon")
         if working:
             self.spinner.start()
+            self.refresh_spinner.start()
             self.status_label.set_text(text)
         else:
             self.spinner.stop()
+            self.refresh_spinner.stop()
+        self.update_actions()
 
     def bg(self, fn, cb, text="Arbeite …"):
         self.set_busy(True, text)
@@ -682,36 +668,95 @@ class App:
         run_in_thread(fn, done)
 
     # ------------------------------------------------------------ Liste
-    def render(self):
+    def row_values(self, p, checked=False):
+        upd = p.status == core.UPDATE
+        if p.ignored:
+            stext, scolor, sset, weight, style = "ignoriert", GREY, True, 400, 2
+        elif upd:
+            stext, scolor, sset, weight, style = "▲ Update", ORANGE, True, 700, 0
+        elif p.status == core.CURRENT:
+            stext, scolor, sset, weight, style = "✓ aktuell", GREEN, True, 400, 0
+        else:
+            stext, scolor, sset, weight, style = p.status, STATUS_COLOR.get(p.status, GREY), p.status in STATUS_COLOR, 400, 0
+        fcolor = {"ok": GREEN, "veraltet": ORANGE, "nein": RED}.get(p.forever)
+        return [checked, p.name, core.display_version(p.local_version) or "?",
+                core.display_version(p.remote.version) if p.remote else "–", p.source,
+                FOREVER_SHOW.get(p.forever, p.forever), stext, p.key, weight, scolor, fcolor or GREY, True, sset,
+                fcolor is not None, style, p.ignored, GREY]
+
+    def render(self, marked=()):
         self.store.clear()
         self.rows = {}
         for p in self.pkgs:
             self.rows[p.key] = p
-            can = True
-            self.store.append([False, p.name, core.display_version(p.local_version) or "?",
-                               core.display_version(p.remote.version) if p.remote else "–", p.source,
-                               p.forever, p.status, p.key, 700 if p.status == core.UPDATE else 400,
-                               STATUS_COLOR.get(p.status, GREY), RED, can, p.status in STATUS_COLOR,
-                               p.forever == "nein"])
+            self.store.append(self.row_values(p, p.key in marked))
         self.update_info()
+        self.update_actions()
+        if not self.pkgs and self.ready:
+            ad = short_path(self.mgr.addons_dir) if self.mgr.addons_dir else "–"
+            self.empty_label.set_markup(
+                "<big><b>Keine Addons gefunden</b></big>\n\nIm AddOns-Ordner liegen keine Addons.\n"
+                f"{GLib.markup_escape_text(ad)}\n\nÜber „Neues Addon …“ lassen sich Addons installieren.")
+            self.table_stack.set_visible_child_name("empty")
+        else:
+            self.table_stack.set_visible_child_name("list")
+
+    def refresh_row(self, p):
+        for row in self.store:
+            if row[C_KEY] == p.key:
+                vals = self.row_values(p, row[C_CHECK] and not p.ignored)
+                for i, v in enumerate(vals):
+                    row[i] = v
+                break
+        self.update_info()
+        self.update_actions()
 
     def on_toggled(self, _r, path):
         row = self.store[path]
         if row[C_CAN]:
             row[C_CHECK] = not row[C_CHECK]
+            self.update_actions()
+
+    def mark_updates(self, only_new_from=None):
+        """Alle Updates anhaken; mit only_new_from (Menge vorheriger Update-Keys) nur neu hinzugekommene,
+        bestehende Haken des Nutzers bleiben."""
+        ok = {p.key for p in self.mgr.updatable(self.pkgs)}
+        for row in self.store:
+            if only_new_from is None:
+                row[C_CHECK] = row[C_KEY] in ok
+            elif row[C_KEY] in ok and row[C_KEY] not in only_new_from:
+                row[C_CHECK] = True
+            elif row[C_KEY] not in ok:
+                row[C_CHECK] = False
+        self.update_actions()
 
     def on_mark_all(self, *_):
+        ok = {p.key for p in self.mgr.updatable(self.pkgs)}
         for row in self.store:
-            if row[C_CAN]:
+            if row[C_KEY] in ok:
                 row[C_CHECK] = True
+        self.update_actions()
 
     def selected_pkg(self):
         model, it = self.tree.get_selection().get_selected()
         return self.rows.get(model[it][C_KEY]) if it else None
 
-    def rescan(self, then=None):
+    def add_check_listener(self, fn):
+        self.listeners.append(fn)
+
+    def rescan(self, then=None, quiet=False):
+        """then(pkgs, err) nach Scan und Pruefung; quiet: Hintergrundlauf; wird abgewiesen, wenn
+        gerade etwas laeuft, und behaelt die Haken des Nutzers (nur neue Updates werden angehakt)."""
         if not self.mgr.addons_dir:
+            if then:
+                then(self.pkgs, "Kein AddOns-Ordner gewählt")
             return
+        if self.busy and quiet:
+            if then:
+                then(self.pkgs, "Programm ist beschäftigt")
+            return
+
+        before = {p.key for p in self.mgr.updatable(self.pkgs)}
 
         def work():
             pkgs = self.mgr.scan()
@@ -721,16 +766,153 @@ class App:
         def done(res, err):
             if res is not None:
                 self.pkgs = res
+                self.ready = True
                 self.render()
-                n = sum(1 for p in res if p.status == core.UPDATE)
-                self.status_label.set_text(f"{len(res)} Pakete, {n} Update(s) verfügbar")
+                self.mark_updates(before if quiet else None)
+                self.status_label.set_text(self._last_log)
             else:
+                self.ready = True
                 self.update_info()
                 self.status_label.set_text(err_text(err))
-            self.ready = True
+            if res is not None:
+                for fn in list(self.listeners):
+                    try:
+                        fn(self.pkgs)
+                    except Exception:  # noqa: BLE001
+                        traceback.print_exc()
             if then:
-                then()
+                then(self.pkgs, err)
         self.bg(work, done, "Lese AddOns-Ordner und prüfe Versionen … (der erste Lauf dauert etwas länger)")
+
+    # ------------------------------------------------------------ Kontextmenue, Ignorieren, Changelog
+    def on_tree_button(self, tree, ev):
+        if ev.type != Gdk.EventType.BUTTON_PRESS or ev.button != 3:
+            return False
+        hit = tree.get_path_at_pos(int(ev.x), int(ev.y))
+        if not hit:
+            return False
+        tree.get_selection().select_path(hit[0])
+        self.popup_context(lambda m: m.popup_at_pointer(ev))
+        return True
+
+    def on_tree_popup(self, tree):
+        model, it = tree.get_selection().get_selected()
+        if not it:
+            return False
+        rect = tree.get_cell_area(model.get_path(it), tree.get_column(1))
+        self.popup_context(lambda m: m.popup_at_rect(tree.get_bin_window(), rect, Gdk.Gravity.SOUTH_WEST,
+                                                      Gdk.Gravity.NORTH_WEST, None))
+        return True
+
+    def popup_context(self, show):
+        p = self.selected_pkg()
+        if p is None:
+            return
+        m = self.ctx_menu = Gtk.Menu()
+        url = p.page_url or (p.remote.page_url if p.remote else None)
+        items = (
+            ("Aktualisieren", lambda: self.install_flow([(p.name, (lambda: self.mgr.plan_update(p)), p)]),
+             p.status == core.UPDATE and p.remote is not None),
+            ("Changelog …", lambda: self.show_changelog(p), p.remote is not None),
+            ("Updates nicht mehr ignorieren" if p.ignored else "Updates ignorieren", lambda: self.toggle_ignore(p), True),
+            None,
+            ("Seite öffnen", lambda: self.open_uri(url), bool(url)),
+            ("Ordner öffnen", lambda: self.open_folder(p), bool(p.folders)),
+            ("Im Browser laden …", lambda: self.browser_flow(p), True),
+            None,
+            ("Deinstallieren …", lambda: self.uninstall([p]), True),
+        )
+        for it in items:
+            if it is None:
+                m.append(Gtk.SeparatorMenuItem())
+                continue
+            label, cb, en = it
+            mi = Gtk.MenuItem(label=label, sensitive=en)
+            mi.connect("activate", lambda _w, cb=cb: cb())
+            m.append(mi)
+        m.show_all()
+        show(m)
+
+    def open_uri(self, url):
+        if not url or not url.startswith(("http://", "https://", "file://")):
+            return
+        try:
+            Gio.AppInfo.launch_default_for_uri(url, None)
+        except GLib.Error as e:
+            message(self.win, "Öffnen fehlgeschlagen", e.message, Gtk.MessageType.ERROR)
+
+    def open_folder(self, p):
+        base = self.mgr.addons_dir
+        if base and p.folders:
+            self.open_uri(Path(base, p.folders[0]).as_uri())
+
+    def toggle_ignore(self, p):
+        on = not p.ignored
+        self.mgr.set_ignored(p.key, on)
+        p.ignored = on
+        self.refresh_row(p)
+        refresh = getattr(self.background, "refresh", None)
+        if refresh:
+            refresh()
+
+    def changelog_key(self, p):
+        return (p.key, str(p.remote.ident if p.remote else ""))
+
+    def load_changelog(self, p, cb=None):
+        k = self.changelog_key(p)
+        if k in self.changelogs:
+            return
+        if k in self.loading_cl:
+            return
+        self.loading_cl.add(k)
+
+        def done(res, err):
+            self.loading_cl.discard(k)
+            self.changelogs[k] = "" if err else (res or "")
+            self.tree.trigger_tooltip_query()
+            if cb:
+                cb()
+            return False
+        run_in_thread(lambda: self.mgr.changelog(p), done)
+
+    def on_query_tooltip(self, tree, x, y, kbd, tip):
+        if kbd:
+            return False
+        bx, by = tree.convert_widget_to_bin_window_coords(x, y)
+        hit = tree.get_path_at_pos(bx, by)
+        if not hit or hit[1].get_title() not in ("Verfügbar", "Status"):
+            return False
+        p = self.rows.get(self.store[hit[0]][C_KEY])
+        if p is None or p.status != core.UPDATE or p.remote is None:
+            return False
+        k = self.changelog_key(p)
+        if k not in self.changelogs:
+            self.load_changelog(p)
+            text = "Changelog wird geladen …"
+        else:
+            lines = self.changelogs[k].strip().splitlines()
+            text = "\n".join(lines[:12]) + ("\n…" if len(lines) > 12 else "") if lines else "Kein Changelog verfügbar."
+        tip.set_text(text)
+        tree.set_tooltip_cell(tip, hit[0], hit[1], None)
+        return True
+
+    def show_changelog(self, p):
+        def show():
+            text = self.changelogs.get(self.changelog_key(p)) or "Kein Changelog verfügbar."
+            d = make_dialog(f"Changelog – {p.name}", self.win, 640, 420)
+            add_button(d, "Schließen", Gtk.ResponseType.CLOSE, suggested=True)
+            d.get_content_area().pack_start(text_view_scroller(text, 560, 320), True, True, 0)
+            d.show_all()
+            d.run()
+            d.destroy()
+        if self.changelog_key(p) in self.changelogs:
+            show()
+            return
+
+        def fetched(res, err):
+            self.changelogs[self.changelog_key(p)] = "" if err else (res or "")
+            show()
+        self.bg(lambda: self.mgr.changelog(p), fetched, "Lade Changelog …")
 
     # ------------------------------------------------------------ Installieren
     def on_update_selected(self, *_):
@@ -747,7 +929,9 @@ class App:
         self.install_flow([(p.name, (lambda p=p: self.mgr.plan_update(p)), p) for p in sel])
 
     def on_uninstall(self, *_):
-        sel = [self.rows[r[C_KEY]] for r in self.store if r[C_CHECK]]
+        self.uninstall([self.rows[r[C_KEY]] for r in self.store if r[C_CHECK]])
+
+    def uninstall(self, sel):
         if not sel:
             message(self.win, "Nichts ausgewählt", "Markiere die Addons mit einem Häkchen.")
             return
@@ -789,18 +973,20 @@ class App:
             self.bg(lambda: self.mgr.uninstall(plans), finished, "Deinstalliere …")
         self.bg(lambda: [self.mgr.plan_uninstall(p) for p in sel], planned, "Prüfe Abhängigkeiten …")
 
-    def install_flow(self, planners):
-        """planners: [(Name, Callable -> InstallPlan, Kontext)]. Planen im Worker, dann Bestätigung und apply.
-        Pakete mit Download-Fehler werden danach nacheinander im Browser geladen."""
-        def work():
-            plans, errs = [], []
-            for label, fn, ctx in planners:
-                try:
-                    plans.append(fn())
-                except Exception as e:  # noqa: BLE001
-                    errs.append((label, e, ctx))
-            return plans, errs
+    @staticmethod
+    def plan_all(planners):
+        plans, errs = [], []
+        for label, fn, ctx in planners:
+            try:
+                plans.append(fn())
+            except Exception as e:  # noqa: BLE001
+                errs.append((label, e, ctx))
+        return plans, errs
 
+    def install_flow(self, planners, finish=None, planned=None):
+        """planners: [(Name, Callable -> InstallPlan, Kontext)]. Planen im Worker, dann Bestaetigung und apply.
+        Pakete mit Download-Fehler werden danach nacheinander im Browser geladen.
+        finish(col): Sammelmodus (kein Einzelergebnis, kein Rescan); planned: fertiges (plans, errs)."""
         def is_dl(e):
             return isinstance(e, ApiError) and e.kind == "download"
 
@@ -817,13 +1003,76 @@ class App:
                         queue = [(n, c, None) for n, c in dl]
                 else:
                     message(self.win, "Nicht alles konnte vorbereitet werden", "\n".join(lines), Gtk.MessageType.WARNING)
-            if queue:
+            if queue or finish:
                 col = dict(installed=[], skipped=[], errors=[])
                 col["errors"] += [(n, err_text(e)) for n, e, _c in errs if not is_dl(e)]
-                self.confirm_and_apply(plans, lambda: self.browser_queue(queue, col), col)
+                if not queue:
+                    col["skipped"] += [n for n, e, _c in errs if is_dl(e)]
+                tail = (lambda: self.browser_queue(queue, col, finish)) if queue else (lambda: finish(col))
+                self.confirm_and_apply(plans, tail, col)
             else:
                 self.confirm_and_apply(plans)
-        self.bg(work, done, "Lade und prüfe Pakete …")
+        if planned is not None:
+            done(planned, None)
+        else:
+            self.bg(lambda: self.plan_all(planners), done, "Lade und prüfe Pakete …")
+
+    def update_packages(self, pkgs, background=False, done=None):
+        """done(dict(ok, failed, interactive)). background: ohne Dialog, solange nichts Interaktives noetig ist."""
+        pkgs = [p for p in pkgs if p.remote is not None and p.status == core.UPDATE
+                and not (background and p.ignored)]
+
+        def report(col, interactive, deferred=False):
+            res = dict(ok=list(col["installed"]), interactive=interactive, deferred=deferred,
+                       failed=[e if isinstance(e, str) else e[0] for e in col["errors"]])
+            if done:
+                try:
+                    done(res)
+                except Exception:  # noqa: BLE001
+                    traceback.print_exc()
+
+        if not pkgs:
+            report(dict(installed=[], skipped=[], errors=[]), False)
+            return
+        if background and self.busy:
+            GLib.timeout_add_seconds(30, lambda: (self.update_packages(pkgs, True, done), False)[1])
+            return
+        planners = [(p.name, (lambda p=p: self.mgr.plan_update(p)), p) for p in pkgs]
+
+        def fin_interactive(col):
+            self.show_summary(col)
+            self.rescan(then=lambda *_: report(col, True))
+
+        if not background:
+            self.install_flow(planners, finish=fin_interactive)
+            return
+
+        def planned(res, _err):
+            plans, errs, running = res
+            if running:
+                # WoW laeuft: nichts installieren, kein Fenster, Plaene verwerfen
+                for p in plans:
+                    self.mgr.discard(p)
+                report(dict(installed=[], skipped=[], errors=[]), False, True)
+                return
+            if not errs and plans and not running and not any(p.needs_strong_confirm for p in plans):
+                def applied(results, err):
+                    col = dict(installed=[], skipped=[], errors=[])
+                    if err:
+                        col["errors"] += [(p.name, err_text(err)) for p in plans]
+                    else:
+                        for r in results:
+                            (col["installed"] if r.ok else col["errors"]).append(r.name if r.ok else (r.name, r.message))
+                    self.rescan(quiet=True, then=lambda *_: report(col, False))
+                self.bg(lambda: self.mgr.apply(plans), applied, "Installiere Updates …")
+            else:
+                self.present()
+                self.install_flow(planners, finish=fin_interactive, planned=(plans, errs))
+        def work():
+            if self.mgr.wow_running():
+                return [], [], True
+            return self.plan_all(planners) + (self.mgr.wow_running(),)
+        self.bg(work, planned, "Lade Updates …")
 
     def confirm_and_apply(self, plans, after=None, col=None):
         """col: Sammler (installed/skipped/errors) für Durchläufe mit Abschlussübersicht; dann kein Einzelergebnis
@@ -923,13 +1172,15 @@ class App:
         d.run()
         d.destroy()
 
-    def browser_queue(self, items, col=None):
+    def browser_queue(self, items, col=None, finish_cb=None):
         """items: [(Name, Package/Candidate/None, url/None)]. Nacheinander: Browser öffnen, auf Zip warten,
         planen, bestätigen, installieren. col=None: Einzel-Download (ein Eintrag), sonst Sammelübersicht am Ende."""
         mgr, n, solo = self.mgr, len(items), col is None
 
         def finish():
-            if not solo:
+            if finish_cb:
+                finish_cb(col)
+            elif not solo:
                 self.show_summary(col)
                 self.rescan()
 
@@ -1013,6 +1264,11 @@ class App:
     # ------------------------------------------------------------ Neues Addon
     def on_new_addon(self, *_):
         if not self.mgr.addons_dir:
+            return
+        try:
+            from wfa_newaddon import NewAddonDialog
+        except ImportError as e:
+            message(self.win, "Dialog nicht verfügbar", f"wfa_newaddon fehlt: {e}", Gtk.MessageType.ERROR)
             return
         d = NewAddonDialog(self.win, self.mgr)
         r = d.run()
@@ -1098,11 +1354,25 @@ class App:
     # ------------------------------------------------------------ Einstellungen u. a.
     def on_settings(self, *_):
         m = self.mgr
-        d = make_dialog("Einstellungen", self.win, 520)
+        d = make_dialog("Einstellungen", self.win, 540)
         d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
         add_button(d, "Speichern", Gtk.ResponseType.OK, suggested=True)
-        box = d.get_content_area()
-        box.pack_start(Gtk.Label(xalign=0, use_markup=True, label="<b>CurseForge-API-Key</b>"), False, False, 0)
+        sc = Gtk.ScrolledWindow(hexpand=True, vexpand=True, propagate_natural_height=True, max_content_height=540)
+        sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_end=6)
+        sc.add(box)
+        d.get_content_area().pack_start(sc, True, True, 0)
+
+        def section(text, top=8):
+            box.pack_start(Gtk.Label(xalign=0, use_markup=True, label=f"<b>{text}</b>", margin_top=top), False, False, 0)
+
+        def check(label, active, sens=True):
+            c = Gtk.CheckButton(label=label)
+            c.set_active(bool(active))
+            c.set_sensitive(sens)
+            box.pack_start(c, False, False, 0)
+            return c
+        section("CurseForge-API-Key", 0)
         key = Gtk.Entry(visibility=False, hexpand=True)
         current = m.cfg["curseforge_api_key"]
         key.set_placeholder_text(core.mask(current) if current else "Key einfügen …")
@@ -1110,30 +1380,24 @@ class App:
         link = Gtk.LinkButton.new_with_label(core.CF_KEY_URL, "Kostenlosen Key erzeugen (console.curseforge.com)")
         link.set_halign(Gtk.Align.START)
         box.pack_start(link, False, False, 0)
-        clear = Gtk.CheckButton(label="Gespeicherten Key löschen")
-        clear.set_sensitive(bool(current))
-        box.pack_start(clear, False, False, 0)
-        beta = Gtk.CheckButton(label="Beta-Versionen anzeigen")
-        beta.set_active(bool(m.cfg["include_beta"]))
-        box.pack_start(beta, False, False, 6)
-        classic = Gtk.CheckButton(label="Klassisches Theme (dunkel, Gold-Akzente)")
-        classic.set_active(bool(m.cfg["classic_theme"]))
-        box.pack_start(classic, False, False, 0)
-        box.pack_start(Gtk.Label(xalign=0, use_markup=True, label="<b>AddOns-Ordner</b>"), False, False, 0)
+        clear = check("Gespeicherten Key löschen", False, bool(current))
+        section("Anzeige und Download")
+        beta = check("Beta-Versionen anzeigen", m.cfg["include_beta"])
+        classic = check("Klassisches Theme (dunkel, Gold-Akzente)", m.cfg["classic_theme"])
+        direct = check("Direkt-Download für Addons ohne API-Freigabe", m.cfg["direct_download"])
+        section("AddOns-Ordner")
         path = Gtk.Label(xalign=0, selectable=True, wrap=True, label=short_path(m.addons_dir) if m.addons_dir else "–")
         box.pack_start(path, False, False, 0)
         changed = []
-        row = Gtk.Box(spacing=6)
 
         def change(*_):
             if choose_addons_dir(m, d):
                 path.set_text(short_path(m.addons_dir))
                 changed.append(True)
-        b1 = Gtk.Button(label="Ändern / automatisch suchen …")
+        b1 = Gtk.Button(label="Ändern / automatisch suchen …", halign=Gtk.Align.START)
         b1.connect("clicked", change)
-        row.pack_start(b1, False, False, 0)
-        box.pack_start(row, False, False, 0)
-        box.pack_start(Gtk.Label(xalign=0, use_markup=True, label="<b>Download-Ordner</b>"), False, False, 6)
+        box.pack_start(b1, False, False, 0)
+        section("Download-Ordner")
         dl_label = Gtk.Label(xalign=0, selectable=True, wrap=True, max_width_chars=60, label=m.download_summary())
         box.pack_start(dl_label, False, False, 0)
         drow = Gtk.Box(spacing=6)
@@ -1154,18 +1418,55 @@ class App:
         drow.pack_start(b2, False, False, 0)
         drow.pack_start(b3, False, False, 0)
         box.pack_start(drow, False, False, 0)
+
+        section("Hintergrund")
+        bgd = self.background
+        if bgd is None or not bgd.available:
+            hint = Gtk.Label(xalign=0, wrap=True, max_width_chars=60, use_markup=True,
+                             label=f'<span foreground="{ORANGE}">Kein Tray verfügbar (kein StatusNotifier-Host gefunden). '
+                                   "Das Schließen des Fensters beendet dann das Programm.</span>")
+            box.pack_start(hint, False, False, 0)
+        autostart = check("Beim Systemstart im Tray starten", core.autostart_enabled())
+        to_tray = check("Fenster schließen minimiert in den Tray", m.cfg["close_to_tray"])
+        irow = Gtk.Box(spacing=8)
+        irow.pack_start(Gtk.Label(label="Prüfintervall (Minuten)"), False, False, 0)
+        spin = Gtk.SpinButton.new_with_range(15, 1440, 5)
+        spin.set_value(max(15, min(1440, int(m.cfg["check_interval_min"]))))
+        irow.pack_start(spin, False, False, 0)
+        box.pack_start(irow, False, False, 0)
+        auto = check("Updates automatisch installieren (nur wenn WoW nicht läuft)", m.cfg["auto_update"])
+        section("Programm-Updates")
+        su_check = check("Beim Start nach Programm-Updates suchen", m.cfg["self_update_check"])
+        su_auto = check("Programm-Updates automatisch installieren", m.cfg["self_auto_update"])
         d.show_all()
         if d.run() == Gtk.ResponseType.OK:
-            if classic.get_active() != bool(m.cfg["classic_theme"]):
-                with m.cfg.lock:
-                    m.cfg["classic_theme"] = classic.get_active()
-                    m.cfg.save()
-                self.set_theme(classic.get_active())
+            old_interval = m.cfg["check_interval_min"]
+            new = dict(classic_theme=classic.get_active(), direct_download=direct.get_active(),
+                       close_to_tray=to_tray.get_active(), check_interval_min=int(spin.get_value()),
+                       auto_update=auto.get_active(), self_update_check=su_check.get_active(),
+                       self_auto_update=su_auto.get_active())
+            theme_changed = new["classic_theme"] != bool(m.cfg["classic_theme"])
+            with m.cfg.lock:
+                for k, v in new.items():
+                    m.cfg[k] = v
+                m.cfg.save()
+            if theme_changed:
+                self.set_theme(new["classic_theme"])
+            if autostart.get_active() != core.autostart_enabled():
+                try:
+                    core.set_autostart(autostart.get_active())
+                except OSError as e:
+                    message(d, "Autostart fehlgeschlagen", str(e), Gtk.MessageType.ERROR)
             if clear.get_active():
                 m.set_cf_key("")
             elif key.get_text().strip():
                 m.set_cf_key(key.get_text())
             m.set_include_beta(beta.get_active())
+            if self.background is not None and new["check_interval_min"] != old_interval:
+                try:
+                    self.background.reschedule()
+                except Exception:  # noqa: BLE001
+                    traceback.print_exc()
             changed.append(True)
         d.destroy()
         if changed:
@@ -1175,9 +1476,7 @@ class App:
     def set_theme(self, on):
         marked = {r[C_KEY] for r in self.store if r[C_CHECK]}
         apply_theme(on)
-        self.render()
-        for r in self.store:
-            r[C_CHECK] = r[C_KEY] in marked
+        self.render(marked)
 
     def on_desktop_entry(self, *_):
         try:
@@ -1198,6 +1497,171 @@ class App:
         d.run()
         d.destroy()
 
+    # ------------------------------------------------------------ Hintergrund und Programm-Updates
+    def start_background(self, initial_check):
+        try:
+            from wfa_background import Background
+        except ImportError as e:
+            print(f"Kein Tray-Betrieb (wfa_background fehlt: {e})", file=sys.stderr)
+            return None
+        try:
+            self.background = Background(self)
+            self.background.start(initial_check)
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+            self.background = None
+        return self.background
+
+    @staticmethod
+    def selfupdate_module():
+        try:
+            import wfa_selfupdate
+            return wfa_selfupdate
+        except ImportError:
+            return None
+
+    def check_self_update(self, manual=False):
+        su = self.selfupdate_module()
+        if su is None:
+            if manual:
+                message(self.win, "Nicht verfügbar", "Die Programm-Updates sind in dieser Version nicht enthalten.")
+            return
+
+        def done(rel, err):
+            if err:
+                self.log(f"Programm-Update-Prüfung fehlgeschlagen: {err_text(err)}")
+                if manual:
+                    message(self.win, "Prüfung fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
+            elif rel:
+                self.on_self_update_available(rel, manual)
+                if manual:
+                    self.self_update(rel, True)
+            elif manual:
+                message(self.win, "Kein Update", f"Du nutzt die aktuelle Version ({core.__version__}).")
+            return False
+        run_in_thread(su.check, done)
+
+    def on_self_update_available(self, rel, force=False):
+        if not force and rel.version == self.mgr.cfg["self_update_skipped"]:
+            return
+        self.self_rel = rel
+        self.show_infobar(f"Version {rel.version} des Addon-Managers ist verfügbar.",
+                          [("Aktualisieren", 1, True), ("Details", 2, False), ("Überspringen", 3, False)],
+                          lambda r: self.on_infobar(rel, r))
+
+    def on_infobar(self, rel, r):
+        if r == 1:
+            self.self_install(rel, True)
+        elif r == 2:
+            self.self_update(rel, False)
+        elif r == 3:
+            with self.mgr.cfg.lock:
+                self.mgr.cfg["self_update_skipped"] = rel.version
+                self.mgr.cfg.save()
+            self.show_infobar(None)
+        elif r == 4:
+            self.restart_self()
+
+    def show_infobar(self, text, buttons=(), on_response=None):
+        for c in self.infobar_holder.get_children():
+            c.destroy()
+        if text is None:
+            return
+        ib = Gtk.InfoBar(message_type=Gtk.MessageType.INFO)
+        ib.get_content_area().add(Gtk.Label(label=text, xalign=0))
+        for label, rid, suggested in buttons:
+            b = ib.add_button(label, rid)
+            if suggested:
+                b.get_style_context().add_class("suggested-action")
+        ib.connect("response", lambda _i, r: on_response(r) if on_response else None)
+        self.infobar_holder.pack_start(ib, False, False, 0)
+        ib.show_all()
+
+    def self_update(self, rel, interactive=True):
+        """Dialog mit Release-Notes; installiert wird nur nach Klick auf den Knopf."""
+        su = self.selfupdate_module()
+        can = bool(su and su.can_self_update())
+        if interactive:
+            self.present()
+        d = make_dialog(f"Programm-Update {rel.version}", self.win, 600, 420)
+        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
+        add_button(d, "Jetzt aktualisieren" if can else "Release-Seite öffnen", Gtk.ResponseType.OK, suggested=True)
+        box = d.get_content_area()
+        box.pack_start(Gtk.Label(xalign=0, use_markup=True, wrap=True, label=(
+            f"<b>Version {GLib.markup_escape_text(rel.version)}</b> (installiert: {core.__version__})")), False, False, 0)
+        if not can:
+            box.pack_start(Gtk.Label(xalign=0, wrap=True, label="Dieses Programm läuft nicht als einzelne ausführbare "
+                                     "Datei und kann sich nicht selbst ersetzen. Die Release-Seite wird im Browser geöffnet."),
+                           False, False, 0)
+        box.pack_start(text_view_scroller(rel.notes or "(Keine Release-Notes vorhanden.)", 540, 260), True, True, 0)
+        d.show_all()
+        ok = d.run() == Gtk.ResponseType.OK
+        d.destroy()
+        if not ok:
+            return
+        if can:
+            self.self_install(rel, True)
+        else:
+            self.open_uri(rel.page_url or REPO_URL + "/releases")
+
+    def self_install(self, rel, show_progress=True):
+        su = self.selfupdate_module()
+        if su is None or not su.can_self_update():
+            self.open_uri(rel.page_url or REPO_URL + "/releases")
+            return
+        cancel = threading.Event()
+        d = bar = None
+        if show_progress:
+            d = make_dialog("Programm-Update", self.win, 420)
+            d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
+            d.connect("response", lambda *_: cancel.set())
+            bar = Gtk.ProgressBar(show_text=True, text=f"Lade Version {rel.version} …")
+            d.get_content_area().pack_start(bar, False, False, 6)
+            d.show_all()
+
+        def progress(*a, **_k):
+            try:
+                frac = a[0] / a[1] if len(a) > 1 and a[1] else float(a[0])
+            except (TypeError, ValueError, ZeroDivisionError):
+                return
+            if bar is not None:
+                GLib.idle_add(bar.set_fraction, max(0.0, min(1.0, frac)))
+
+        def done(_path, err):
+            if d is not None:
+                d.destroy()
+            if err:
+                self.log(f"Programm-Update fehlgeschlagen: {err_text(err)}")
+                if not cancel.is_set():
+                    message(self.win, "Programm-Update fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
+                return False
+            self.log(f"Programm-Update {rel.version} installiert.")
+            self.show_infobar(f"Version {rel.version} installiert – Neustart nötig.", [("Neu starten", 4, True)],
+                              lambda r: self.restart_self())
+            if show_progress and ask(self.win, "Update installiert", "Jetzt neu starten?", "Neu starten"):
+                self.restart_self()
+            return False
+        run_in_thread(lambda: su.install(rel, progress=progress, cancel=cancel), done)
+
+    def restart_self(self):
+        su = self.selfupdate_module()
+        if su is None:
+            return
+        # Neustart beendet den Prozess: bei laufendem Vorgang erst nachfragen, vorher nichts spawnen
+        if self.busy and not self.confirm_quit_busy():
+            return
+        try:
+            cmd = su.restart_command()
+            env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT="1")
+            # Der neue Prozess startet erst nach Ende dieses Prozesses (Application-ID frei), hoechstens 15 s.
+            wait = 'i=0; while kill -0 "$0" 2>/dev/null && [ $i -lt 75 ]; do sleep 0.2; i=$((i+1)); done; exec "$@"'
+            subprocess.Popen(["sh", "-c", wait, str(os.getpid()), *cmd], env=env, start_new_session=True,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:  # noqa: BLE001
+            message(self.win, "Neustart fehlgeschlagen", str(e), Gtk.MessageType.ERROR)
+            return
+        self.quit(force=True)
+
     # ------------------------------------------------------------ Screenshot-Modus
     def run_screenshots(self):
         a = self.args
@@ -1211,11 +1675,11 @@ class App:
         def fail(msg):
             print(msg, file=sys.stderr)
             self.exit_code = 1
-            Gtk.main_quit()
+            self.quit(force=True)
             return False
 
         def wait_ready(start=time.time()):
-            if not self.ready:
+            if not self.ready or self.busy:
                 return fail("Zeitüberschreitung beim Prüfen.") if time.time() - start > 180 else True
             GLib.timeout_add(delay, shoot_main)
             return False
@@ -1223,24 +1687,25 @@ class App:
         def shoot_main():
             save(self.win, a.screenshot)
             if a.screenshot_dialog == "new":
+                from wfa_newaddon import NewAddonDialog
                 dlg = NewAddonDialog(self.win, self.mgr)
                 dlg.connect("response", lambda *_: None)
                 start = time.time()
 
                 def wait_dialog():
-                    if not dlg.featured_loaded and time.time() - start < 60:
+                    if getattr(dlg, "featured_loaded", None) is False and time.time() - start < 60:
                         return True
                     GLib.timeout_add(delay, shoot_dialog, dlg)
                     return False
                 GLib.timeout_add(200, wait_dialog)
             else:
-                Gtk.main_quit()
+                self.quit(force=True)
             return False
 
         def shoot_dialog(dlg):
             save(dlg, Path(a.screenshot).with_name(Path(a.screenshot).stem + "-dialog.png"))
             dlg.destroy()
-            Gtk.main_quit()
+            self.quit(force=True)
             return False
         GLib.timeout_add(300, wait_ready)
 
@@ -1257,6 +1722,7 @@ def main(argv):
     ap.add_argument("--screenshot")
     ap.add_argument("--screenshot-delay", type=float, default=1.0)
     ap.add_argument("--screenshot-dialog", choices=["new"])
+    ap.add_argument("--tray", action="store_true")
     args, _rest = ap.parse_known_args(argv)
 
     GLib.set_prgname(core.APP_NAME)
@@ -1265,24 +1731,80 @@ def main(argv):
     if icon:
         Gtk.Window.set_default_icon(icon)
 
+    flags = Gio.ApplicationFlags.HANDLES_COMMAND_LINE
+    if args.screenshot:
+        flags |= Gio.ApplicationFlags.NON_UNIQUE
+    gapp = Gtk.Application(application_id=APP_ID, flags=flags)
+    try:
+        gapp.register(None)
+    except GLib.Error:
+        gapp = Gtk.Application(application_id=APP_ID, flags=flags | Gio.ApplicationFlags.NON_UNIQUE)
+    if gapp.get_is_remote():
+        return gapp.run([sys.argv[0]] + list(argv))  # vorhandene Instanz meldet sich
+
     holder = {}
     mgr = Manager(log=lambda s: holder["app"].log(s) if "app" in holder else None)
     register_fonts()
     apply_theme(mgr.cfg["classic_theme"])
-    if mgr.needs_setup():
-        if args.screenshot or not choose_addons_dir(mgr):
-            return 1
-    app = holder["app"] = App(mgr, args)
-    app.exit_code = 0
-    app.win.connect("delete-event", app.on_delete)
-    app.win.connect("destroy", Gtk.main_quit)
-    app.win.show_all()
-    app.key_btn.set_visible(mgr.cf_key_state() in ("fehlt", "ungültig"))
-    app.rescan()
-    if args.screenshot:
-        app.run_screenshots()
-    Gtk.main()
-    return app.exit_code
+    state = {"code": 0}
+
+    def start(tray):
+        setup = mgr.needs_setup()
+        if setup and not tray:
+            if args.screenshot or not choose_addons_dir(mgr):
+                state["code"] = 1
+                return
+        app = holder["app"] = App(mgr, args, gapp)
+        gapp.hold()
+        gapp.add_window(app.win)
+        app.win.connect("delete-event", app.on_delete)
+        if args.screenshot:
+            app.present()
+            app.rescan()
+            app.run_screenshots()
+            return
+        if tray and setup:
+            app.present()
+            if not choose_addons_dir(mgr, app.win):
+                app.quit()
+                return
+            app.update_subtitle()
+            tray = False
+        if tray:
+            if app.start_background(True) is None:
+                app.present()
+                app.rescan()
+
+            def fallback():
+                if not app.win.get_visible() and not (app.background and app.background.available):
+                    app.present()
+                    if not app.pkgs:
+                        app.rescan()
+                return False
+            GLib.timeout_add_seconds(30, fallback)
+        else:
+            app.present()
+            app.rescan()
+            app.start_background(False)
+        if app.background is None and mgr.cfg["self_update_check"]:
+            app.check_self_update()
+
+    def on_command_line(_gapp, cl):
+        a = cl.get_arguments()[1:]
+        tray = "--tray" in a
+        if "app" not in holder:
+            if not state.get("started"):
+                state["started"] = True
+                start(tray)
+                if state["code"]:
+                    return state["code"]
+        elif not tray:
+            holder["app"].present()
+        return 0
+
+    gapp.connect("command-line", on_command_line)
+    code = gapp.run([sys.argv[0]] + list(argv))
+    return state["code"] or (holder["app"].exit_code if "app" in holder else 0) or code
 
 
 if __name__ == "__main__":

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import contextlib
 import fnmatch
+import hashlib
+import html
 import json
 import os
 import re
@@ -27,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 APP_NAME = "wow-forever-addon-manager"
 UA = f"{APP_NAME}/{__version__}"
@@ -39,6 +41,12 @@ KEEP_BACKUPS = 5
 FOREVER_RE = re.compile(r"^1\.6\d\.")
 CF_API = "https://api.curseforge.com"
 CF_KEY_URL = "https://console.curseforge.com"
+CF_SITE = "https://www.curseforge.com"
+CF_CDNS = ("https://mediafilez.forgecdn.net", "https://edge.forgecdn.net")
+BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"  # nur fuer Website/CDN-Downloads
+MAX_IMAGE = 2 * 1024 * 1024
+IMAGE_HOSTS = ("forgecdn.net", "githubusercontent.com", "github.com")
+SORT_FIELDS = {"downloads": 6, "popularity": 2, "updated": 3, "name": 4}
 
 # Status-Konstanten
 UPDATE = "UPDATE"
@@ -97,6 +105,7 @@ class Remote:
     modules: list = field(default_factory=list)
     cf_id: int | None = None
     file_date: str = ""
+    notes: str = ""  # GitHub-Release-Body
 
 
 @dataclass
@@ -114,6 +123,7 @@ class Package:
     page_url: str | None = None
     note: str = ""
     meta: dict = field(default_factory=dict)  # gh, tag_prefix, asset_regex, vfolder, unassigned
+    ignored: bool = False
 
 
 @dataclass
@@ -127,6 +137,10 @@ class Candidate:
     has_forever: bool | None = None
     installed: bool = False
     page_url: str | None = None
+    thumbnail_url: str | None = None
+    screenshots: list = field(default_factory=list)  # dict(thumb, url, title), max. 4
+    updated: str = ""
+    categories: list = field(default_factory=list)
 
 
 @dataclass
@@ -346,6 +360,9 @@ SCHEMA = {
     "curseforge_api_key": (str, ""), "addons_dir": ((str, _NONE), None), "download_dir": ((str, _NONE), None),
     "include_beta": (bool, False), "classic_theme": (bool, True), "cf_forever_type_id": ((int, _NONE), None), "packages": (dict, {}),
     "installed": (dict, {}), "cf_ids": (dict, {}), "cf_fp_cache": (dict, {}), "cf_mods": (dict, {}),
+    "direct_download": (bool, True), "close_to_tray": (bool, True), "check_interval_min": (int, 60),
+    "auto_update": (bool, False), "ignored": (list, []), "tray_notified": (dict, {}),
+    "self_update_check": (bool, True), "self_auto_update": (bool, False), "self_update_skipped": (str, ""),
 }
 
 
@@ -379,6 +396,8 @@ class Config:
             self.d.setdefault(k, v)
         if not self.d.get("download_dir"):
             self.d["download_dir"] = None
+        if not 15 <= self.d["check_interval_min"] <= 1440:
+            self.d["check_interval_min"] = 60
 
     def __getitem__(self, k):
         return self.d[k]
@@ -435,7 +454,7 @@ def github_token():
     return _gh_token["value"]
 
 
-def _open(url, headers=None, timeout=25, data=None):
+def _open(url, headers=None, timeout=25, data=None, opener=None):
     host = urllib.parse.urlparse(url).netloc
     h = {"User-Agent": UA}
     if host == "api.github.com":
@@ -444,7 +463,7 @@ def _open(url, headers=None, timeout=25, data=None):
             h["Authorization"] = f"Bearer {github_token()}"
     h.update(headers or {})
     try:
-        return _opener.open(urllib.request.Request(url, headers=h, data=data), timeout=timeout)
+        return (opener or _opener).open(urllib.request.Request(url, headers=h, data=data), timeout=timeout)
     except urllib.error.HTTPError as e:
         if host == "api.curseforge.com":
             if e.code == 401:
@@ -471,10 +490,10 @@ def http_json(url, headers=None, body=None):
             raise ApiError("Ungültige Antwort (kein JSON)", "other")
 
 
-def download_file(url, dest, limit=MAX_DOWNLOAD, cancel=None):
+def download_file(url, dest, limit=MAX_DOWNLOAD, cancel=None, headers=None):
     if urllib.parse.urlparse(url).scheme != "https":
         raise ApiError("Download nur über https erlaubt", "download")
-    with _open(url, timeout=60) as r:
+    with _open(url, headers, timeout=60) as r:
         size = r.headers.get("Content-Length")
         if size and size.isdigit() and int(size) > limit:
             raise ApiError("Download zu groß (>300 MB)", "other")
@@ -773,9 +792,30 @@ class CurseForge:
             params["gameVersionTypeId"] = tid
         return self.get("/v1/mods/search", **params).get("data", [])
 
+    def browse(self, q, tid, sort, page, page_size):
+        """Eine Seite Suchtreffer; liefert bis zu page_size+1 Eintraege (der Ueberhang zeigt „mehr“ an)."""
+        field_id = SORT_FIELDS.get(sort, 6)
+        params = dict(gameId=1, classId=1, sortField=field_id, sortOrder="asc" if sort == "name" else "desc",
+                      pageSize=page_size + 1, index=page * page_size)
+        if q:
+            params["searchFilter"] = q
+        if tid:
+            params["gameVersionTypeId"] = tid
+        return self.get("/v1/mods/search", **params).get("data", [])
+
+    def changelog(self, mid, fid):
+        return self.get(f"/v1/mods/{mid}/files/{fid}/changelog").get("data") or ""
+
     def featured(self, tid):
         d = self.post("/v1/mods/featured", {"gameId": 1, "excludedModIds": [], "gameVersionTypeId": tid}).get("data", {})
         return [m for k in ("featured", "popular", "recentlyUpdated") for m in d.get(k) or []]
+
+
+def _html_to_text(s):
+    s = re.sub(r"(?i)<li[^>]*>", "\n• ", s)
+    s = re.sub(r"(?i)<br\s*/?>|</?(?:p|h[1-6]|ul|ol|div)[^>]*>|</li>", "\n", s)
+    s = html.unescape(re.sub(r"<[^>]+>", "", s))
+    return re.sub(r"\n\s*\n+", "\n\n", "\n".join(l.rstrip() for l in s.splitlines())).strip()
 
 
 # ---------------------------------------------------------------- GitHub
@@ -817,7 +857,7 @@ def gh_latest(repo, meta, include_beta):
         a = gh_pick_asset(rel, meta)
         if a:
             return Remote(short_version(tag[len(prefix):]), tag, "GH", a["browser_download_url"], tag,
-                          a["name"], rel.get("html_url"))
+                          a["name"], rel.get("html_url"), notes=rel.get("body") or "")
     return None
 
 
@@ -1019,6 +1059,39 @@ def _desktop_quote(s):
     return f'"{s}"'
 
 
+def _desktop_exec():
+    if getattr(sys, "frozen", False):
+        return _desktop_quote(sys.executable)
+    return "python3 " + _desktop_quote(str(Path(__file__).resolve().parent / "wow-forever-addon-manager.py"))
+
+
+def autostart_path():
+    base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return base / "autostart" / f"{APP_NAME}.desktop"
+
+
+def autostart_enabled():
+    return autostart_path().is_file()
+
+
+def set_autostart(on):
+    """Schreibt bzw. entfernt den Autostart-Eintrag (Start im Tray). -> Pfad oder None (entfernt)."""
+    target = autostart_path()
+    if not on:
+        with contextlib.suppress(FileNotFoundError):
+            target.unlink()
+        return None
+    target.parent.mkdir(parents=True, exist_ok=True)
+    icon = (Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / APP_NAME / "icon.svg")
+    src = f"Icon={icon}\n" if icon.is_file() else f"Icon={APP_NAME}\n"
+    target.write_text(
+        "[Desktop Entry]\nType=Application\nName=WoW: Forever Addon-Manager\n"
+        "Comment=Addons für WoW: Forever verwalten\n"
+        f"Exec={_desktop_exec()} --tray\n{src}Terminal=false\n"
+        "X-GNOME-Autostart-enabled=true\nX-GNOME-Autostart-Delay=20\n", "utf-8")
+    return target
+
+
 def install_desktop_entry():
     """Legt den Startmenue-Eintrag (benutzerlokal, $XDG_DATA_HOME) an. -> Pfad der .desktop-Datei."""
     data = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
@@ -1028,10 +1101,7 @@ def install_desktop_entry():
     src = asset_path("icon.svg")
     if src.is_file():
         shutil.copyfile(src, icon)
-    if getattr(sys, "frozen", False):
-        exe = _desktop_quote(sys.executable)
-    else:
-        exe = "python3 " + _desktop_quote(str(Path(__file__).resolve().parent / "wow-forever-addon-manager.py"))
+    exe = _desktop_exec()
     apps = data / "applications"
     apps.mkdir(parents=True, exist_ok=True)
     target = apps / f"{APP_NAME}.desktop"
@@ -1114,6 +1184,25 @@ class Manager:
         with self.cfg.lock:
             self.cfg["include_beta"] = bool(on)
             self.cfg.save()
+
+    def is_ignored(self, key):
+        return key in self.cfg["ignored"]
+
+    def set_ignored(self, key, on):
+        with self.cfg.lock:
+            lst = [k for k in self.cfg["ignored"] if k != key]
+            if on:
+                lst.append(key)
+            self.cfg["ignored"] = lst
+            self.cfg.save()
+
+    def _mark_ignored(self, pkgs):
+        ign = set(self.cfg["ignored"])
+        for p in pkgs:
+            p.ignored = p.key in ign
+
+    def updatable(self, pkgs):
+        return [p for p in pkgs if p.status == UPDATE and not p.ignored]
 
     def _cf(self):
         if not self.api_key:
@@ -1312,6 +1401,7 @@ class Manager:
         pkgs = self._group(self._folders, self._fps)
         self._installed_ids = {p.cf_mod_id for p in pkgs if p.cf_mod_id}
         self._meta = {p.key: p.meta for p in pkgs}
+        self._mark_ignored(pkgs)
         return pkgs
 
     def _query_fingerprints(self, cf, folders):
@@ -1412,6 +1502,7 @@ class Manager:
             list(ex.map(work, packages))
         if not self.api_key and any(p.cf_mod_id and not p.meta.get("gh") for p in packages):
             self.notes.append("Ohne CurseForge-Key sind reine CF-Pakete nicht prüfbar.")
+        self._mark_ignored(packages)
         for p in packages:
             if p.status == ERROR and p.note:
                 self.notes.append(f"{p.name}: {p.note}")
@@ -1476,7 +1567,78 @@ class Manager:
         hf = None if idx is None else any(x.get("gameVersionTypeId") == tid for x in idx)
         return Candidate("CF", m["id"], m.get("name") or str(m["id"]), (m.get("authors") or [{}])[0].get("name", ""),
                          m.get("summary") or "", m.get("downloadCount") or 0, hf, m["id"] in self._installed_ids,
-                         (m.get("links") or {}).get("websiteUrl"))
+                         (m.get("links") or {}).get("websiteUrl"),
+                         (m.get("logo") or {}).get("thumbnailUrl") or None,
+                         [dict(thumb=x.get("thumbnailUrl") or "", url=x.get("url") or "", title=x.get("title") or "")
+                          for x in (m.get("screenshots") or [])[:4]],
+                         m.get("dateModified") or "",
+                         [c.get("name") for c in m.get("categories") or [] if c.get("name")])
+
+    def browse(self, query="", sort="downloads", page=0, page_size=20):
+        """Eine Seite Forever-Addons; -> (Kandidaten, has_more)."""
+        page_size = max(1, min(int(page_size), 49))
+        try:
+            res = self._cf().browse((query or "").strip(), self._tid(), sort, max(0, int(page)), page_size)
+        except ApiError as e:
+            if e.kind == "forbidden":
+                raise ApiError("Suche ist für diesen API-Key nicht freigeschaltet", "forbidden")
+            raise
+        return [self._candidate(m) for m in res[:page_size]], len(res) > page_size
+
+    def fetch_image(self, url):
+        """Laedt ein Bild in den Cache (blockierend). -> Pfad oder None."""
+        def allowed(u):
+            pu = urllib.parse.urlparse(u)
+            h = (pu.hostname or "").lower()
+            return pu.scheme == "https" and any(h == d or h.endswith("." + d) for d in IMAGE_HOSTS)
+        class _Guard(_Redirect):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                if not allowed(newurl):
+                    raise ApiError("Bild-Redirect auf nicht erlaubten Host", "http")
+                return super().redirect_request(req, fp, code, msg, headers, newurl)
+        try:
+            if not url or not allowed(url):
+                return None
+            ext = Path(urllib.parse.urlparse(url).path).suffix.lower()
+            if ext not in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
+                ext = ".img"
+            d = self.paths.cache / "img"
+            dest = d / (hashlib.sha1(url.encode()).hexdigest() + ext)
+            if dest.is_file():
+                return dest
+            d.mkdir(parents=True, exist_ok=True)
+            with _open(url, timeout=20, opener=urllib.request.build_opener(_Guard)) as r:
+                if not allowed(r.geturl()):
+                    return None
+                data = r.read(MAX_IMAGE + 1)
+            if not data or len(data) > MAX_IMAGE:
+                return None
+            tmp = dest.with_name(dest.name + ".tmp")
+            tmp.write_bytes(data)
+            os.replace(tmp, dest)
+            return dest
+        except (ApiError, OSError, ValueError):
+            return None
+
+    def changelog(self, pkg):
+        """Klartext-Changelog der verfuegbaren Version (pkg.remote); "" ohne Daten."""
+        rem = pkg.remote
+        if not rem:
+            return ""
+        ck = (rem.source, str(rem.ident))
+        cache = self.__dict__.setdefault("_changelogs", {})
+        if ck in cache:
+            return cache[ck]
+        text = ""
+        try:
+            if rem.source == "CF" and rem.cf_id:
+                text = _html_to_text(self._cf().changelog(rem.cf_id, rem.ident))
+            elif rem.source == "GH":
+                text = (rem.notes or "").strip()
+        except ApiError:
+            return ""  # nicht cachen, naechster Versuch moeglich
+        cache[ck] = text
+        return text
 
     def featured(self):
         return [self._candidate(m) for m in {m["id"]: m for m in self._cf().featured(self._tid())}.values()]
@@ -1570,24 +1732,47 @@ class Manager:
         meta.setdefault("gh", repo)
         return self._plan_remote(rem, key, cand.name, meta, None, save_package=key.startswith("gh-"))
 
-    def _plan_remote(self, rem, key, name, meta, mod_id, save_package=False):
+    def _download_ways(self, rem):
+        """Reihenfolge der Download-Wege -> Liste (Label, URL, Header, ist_direkt)."""
         if rem.source == "GH":
-            urls = [rem.url] if rem.url else []
-        else:
-            urls = self._cf().download_urls(rem)
-        if not urls:
+            return [("GitHub", rem.url, None, False)] if rem.url else []
+        ways = [("CurseForge-API", u, None, False) for u in self._cf().download_urls(rem)]
+        if self.cfg["direct_download"] and rem.cf_id:
+            hdr = {"User-Agent": BROWSER_UA}
+            ways.append(("CurseForge-Website", f"{CF_SITE}/api/v1/mods/{rem.cf_id}/files/{rem.ident}/download", hdr, True))
+            if rem.filename and isinstance(rem.ident, int):
+                path = f"/files/{rem.ident // 1000}/{rem.ident % 1000}/{urllib.parse.quote(rem.filename)}"
+                ways += [("CDN", cdn + path, hdr, True) for cdn in CF_CDNS]
+        seen, out = set(), []
+        for w in ways:
+            if w[1] not in seen:
+                seen.add(w[1])
+                out.append(w)
+        return out
+
+    def _plan_remote(self, rem, key, name, meta, mod_id, save_package=False):
+        ways = self._download_ways(rem)
+        if not ways:
             raise ApiError("Kein Download-Link verfügbar (Browser-Download nötig).", "download")
         st = self._new_staging()
         try:
             last = None
-            for u in urls:
+            self.log(f"Lade {rem.filename or rem.display} ...")
+            for label, u, hdr, direct in ways:
+                dest = st / "download.zip"
                 try:
-                    self.log(f"Lade {rem.filename or rem.display} ...")
-                    download_file(u, st / "download.zip")
+                    download_file(u, dest, headers=hdr)
+                    if not zipfile.is_zipfile(dest):
+                        raise ApiError("Antwort ist keine Zip-Datei", "download")
                     last = None
+                    if direct:
+                        self.log(f"Direkt-Download über {'CurseForge-Website' if 'Website' in label else 'CDN'}")
                     break
                 except ApiError as e:
                     last = e
+                    self.log(f"{label}: {e}")
+                    with contextlib.suppress(OSError):
+                        dest.unlink()
             if last:
                 raise ApiError(f"Download fehlgeschlagen: {last}", "download")
             info = dict(source=rem.source, ident_key="file_id" if rem.source == "CF" else "tag", ident=rem.ident,

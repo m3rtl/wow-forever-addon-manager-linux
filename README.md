@@ -9,10 +9,14 @@ Ein inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Li
 - **CurseForge-Erkennung per Fingerprint**: Installierte Addons werden anhand ihrer Dateien erkannt, ganz ohne manuelle Zuordnung.
 - **Nur Forever-Dateien**: Es wird gezielt der Forever-Build eines Releases geladen und die `.toc` auf Interface 16xxx geprüft.
 - **GitHub als Ausweichquelle** für Addons, die als GitHub-Release veröffentlicht werden.
-- **Browser als Ausweichweg**: Ist ein Download nicht über die API möglich, öffnet sich die exakte Dateiseite (oder eine auf die Forever-Spielversion vorgefilterte Dateiliste) und der Manager wartet auf die neue Zip-Datei. Sind mehrere Addons markiert, werden die Browser-Downloads nacheinander abgearbeitet (jederzeit überspringen oder abbrechen), am Ende gibt es eine Übersicht.
+- **Direkt-Download auch für gesperrte Addons**: Bieten Autoren ihr Addon nicht über die CurseForge-API an (z. B. DBM, Auctionator), lädt der Manager dieselbe Datei automatisch über den Download-Link der CurseForge-Website bzw. das CurseForge-CDN, ganz ohne Browser. Abschaltbar unter ☰ → Einstellungen.
+- **Tray und Autostart**: Optional startet der Manager mit dem System und läuft minimiert in der Menüleiste. Er prüft beim Start und stündlich (einstellbar) auf Updates und meldet sich nur, wenn es neue gibt („3 Updates verfügbar“). Rechtsklick auf das Symbol: Addons aktualisieren, Jetzt prüfen, App öffnen, Einstellungen, Protokoll, Beenden. Auf Wunsch installiert er Updates selbst, aber nur, solange WoW nicht läuft.
+- **Updates im Blick**: Nach jeder Prüfung sind alle veralteten Addons angehakt, ein Klick auf „N aktualisieren“ genügt. Der Changelog der neuen Version erscheint als Tooltip und per Rechtsklick. Einzelne Addons lassen sich per Rechtsklick „ignorieren“, sie werden dann nie vorgemerkt und nicht mitgezählt.
+- **Selbst-Update**: Der Manager prüft GitHub-Releases auf neue Versionen. Die Release-Datei ersetzt sich auf Wunsch selbst (nach SHA256-Prüfung gegen `SHA256SUMS`, die vorige Version bleibt als `.old` liegen), optional auch automatisch.
+- **Browser als letzter Ausweichweg**: Klappt auch der Direkt-Download nicht, öffnet sich die exakte Dateiseite (oder eine auf die Forever-Spielversion vorgefilterte Dateiliste) und der Manager wartet auf die neue Zip-Datei. Sind mehrere Addons markiert, werden die Browser-Downloads nacheinander abgearbeitet (jederzeit überspringen oder abbrechen), am Ende gibt es eine Übersicht.
 - **Download-Ordner aus dem Browser**: Der Manager liest die Download-Einstellung deines Standardbrowsers (Chrome/Chromium-Familie, Firefox-Familie inkl. Flatpak/Snap) und überwacht zusätzlich die Ordner der übrigen erkannten Browser sowie den XDG-Download-Ordner. Ein eigener Ordner lässt sich unter ☰ → Einstellungen festlegen. Aus den Browser-Profilen werden nur die Download-Einstellungen gelesen, sonst nichts.
 - **Klassischer Look**: dunkles Fantasy-Theme mit Goldakzenten und selbst gezeichneten Ornamenten, abschaltbar unter ☰ → Einstellungen („Klassisches Theme“; aus = Systemtheme).
-- **Neue Addons installieren**: über die Liste beliebter Forever-Addons, die Suche, eine CurseForge-Projekt-ID, `gh:owner/repo`, eine GitHub-URL, einen direkten Zip-Link oder eine lokale Zip-Datei.
+- **Neue Addons installieren**: über die durchblätterbare Liste aller Forever-Addons (sortierbar nach Downloads, Beliebtheit, Aktualität oder Name, mit Logo, Beschreibung und Screenshots im Tooltip), die Suche, eine CurseForge-Projekt-ID, `gh:owner/repo`, eine GitHub-URL, einen direkten Zip-Link oder eine lokale Zip-Datei.
 - **Backups und Wiederherstellen**: Ersetzte Ordner werden zuerst in einen Backup-Satz verschoben (die letzten 5 bleiben erhalten). `WTF`/SavedVariables werden nie angefasst.
 - **Deinstallieren**: Entfernt ein Addon-Paket, indem seine Ordner in einen Backup-Satz verschoben werden (über „Backups“ wiederherstellbar). Abhängigkeiten anderer Addons werden vorher angezeigt. Deine Einstellungen (`WTF`/SavedVariables) bleiben erhalten.
 - **Kompatibilitätsprüfung** vor jeder Installation, mit Warnung bei Paketen, die WoW: Forever nicht laden wird. Läuft WoW scheinbar gerade, erscheint ein Hinweis (die Erkennung ist eine Heuristik und kann danebenliegen).
@@ -40,7 +44,10 @@ Voraussetzungen: Python 3.10 oder neuer. Für die GUI zusätzlich `python3-gi` u
 ./start.sh --cli           # interaktive Kommandozeile
 ./start.sh --check         # nur die Tabelle ausgeben
 ./start.sh --check --addons-dir PFAD
+./start.sh --tray          # minimiert im Tray starten (so startet auch der Autostart-Eintrag)
 ```
+
+Den Autostart schaltest du unter ☰ → Einstellungen → „Beim Systemstart im Tray starten“ ein (legt `~/.config/autostart/wow-forever-addon-manager.desktop` an). Das Tray-Symbol braucht einen StatusNotifier-Host: KDE, Xfce, Cinnamon, MATE und Budgie haben einen, unter GNOME die Erweiterung „AppIndicator and KStatusNotifierItem Support“ (bei Ubuntu und Zorin vorinstalliert). Ohne Tray schließt das Fenster ganz normal.
 
 Die Einzeldatei selbst bauen: `./build.sh` (Ergebnis in `dist/`).
 
@@ -57,7 +64,7 @@ Manche Keys dürfen die Suche nicht nutzen; dann helfen die Liste „Beliebt“,
 
 ## Datenschutz
 
-Dein API-Key wird nur lokal in `config.json` gespeichert (Rechte 0600) und ist nie Teil dieses Repositorys. Das Programm spricht nur mit der CurseForge-API, GitHub und den Download-Servern der Pakete, die du installierst. Keine Telemetrie.
+Dein API-Key wird nur lokal in `config.json` gespeichert (Rechte 0600) und ist nie Teil dieses Repositorys. Das Programm spricht nur mit der CurseForge-API, der CurseForge-Website (Download-Link), dem CurseForge-CDN, GitHub (auch für die eigene Update-Prüfung) und den Download-Servern der Pakete, die du installierst. Keine Telemetrie.
 
 ## Kompatibilitätsregeln
 
