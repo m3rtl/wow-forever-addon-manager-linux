@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
+## Unveröffentlicht
+
+### Neu
+
+- **AUR-Paket** `wow-forever-addon-manager`: nutzt Python und GTK des Systems, damit entfällt die glibc-2.35-Vorgabe der Release-Datei. Startmenü-Eintrag und Icon bringt das Paket mit; Programm-Updates kommen über die Paketverwaltung.
+- **Flatpak** (`io.github.m3rtl.WowForeverAddonManager`, GNOME-Runtime 51), als Bundle am Release. Zugriff nur auf die üblichen Wine/Proton-Orte (Steam, Lutris, Bottles, Heroic, Wine, umu, Faugus, `~/Games`); andere Orte über das Datei-Portal (Ordner „World of Warcraft“ wählen) oder `flatpak override`. Nicht freigegebene Steam-Bibliotheken nennt der Auswahldialog samt Befehl.
+- Release-Datei, AUR-Paket und Flatpak nutzen dieselben Einstellungen, Backups und denselben Verlauf; ein Wechsel übernimmt alles.
+- Als Ordner lässt sich jetzt auch „World of Warcraft“ wählen; der Manager nimmt dann `_forever_/Interface/AddOns`.
+
+### Geändert
+
+- Datei- und Ordnerwahl laufen über `Gtk.FileChooserNative` (im Flatpak das Datei-Portal).
+- Flatpak: Autostart über das Hintergrund-Portal; Tray meldet sich mit dem eindeutigen D-Bus-Namen an. Ist nicht erkennbar, ob WoW läuft, meldet der Tray Updates nur, statt sie still zu installieren, und vor dem Wiederherstellen von SavedVariables kommt eine Rückfrage.
+
 ## 0.3.0 – 2026-11-26
 
 ### Neu

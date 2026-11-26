@@ -29,6 +29,7 @@ class Background:
         self._timer = 0
         self._retry = 0
         self._wow_wait = 0
+        self._unknown_logged = False
         self._updating = False
         self._self_busy = False
         self._stopped = False
@@ -202,7 +203,15 @@ class Background:
     def _auto_update(self):
         if self._wow_wait or self._updating:
             return
-        if self.mgr.wow_running():
+        running = self.mgr.wow_running()
+        if running is None:
+            # Flatpak ohne Host-Zugriff: nicht erkennbar, ob WoW laeuft -> nur benachrichtigen
+            if not self._unknown_logged:
+                self._unknown_logged = True
+                self._log("Auto-Update ausgesetzt: Im Flatpak ist nicht erkennbar, ob WoW läuft "
+                          f"(Freigabe: {core.WOW_DETECT_OVERRIDE}).")
+            return
+        if running:
             self._wow_wait = GLib.timeout_add_seconds(self.wow_wait_s, self._wow_cb)
             return
         self._update_now(background=True)
@@ -210,9 +219,12 @@ class Background:
     def _wow_cb(self):
         if self._stopped:
             return False
-        if self.mgr.wow_running():
+        running = self.mgr.wow_running()
+        if running:
             return True
         self._wow_wait = 0
+        if running is None:
+            return False
         if self.app.busy:
             self._wow_wait = GLib.timeout_add_seconds(BUSY_RETRY_S, self._wow_cb)
             return False
@@ -270,7 +282,8 @@ class Background:
 
     # --- Programm-Update ---
     def _self_check(self):
-        if self._stopped or self._self_busy or not self.cfg["self_update_check"] or not selfupdate.due(self.cfg):
+        if self._stopped or self._self_busy or not self.cfg["self_update_check"] or not selfupdate.enabled() \
+                or not selfupdate.due(self.cfg):
             return False
         self._self_busy = True
 

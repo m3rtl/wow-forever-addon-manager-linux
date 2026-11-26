@@ -597,8 +597,11 @@ def menu_restore(mgr):
 
 
 def restore_sv_cli(mgr, b):
-    if mgr.wow_running():
+    running = mgr.wow_running()
+    if running:
         print(paint("WoW läuft – Einstellungen lassen sich nur bei beendetem WoW wiederherstellen.", "red"))
+        return False
+    if running is None and not yn(paint("Ob WoW läuft, ist im Flatpak nicht erkennbar. Ist WoW beendet?", "yellow")):
         return False
     print("Addons: " + ", ".join(b.addons))
     s = ask("Nur bestimmte Addons (Namen, durch Leerzeichen getrennt)? Enter = alle: ")

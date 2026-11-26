@@ -32,11 +32,17 @@ Inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Linux 
 - Kompatibilitätsprüfung vor jeder Installation, Hinweis wenn WoW zu laufen scheint.
 - Beim Ersetzen von Addon-Ordnern bleibt `WTF` unverändert; geschrieben wird dort nur beim ausdrücklichen Wiederherstellen.
 
-## Download
+## Installation
+
+**Release-Datei** (eine ausführbare Datei, aktualisiert sich selbst)
 
 1. [Neuestes Release](https://github.com/m3rtl/wow-forever-addon-manager-linux/releases/latest): `wow-forever-addon-manager-x86_64-linux` laden (Prüfsumme: `SHA256SUMS`).
 2. `chmod +x wow-forever-addon-manager-x86_64-linux`
-3. `./wow-forever-addon-manager-x86_64-linux` (gebaut auf Ubuntu 22.04, glibc 2.35+; sonst Quellcode nutzen)
+3. `./wow-forever-addon-manager-x86_64-linux` (gebaut auf Ubuntu 22.04, braucht glibc 2.35+; bei älteren Systemen AUR, Flatpak oder Quellcode nutzen)
+
+**Arch Linux (AUR)**: Paket `wow-forever-addon-manager`, z. B. `yay -S wow-forever-addon-manager`. Nutzt das Python und GTK des Systems, daher keine glibc-Vorgabe. Updates kommen über die Paketverwaltung.
+
+**Flatpak**: `wow-forever-addon-manager-x86_64.flatpak` aus dem Release laden und `flatpak install --user wow-forever-addon-manager-x86_64.flatpak`. Läuft auf jeder Distribution mit Flatpak; die GNOME-Runtime kommt von Flathub. Updates: neues Bundle installieren. Hinweise zur Sandbox siehe [Flatpak](#flatpak).
 
 ## Bedienung
 
@@ -56,7 +62,31 @@ Unter ☰ → Einstellungen, „Hintergrund“: Start im Tray beim Systemstart, 
 
 ## Programm-Updates
 
-Prüfung über GitHub-Releases (höchstens alle 12 h). Die Release-Datei ersetzt sich nach SHA256-Prüfung selbst (alte als `.old`), die Quellcode-Version zeigt nur einen Hinweis. Abschaltbar unter ☰ → Einstellungen.
+Prüfung über GitHub-Releases (höchstens alle 12 h). Die Release-Datei ersetzt sich nach SHA256-Prüfung selbst (alte als `.old`), die Quellcode-Version zeigt nur einen Hinweis. Abschaltbar unter ☰ → Einstellungen. AUR-Paket und Flatpak prüfen nicht selbst; dort aktualisiert die Paketverwaltung.
+
+## Flatpak
+
+WoW: Forever liegt in einem Wine/Proton-Prefix, also außerhalb der Sandbox. Das Flatpak bekommt deshalb nur Zugriff auf die üblichen Orte:
+
+| Freigabe | Wofür |
+| --- | --- |
+| `~/.steam`, `~/.local/share/Steam`, `~/.var/app/com.valvesoftware.Steam/.local/share/Steam` | Steam/Proton (auch Steam als Flatpak) |
+| `~/Games`, `~/.wine`, `~/.local/share/lutris`, `~/.local/share/bottles`, `~/.var/app/com.usebottles.bottles/data/bottles`, `~/.local/share/umu`, `~/Faugus` | Heroic, Lutris, Wine, Bottles, umu, Faugus |
+| Download-Ordner (nur lesen) | Browser-Download als letzter Ausweg |
+| `~/.config/wow-forever-addon-manager`, `~/.local/share/wow-forever-addon-manager` | Einstellungen, Backups und Verlauf, gemeinsam mit Release-Datei und AUR-Paket |
+
+Liegt WoW woanders (z. B. Steam-Bibliothek auf einer zweiten Platte), gibt es zwei Wege:
+
+- Im Programm unter ☰ → Einstellungen → „Ändern …“ → „Anderen Ordner wählen …“ den Ordner **„World of Warcraft“** wählen. Das Datei-Portal gibt ihn dauerhaft frei. Nicht nur `AddOns` wählen: Client-Version (`.build.info`) und SavedVariables (`WTF`) liegen darüber.
+- Oder den Ordner fest freigeben, z. B. `flatpak override --user --filesystem=/mnt/Spiele/SteamLibrary io.github.m3rtl.WowForeverAddonManager`. Steam-Bibliotheken, die in `libraryfolders.vdf` stehen, aber nicht freigegeben sind, nennt der Auswahldialog samt passendem Befehl.
+
+Weitere Unterschiede:
+
+- **Läuft WoW?** Aus der Sandbox sind keine fremden Prozesse sichtbar. Ohne Freigabe meldet der Tray Updates nur und installiert sie nicht still; vor dem Wiederherstellen von SavedVariables fragt das Programm nach. Erkennung freigeben (erlaubt dem Programm, Befehle außerhalb der Sandbox zu starten): `flatpak override --user --talk-name=org.freedesktop.Flatpak io.github.m3rtl.WowForeverAddonManager`.
+- **Autostart** läuft über das Hintergrund-Portal; GNOME fragt beim ersten Einschalten nach.
+- **Daten**: Einstellungen, Backups und Verlauf liegen wie bei Release-Datei und AUR-Paket in `~/.config/wow-forever-addon-manager` und `~/.local/share/wow-forever-addon-manager`; ein Wechsel zwischen den Installationsarten übernimmt also alles. Nur der Cache liegt unter `~/.var/app/io.github.m3rtl.WowForeverAddonManager/`.
+
+Selbst bauen: `flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.m3rtl.WowForeverAddonManager.yml` (braucht `org.gnome.Sdk//51`).
 
 ## Aus dem Quellcode starten
 
@@ -76,7 +106,8 @@ Kostenlos unter <https://console.curseforge.com>; eintragen unter ☰ → Einste
 ## Wo Daten gespeichert werden
 
 - Aus dem Quellcode gestartet: neben dem Programm (`config.json`, `backups/`, `sv_backups/`, `history.jsonl`, `cache/`).
-- Release-Datei: in den XDG-Ordnern (`~/.config`, `~/.local/share`, `~/.cache`, jeweils unter `wow-forever-addon-manager`).
+- Release-Datei und AUR-Paket: in den XDG-Ordnern (`~/.config`, `~/.local/share`, `~/.cache`, jeweils unter `wow-forever-addon-manager`).
+- Flatpak: dieselben Ordner wie die Release-Datei; nur der Cache liegt unter `~/.var/app/io.github.m3rtl.WowForeverAddonManager/`.
 - `WOW_FA_HOME=<Ordner>` überschreibt beides.
 
 ## Datenschutz

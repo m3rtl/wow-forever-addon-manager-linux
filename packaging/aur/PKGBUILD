@@ -1,0 +1,26 @@
+# Maintainer: m3rtl
+# Quelle dieser Datei: packaging/aur/PKGBUILD im Projekt; pkgver und sha256sums setzt packaging/aur/update.sh.
+pkgname=wow-forever-addon-manager
+pkgver=0.3.0
+pkgrel=1
+pkgdesc="Unofficial addon manager for WoW: Forever on Linux (Steam/Proton, Lutris, Wine, Bottles, Heroic)"
+arch=('any')
+url="https://github.com/m3rtl/wow-forever-addon-manager-linux"
+license=('MIT')
+depends=('python' 'python-gobject' 'gtk3' 'procps-ng')
+optdepends=('xdg-utils: Links und Ordner öffnen'
+            'xdg-user-dirs: Download-Ordner erkennen'
+            'github-cli: GitHub-Token für mehr API-Anfragen')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+check() {
+    cd "wow-forever-addon-manager-linux-$pkgver"
+    WOW_FA_HOME="$srcdir/home" python wow-forever-addon-manager.py --version
+}
+
+package() {
+    cd "wow-forever-addon-manager-linux-$pkgver"
+    DESTDIR="$pkgdir" sh packaging/install.sh /usr aur
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

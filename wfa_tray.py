@@ -109,15 +109,21 @@ class Tray:
         if self._conn is None:
             return
         try:
-            self._name = f"org.kde.StatusNotifierItem-{os.getpid()}-{_instance_counter}"
+            if os.environ.get("FLATPAK_ID") or os.path.exists("/.flatpak-info"):
+                # Im Flatpak darf das Programm keinen fremden Busnamen belegen; die Watcher (KDE, GNOME-Erweiterung)
+                # akzeptieren auch den eindeutigen Namen der Verbindung (Objektpfad dann /StatusNotifierItem).
+                self._name = self._conn.get_unique_name()
+            else:
+                self._name = f"org.kde.StatusNotifierItem-{os.getpid()}-{_instance_counter}"
             sni = Gio.DBusNodeInfo.new_for_xml(_SNI_XML).interfaces[0]
             menu = Gio.DBusNodeInfo.new_for_xml(_MENU_XML).interfaces[0]
             self._regs.append(self._conn.register_object(
                 "/StatusNotifierItem", sni, self._sni_call, self._sni_get, None))
             self._regs.append(self._conn.register_object(
                 "/MenuBar", menu, self._menu_call, self._menu_get, None))
-            self._own_id = Gio.bus_own_name_on_connection(
-                self._conn, self._name, Gio.BusNameOwnerFlags.NONE, None, None)
+            if not self._name.startswith(":"):
+                self._own_id = Gio.bus_own_name_on_connection(
+                    self._conn, self._name, Gio.BusNameOwnerFlags.NONE, None, None)
             self._watch_id = Gio.bus_watch_name_on_connection(
                 self._conn, _WATCHER, Gio.BusNameWatcherFlags.NONE, self._appeared, self._vanished)
         except Exception as e:

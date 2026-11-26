@@ -13,6 +13,7 @@ import http.client
 import json
 import os
 import re
+import shlex
 import shutil
 import socket
 import stat
@@ -36,6 +37,7 @@ from pathlib import Path
 __version__ = "0.3.0"
 
 APP_NAME = "wow-forever-addon-manager"
+APP_ID = "io.github.m3rtl.WowForeverAddonManager"   # Gtk-Application-ID, Flatpak-ID, Name von .desktop/Icon/Metainfo
 UA = f"{APP_NAME}/{__version__}"
 DEFAULT_CLIENT = 16001
 FOREVER_TYPE_FALLBACK = 88568
@@ -235,6 +237,66 @@ class SvSet:
     files: int = 0
 
 
+# ---------------------------------------------------------------- Installationsart
+
+_KIND = None
+
+
+def install_kind():
+    """-> "flatpak", "package" (Paketverwaltung, z. B. AUR), "binary" (PyInstaller-Release-Datei) oder "source".
+    Pakete legen neben die Module eine Datei PACKAGED (Inhalt: Kanal, z. B. "aur")."""
+    global _KIND
+    if _KIND is None:
+        if os.environ.get("FLATPAK_ID") or os.path.exists("/.flatpak-info"):
+            _KIND = "flatpak"
+        elif getattr(sys, "frozen", False):
+            _KIND = "binary"
+        elif (Path(__file__).resolve().parent / "PACKAGED").is_file():
+            _KIND = "package"
+        else:
+            _KIND = "source"
+    return _KIND
+
+
+def package_channel():
+    """Name des Pakets fuer Hinweise, z. B. "AUR" oder "Flatpak"; leer fuer Quellcode/Release-Datei."""
+    k = install_kind()
+    if k == "flatpak":
+        return "Flatpak"
+    if k == "package":
+        txt = _read_text(Path(__file__).resolve().parent / "PACKAGED").strip()
+        return txt.upper() if txt.lower() == "aur" else (txt or "Paketverwaltung")
+    return ""
+
+
+def managed_install():
+    """Updates, Startmenue-Eintrag und Icon kommen von der Paketverwaltung bzw. Flatpak."""
+    return install_kind() in ("flatpak", "package")
+
+
+def in_flatpak():
+    return install_kind() == "flatpak"
+
+
+_HOST_SPAWN = None
+
+
+def host_spawn_available():
+    """Flatpak: darf das Programm Befehle auf dem Host starten (Freigabe org.freedesktop.Flatpak)?
+    Standardmaessig nicht; nur dann laesst sich sehen, ob WoW laeuft. Ergebnis gilt fuer die Laufzeit des Prozesses."""
+    global _HOST_SPAWN
+    if _HOST_SPAWN is None:
+        try:
+            _HOST_SPAWN = subprocess.run(["flatpak-spawn", "--host", "true"], capture_output=True,
+                                         timeout=5).returncode == 0
+        except Exception:  # noqa: BLE001
+            _HOST_SPAWN = False
+    return _HOST_SPAWN
+
+
+WOW_DETECT_OVERRIDE = f"flatpak override --user --talk-name=org.freedesktop.Flatpak {APP_ID}"
+
+
 # ---------------------------------------------------------------- Pfade / Config
 
 class Paths:
@@ -243,7 +305,10 @@ class Paths:
         if home or env:
             base = Path(home or env).expanduser()
             self.config_dir, self.data_dir, self.cache = base, base, base / "cache"
-        elif getattr(sys, "frozen", False):
+        elif install_kind() != "source":
+            # Release-Datei, Paket und Flatpak: Programmordner ist nicht (sinnvoll) beschreibbar -> XDG.
+            # Im Flatpak zeigen die XDG-Variablen nach ~/.var/app/<ID>/; das Manifest gibt dort die Host-Ordner
+            # xdg-config/xdg-data/<APP_NAME> frei, so teilen sich alle Installationsarten dieselben Daten.
             h = Path.home()
             self.config_dir = Path(os.environ.get("XDG_CONFIG_HOME") or h / ".config") / APP_NAME
             self.data_dir = Path(os.environ.get("XDG_DATA_HOME") or h / ".local" / "share") / APP_NAME
@@ -417,6 +482,7 @@ SCHEMA = {
     "auto_update": (bool, False), "ignored": (list, []), "tray_notified": (dict, {}),
     "self_update_check": (bool, True), "self_auto_update": (bool, False), "self_update_skipped": (str, ""),
     "pins": (dict, {}), "channels": (dict, {}), "sv_backup": (bool, True), "assign_failed": (dict, {}),
+    "autostart_portal": (bool, False),   # Flatpak: Autostart ueber das Hintergrund-Portal eingerichtet
 }
 
 
@@ -1220,6 +1286,10 @@ def find_forever_installs():
 
 def normalize_addons_dir(p):
     p = _expand(str(p))
+    if p.name.lower() not in ("_forever_", "interface", "addons") and not (p / "Interface").is_dir():
+        sub = Manager._ci_child(p, "_forever_")   # z. B. "World of Warcraft" gewaehlt
+        if sub is not None:
+            return sub / "Interface" / "AddOns"
     if p.name.lower() == "_forever_":
         return p / "Interface" / "AddOns"
     if p.name.lower() == "interface":
@@ -1237,9 +1307,46 @@ def validate_addons_dir(p):
         if "_forever_" not in [x.lower() for x in q.parts]:
             return True, "Warnung: Im Pfad kommt kein Ordner „_forever_“ vor – ist das wirklich WoW: Forever?"
         return True, ""
-    if raw.is_dir() and raw.name.lower() in ("_forever_", "interface"):
+    if raw.is_dir() and (raw.name.lower() in ("_forever_", "interface") or q.parent.parent.name.lower() == "_forever_"):
         return True, "Der Ordner Interface/AddOns wird angelegt."
     return False, "Ordner existiert nicht."
+
+
+def portal_path(p):
+    """True, wenn p ueber das Dokument-Portal freigegeben wurde (/run/user/<uid>/doc/...)."""
+    parts = Path(p).parts
+    return len(parts) > 4 and parts[1] == "run" and parts[2] == "user" and parts[4] == "doc"
+
+
+def sandbox_hint(addons):
+    """Hinweis, wenn im Flatpak nur der AddOns-Ordner selbst freigegeben ist: dann fehlen .build.info
+    (Client-Version, im WoW-Ordner) und WTF (SavedVariables, im _forever_-Ordner). Sonst ""."""
+    if not in_flatpak() or not addons:
+        return ""
+    a = Path(addons)
+    if (a.parent.parent.parent / ".build.info").is_file():
+        return ""
+    if portal_path(a) or not a.parent.parent.is_dir():
+        return ("Im Flatpak sieht der Manager nur den gewählten Ordner. Wähle besser den Ordner "
+                "„World of Warcraft“ (oberhalb von _forever_), damit Client-Version und SavedVariables "
+                "erreichbar sind.")
+    return ""
+
+
+def sandbox_blocked_libraries():
+    """Steam-Bibliotheken aus libraryfolders.vdf, die im Flatpak nicht freigegeben sind (z. B. auf einer zweiten
+    Platte). -> [Path]; ausserhalb des Flatpaks immer leer."""
+    if not in_flatpak():
+        return []
+    out = []
+    for lib in _steam_libraries():
+        if not lib.is_dir() and lib not in out:
+            out.append(lib)
+    return out
+
+
+def flatpak_override_cmd(path):
+    return f"flatpak override --user --filesystem={shlex.quote(str(path))} {APP_ID}"
 
 
 # ---------------------------------------------------------------- Startmenue
@@ -1255,6 +1362,8 @@ def _desktop_quote(s):
 
 
 def _desktop_exec():
+    if install_kind() == "package":
+        return APP_NAME          # Starter liegt im PATH (/usr/bin)
     if getattr(sys, "frozen", False):
         return _desktop_quote(sys.executable)
     return "python3 " + _desktop_quote(str(Path(__file__).resolve().parent / "wow-forever-addon-manager.py"))
@@ -1270,7 +1379,10 @@ def autostart_enabled():
 
 
 def set_autostart(on):
-    """Schreibt bzw. entfernt den Autostart-Eintrag (Start im Tray). -> Pfad oder None (entfernt)."""
+    """Schreibt bzw. entfernt den Autostart-Eintrag (Start im Tray). -> Pfad oder None (entfernt).
+    Im Flatpak nicht nutzbar (der Ordner liegt in der Sandbox); dort setzt wfa_portal den Autostart."""
+    if in_flatpak():
+        raise OSError("Im Flatpak wird der Autostart über das Hintergrund-Portal gesetzt.")
     target = autostart_path()
     if not on:
         with contextlib.suppress(FileNotFoundError):
@@ -1278,7 +1390,10 @@ def set_autostart(on):
         return None
     target.parent.mkdir(parents=True, exist_ok=True)
     icon = (Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / APP_NAME / "icon.svg")
-    src = f"Icon={icon}\n" if icon.is_file() else f"Icon={APP_NAME}\n"
+    if install_kind() == "package":
+        src = f"Icon={APP_ID}\n"     # vom Paket ins hicolor-Theme installiert
+    else:
+        src = f"Icon={icon}\n" if icon.is_file() else f"Icon={APP_NAME}\n"
     target.write_text(
         "[Desktop Entry]\nType=Application\nName=WoW: Forever Addon-Manager\n"
         "Comment=Addons für WoW: Forever verwalten\n"
@@ -1288,7 +1403,10 @@ def set_autostart(on):
 
 
 def install_desktop_entry():
-    """Legt den Startmenue-Eintrag (benutzerlokal, $XDG_DATA_HOME) an. -> Pfad der .desktop-Datei."""
+    """Legt den Startmenue-Eintrag (benutzerlokal, $XDG_DATA_HOME) an. -> Pfad der .desktop-Datei.
+    Pakete und Flatpak bringen den Eintrag selbst mit."""
+    if managed_install():
+        raise OSError(f"Der Startmenü-Eintrag wird mit dem Paket ({package_channel()}) installiert.")
     data = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
     icon_dir = data / APP_NAME
     icon_dir.mkdir(parents=True, exist_ok=True)
@@ -2260,10 +2378,19 @@ class Manager:
 
     # -- Installieren / Backups
     def wow_running(self):
+        """True/False; None = nicht feststellbar (Flatpak ohne Zugriff auf die Host-Prozesse)."""
+        cmd = ["pgrep", "-f", "-i", r"wow\.exe"]
+        if in_flatpak():
+            if not host_spawn_available():
+                return None
+            cmd = ["flatpak-spawn", "--host"] + cmd
         try:
-            return subprocess.run(["pgrep", "-f", "-i", r"wow\.exe"], capture_output=True, timeout=5).returncode == 0
+            rc = subprocess.run(cmd, capture_output=True, timeout=5).returncode
         except Exception:
-            return False
+            return None if in_flatpak() else False
+        if rc in (0, 1):
+            return rc == 0
+        return None if in_flatpak() else False
 
     def _new_backup_dir(self):
         self.paths.backups.mkdir(parents=True, exist_ok=True)
