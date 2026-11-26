@@ -63,5 +63,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes \
+          # Release-Text = Abschnitt der Version aus CHANGELOG.md (Fallback: automatisch erzeugte Notizen)
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v v="$ver" '/^## /{p = (index($0, "## " v " ") == 1)} p' CHANGELOG.md | tail -n +2 > notes.md
+          if [ -s notes.md ]; then
+            printf '\nPrüfen: `sha256sum -c SHA256SUMS`\n' >> notes.md
+            notes=(--notes-file notes.md)
+          else
+            notes=(--generate-notes)
+          fi
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" "${notes[@]}" \
             wow-forever-addon-manager-x86_64-linux SHA256SUMS

@@ -116,6 +116,8 @@ tooltip, tooltip.background { background-color: @wfa_panel; color: @wfa_text; bo
 separator { background-color: @wfa_bronze; }
 expander title { color: @wfa_gold_hi; }
 progressbar progress { background-image: linear-gradient(#efd78b, #b98a1d); }
+progressbar trough { background-color: @wfa_input; border: 1px solid @wfa_bronze; }
+progressbar text { color: @wfa_muted; }
 """.replace("FONTS", FONT_STACK)
 
 
@@ -369,6 +371,11 @@ class App:
         self._quitting = False
         self._last_log = ""
         self._asking = False
+        self._prog = None            # letztes Download-Ereignis (aus dem Worker), siehe on_progress
+        self._prog_ctx = None        # (Index, Anzahl) des gerade geplanten Pakets
+        self._prog_pending = False
+        self._prog_tick = None
+        self._prog_speed = None      # (Schluessel, t0, Bytes0) fuer die Geschwindigkeit
         self.build_window()
 
     @property
@@ -493,6 +500,20 @@ class App:
         bar.pack_end(self.new_btn, False, False, 0)
         self.buttons = [self.update_btn, self.mark_btn, self.uninstall_btn, self.browser_btn, self.new_btn]
         outer.pack_start(bar, False, False, 0)
+
+        # Download-Fortschritt: nur sichtbar, solange etwas geladen wird
+        self.prog_box = Gtk.Box(spacing=8, no_show_all=True)
+        self.prog_bar = Gtk.ProgressBar(show_text=True, hexpand=True, valign=Gtk.Align.CENTER,
+                                        ellipsize=Pango.EllipsizeMode.MIDDLE)
+        self.prog_cancel = Gtk.Button(label="Abbrechen")
+        self.prog_cancel.get_style_context().add_class("wfa-flat")
+        self.prog_cancel.set_tooltip_text("Bricht die laufenden Downloads ab")
+        self.prog_cancel.connect("clicked", self.on_cancel_downloads)
+        self.prog_box.pack_start(self.prog_bar, True, True, 0)
+        self.prog_box.pack_start(self.prog_cancel, False, False, 0)
+        self.prog_bar.show()
+        self.prog_cancel.show()
+        outer.pack_start(self.prog_box, False, False, 0)
 
         self.log_buf = Gtk.TextBuffer()
         status = Gtk.Box(spacing=8)
@@ -655,7 +676,103 @@ class App:
         else:
             self.spinner.stop()
             self.refresh_spinner.stop()
+            self.hide_progress()
         self.update_actions()
+
+    # ------------------------------------------------------------ Download-Fortschritt
+    def on_progress(self, **ev):
+        """Aus dem Worker-Thread (Manager.progress). Bündelt die Ereignisse zu höchstens einem idle-Aufruf."""
+        ev["ctx"] = self._prog_ctx
+        ev["t"] = time.monotonic()
+        self._prog = ev
+        if not self._prog_pending:
+            self._prog_pending = True
+            GLib.idle_add(self._progress_idle)
+
+    def _progress_idle(self):
+        self._prog_pending = False
+        self.render_progress()
+        return False
+
+    def render_progress(self):
+        ev = self._prog
+        if ev is None or not self.busy:
+            return
+        now = time.monotonic()
+        i, n = ev.get("ctx") or (0, 1)
+        name = ev.get("name") or "Download"
+        head = f"{name} ({i + 1}/{n})" if n > 1 else name
+        state, frac = ev.get("state"), None
+        if state == "download":
+            done, total = ev.get("done") or 0, ev.get("total")
+            key = (name, ev.get("way"), ev.get("attempt"))
+            if not self._prog_speed or self._prog_speed[0] != key:
+                self._prog_speed = (key, ev["t"], done)
+            _k, t0, b0 = self._prog_speed
+            parts = [head, ev.get("way") or "", core.fmt_size(done) + (f" / {core.fmt_size(total)}" if total else "")]
+            if ev["t"] - t0 >= 1 and done > b0:
+                parts.append(core.fmt_size((done - b0) / (ev["t"] - t0)) + "/s")
+            if (ev.get("attempt") or 1) > 1:
+                parts.append(f"Versuch {ev['attempt']}/{core.DL_ATTEMPTS}")
+            idle = now - ev["t"]
+            if idle >= 5:
+                parts.append(f"keine Daten seit {idle:.0f} s")
+            text = " · ".join(p for p in parts if p)
+            frac = done / total if total else None
+        elif state == "verify":
+            text, frac = f"{head} · prüfe Zip-Datei …", 1.0
+        elif state == "retry":
+            left = max(0, ev.get("wait", 0) - (now - ev["t"]))
+            text = (f"{head} · {ev.get('way')}: {ev.get('error')} – neuer Versuch "
+                    f"{ev.get('attempt')}/{core.DL_ATTEMPTS} in {left:.0f} s")
+        elif state == "fallback":
+            text = f"{head} · {ev.get('way')}: {ev.get('error')} – wechsle zu {ev.get('next')}"
+        else:
+            return
+        if self.mgr.dl_cancel.is_set():
+            text = "Breche ab …"
+        if frac is None and state == "download":
+            self.prog_bar.pulse()
+        else:
+            self.prog_bar.set_fraction(max(0.0, min(1.0, (i + (frac or 0.0)) / max(n, 1))))
+        self.prog_bar.set_text(text)
+        self.prog_bar.set_tooltip_text(text)
+        if not self.prog_box.get_visible():
+            self.prog_cancel.set_sensitive(True)
+            self.prog_box.show()
+        if self._prog_tick is None:
+            # aktualisiert Wartezeiten und die "keine Daten"-Anzeige auch ohne neue Ereignisse
+            self._prog_tick = GLib.timeout_add(500, self._progress_tick)
+
+    def _progress_tick(self):
+        if not self.prog_box.get_visible():
+            self._prog_tick = None
+            return False
+        self.render_progress()
+        return True
+
+    def hide_progress(self):
+        self._prog = None
+        self._prog_speed = None
+        self.prog_box.hide()
+        self.prog_bar.set_fraction(0.0)
+
+    def on_cancel_downloads(self, *_):
+        self.mgr.dl_cancel.set()
+        self.prog_cancel.set_sensitive(False)
+        self.prog_bar.set_text("Breche ab …")
+        self.log("Downloads werden abgebrochen …")
+
+    def log_results(self, results, what="aktualisiert"):
+        """Ergebnis einer Installation ins Protokoll; die letzte Zeile landet in der Statuszeile."""
+        ok = [r.name for r in results if r.ok]
+        for r in results:
+            if not r.ok:
+                self.log(f"FEHLER {r.name}: {r.message}")
+        if ok:
+            self.log(f"Fertig: {len(ok)} Addon{'s' if len(ok) != 1 else ''} {what} ({', '.join(ok)})")
+        elif results:
+            self.log("Fertig: nichts installiert")
 
     def bg(self, fn, cb, text="Arbeite …"):
         self.set_busy(True, text)
@@ -974,15 +1091,30 @@ class App:
             self.bg(lambda: self.mgr.uninstall(plans), finished, "Deinstalliere …")
         self.bg(lambda: [self.mgr.plan_uninstall(p) for p in sel], planned, "Prüfe Abhängigkeiten …")
 
-    @staticmethod
-    def plan_all(planners):
+    def plan_all(self, planners):
+        """Im Worker: plant (laedt) alle Pakete nacheinander; nach "Abbrechen" werden die restlichen übersprungen."""
         plans, errs = [], []
-        for label, fn, ctx in planners:
-            try:
-                plans.append(fn())
-            except Exception as e:  # noqa: BLE001
-                errs.append((label, e, ctx))
+        self.mgr.dl_cancel.clear()
+        try:
+            for i, (label, fn, ctx) in enumerate(planners):
+                self._prog_ctx = (i, len(planners))
+                if self.mgr.dl_cancel.is_set():
+                    errs.append((label, ApiError("Download abgebrochen", "cancel"), ctx))
+                    continue
+                try:
+                    plans.append(fn())
+                except Exception as e:  # noqa: BLE001
+                    errs.append((label, e, ctx))
+        finally:
+            self._prog_ctx = None
         return plans, errs
+
+    @staticmethod
+    def split_cancelled(errs):
+        """-> (Fehler ohne Abbrüche, Namen der abgebrochenen Pakete)"""
+        def cancelled(e):
+            return isinstance(e, ApiError) and e.kind == "cancel"
+        return [x for x in errs if not cancelled(x[1])], [n for n, e, _c in errs if cancelled(e)]
 
     def install_flow(self, planners, finish=None, planned=None):
         """planners: [(Name, Callable -> InstallPlan, Kontext)]. Planen im Worker, dann Bestaetigung und apply.
@@ -993,6 +1125,9 @@ class App:
 
         def done(res, _err):
             plans, errs = res
+            errs, cancelled = self.split_cancelled(errs)
+            if cancelled:
+                self.log(f"Abgebrochen: {', '.join(cancelled)}")
             queue = []
             if errs:
                 lines = [f"{n}: {err_text(e)}" for n, e, _c in errs]
@@ -1005,7 +1140,7 @@ class App:
                 else:
                     message(self.win, "Nicht alles konnte vorbereitet werden", "\n".join(lines), Gtk.MessageType.WARNING)
             if queue or finish:
-                col = dict(installed=[], skipped=[], errors=[])
+                col = dict(installed=[], skipped=list(cancelled), errors=[])
                 col["errors"] += [(n, err_text(e)) for n, e, _c in errs if not is_dl(e)]
                 if not queue:
                     col["skipped"] += [n for n, e, _c in errs if is_dl(e)]
@@ -1050,6 +1185,12 @@ class App:
 
         def planned(res, _err):
             plans, errs, running = res
+            errs, cancelled = self.split_cancelled(errs)
+            if cancelled:
+                self.log(f"Abgebrochen: {', '.join(cancelled)}")
+                if not plans and not errs:
+                    report(dict(installed=[], skipped=cancelled, errors=[]), False)
+                    return
             if running:
                 # WoW laeuft: nichts installieren, kein Fenster, Plaene verwerfen
                 for p in plans:
@@ -1058,10 +1199,11 @@ class App:
                 return
             if not errs and plans and not running and not any(p.needs_strong_confirm for p in plans):
                 def applied(results, err):
-                    col = dict(installed=[], skipped=[], errors=[])
+                    col = dict(installed=[], skipped=list(cancelled), errors=[])
                     if err:
                         col["errors"] += [(p.name, err_text(err)) for p in plans]
                     else:
+                        self.log_results(results)
                         for r in results:
                             (col["installed"] if r.ok else col["errors"]).append(r.name if r.ok else (r.name, r.message))
                     self.rescan(quiet=True, then=lambda *_: report(col, False))
@@ -1121,6 +1263,8 @@ class App:
             return
 
         def finished(results, err):
+            if not err:
+                self.log_results(results, "installiert")
             if col is not None:
                 if err:
                     col["errors"] += [(p.name, err_text(err)) for p in keep]
@@ -1749,7 +1893,8 @@ def main(argv):
         return gapp.run([sys.argv[0]] + list(argv))  # vorhandene Instanz meldet sich
 
     holder = {}
-    mgr = Manager(log=lambda s: holder["app"].log(s) if "app" in holder else None)
+    mgr = Manager(log=lambda s: holder["app"].log(s) if "app" in holder else None,
+                  progress=lambda **kw: holder["app"].on_progress(**kw) if "app" in holder else None)
     register_fonts()
     apply_theme(mgr.cfg["classic_theme"])
     state = {"code": 0}

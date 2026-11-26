@@ -111,7 +111,7 @@ def _install(rel, progress, cancel):
         os.close(fd)
         if progress:
             progress(0.0)
-        core.download_file(rel.asset_url, tmp_bin, cancel=cancel)
+        core.download_file(rel.asset_url, tmp_bin, cancel=cancel, progress=progress)
         h = hashlib.sha256()
         with open(tmp_bin, "rb") as f:
             for chunk in iter(lambda: f.read(1 << 20), b""):

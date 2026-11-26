@@ -17,6 +17,7 @@ Ein inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Li
 ### Downloads ohne Umweg
 
 - **Direkt-Download auch für gesperrte Addons**: Manche Autoren geben ihr Addon nicht für die CurseForge-API frei (z. B. DBM, Auctionator). Dann lädt der Manager dieselbe Datei automatisch über den Download-Link der CurseForge-Website bzw. das CurseForge-CDN, ganz ohne Browser. Abschaltbar unter ☰ → Einstellungen.
+- **Fortschritt, Wiederholung, Wegwechsel**: Unten im Fenster zeigt ein Balken jeden Download mit Menge und Geschwindigkeit, laufende Downloads lassen sich abbrechen. Hängt eine Verbindung (30 s ohne Daten), bricht sie ab oder kommt eine beschädigte Datei an, versucht der Manager es bis zu dreimal und wechselt dann automatisch zum nächsten Weg (API → Website → CDN).
 - **Browser als letzter Ausweg**: Klappt auch das nicht, öffnet sich die exakte Dateiseite (oder eine auf die Forever-Spielversion vorgefilterte Dateiliste), und der Manager wartet auf die heruntergeladene Zip-Datei. Mehrere Addons werden nacheinander abgearbeitet (jederzeit überspringen oder abbrechen), am Ende gibt es eine Übersicht.
 - **Download-Ordner aus dem Browser**: Überwacht wird der Download-Ordner deines Standardbrowsers (Chrome/Chromium-Familie, Firefox-Familie inkl. Flatpak/Snap), dazu die Ordner der übrigen erkannten Browser und der XDG-Download-Ordner. Ein eigener Ordner lässt sich unter ☰ → Einstellungen festlegen. Aus den Browser-Profilen werden nur die Download-Einstellungen gelesen, sonst nichts.
 

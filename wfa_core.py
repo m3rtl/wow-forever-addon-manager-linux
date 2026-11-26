@@ -8,10 +8,12 @@ import contextlib
 import fnmatch
 import hashlib
 import html
+import http.client
 import json
 import os
 import re
 import shutil
+import socket
 import stat
 import struct
 import subprocess
@@ -29,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 APP_NAME = "wow-forever-addon-manager"
 UA = f"{APP_NAME}/{__version__}"
@@ -37,6 +39,9 @@ DEFAULT_CLIENT = 16001
 FOREVER_TYPE_FALLBACK = 88568
 MAX_DOWNLOAD = 300 * 1024 * 1024
 MAX_UNPACKED = 1024 * 1024 * 1024
+DL_TIMEOUT = 30           # Sekunden ohne Daten, bis ein Download als haengend gilt
+DL_ATTEMPTS = 3           # Versuche je Download-Weg bei voruebergehenden Fehlern
+DL_BACKOFF = (2, 5)       # Wartezeit vor dem 2. und 3. Versuch
 KEEP_BACKUPS = 5
 FOREVER_RE = re.compile(r"^1\.6\d\.")
 CF_API = "https://api.curseforge.com"
@@ -86,11 +91,20 @@ CATALOG = [
 
 
 class ApiError(Exception):
-    """kind: key | forbidden | rate | http | net | nokey | nofile | download | setup | other"""
+    """kind: key | forbidden | rate | http | net | stall | corrupt | cancel | nokey | nofile | download | setup | other
+    code: HTTP-Status bei kind=http."""
 
-    def __init__(self, msg, kind="other"):
+    def __init__(self, msg, kind="other", code=None):
         super().__init__(msg)
         self.kind = kind
+        self.code = code
+
+    @property
+    def transient(self):
+        """Lohnt ein neuer Versuch (Netz, haengende Verbindung, Rate-Limit, Serverfehler, kaputte Datei)?"""
+        if self.kind == "http":
+            return (self.code or 0) in (408, 425) or (self.code or 0) >= 500
+        return self.kind in ("net", "stall", "rate", "corrupt")
 
 
 @dataclass
@@ -472,7 +486,7 @@ def _open(url, headers=None, timeout=25, data=None, opener=None):
                 raise ApiError("CurseForge: Zugriff verweigert (HTTP 403)", "forbidden")
         if e.code == 429 or (e.code == 403 and host == "api.github.com"):
             raise ApiError("Rate-Limit erreicht (%s)" % host, "rate")
-        raise ApiError(f"HTTP {e.code} für {host}", "http")
+        raise ApiError(f"HTTP {e.code} für {host}", "http", e.code)
     except (urllib.error.URLError, OSError, TimeoutError) as e:
         raise ApiError(f"Netzwerkfehler ({getattr(e, 'reason', e)})", "net")
 
@@ -490,26 +504,62 @@ def http_json(url, headers=None, body=None):
             raise ApiError("Ungültige Antwort (kein JSON)", "other")
 
 
-def download_file(url, dest, limit=MAX_DOWNLOAD, cancel=None, headers=None):
+def fmt_size(n):
+    n = float(n or 0)
+    for unit in ("B", "KB", "MB"):
+        if n < 1024 or unit == "MB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}".replace(".", ",")
+        n /= 1024
+    return ""
+
+
+def download_file(url, dest, limit=MAX_DOWNLOAD, cancel=None, headers=None, progress=None, timeout=DL_TIMEOUT):
+    """Laedt url nach dest -> Bytes. progress(geladen, gesamt|None) nach jedem Block.
+    Fehler als ApiError: stall (timeout s ohne Daten), net (Abbruch, unvollstaendig), cancel, http, ..."""
     if urllib.parse.urlparse(url).scheme != "https":
         raise ApiError("Download nur über https erlaubt", "download")
-    with _open(url, headers, timeout=60) as r:
+    with _open(url, headers, timeout=timeout) as r:
         size = r.headers.get("Content-Length")
-        if size and size.isdigit() and int(size) > limit:
+        size = int(size) if size and size.isdigit() else None
+        if size and size > limit:
             raise ApiError("Download zu groß (>300 MB)", "other")
         total = 0
+        if progress:
+            progress(0, size)
         with open(dest, "wb") as f:
             while True:
                 if cancel is not None and cancel.is_set():
-                    raise ApiError("Abgebrochen", "other")
-                chunk = r.read(1 << 16)
+                    raise ApiError("Abgebrochen", "cancel")
+                try:
+                    chunk = r.read(1 << 16)
+                except (TimeoutError, socket.timeout) as e:
+                    raise ApiError(f"keine Daten seit {timeout} s – Verbindung hängt", "stall") from e
+                except (OSError, http.client.HTTPException) as e:
+                    raise ApiError(f"Verbindung abgebrochen ({e.__class__.__name__})", "net") from e
                 if not chunk:
                     break
                 total += len(chunk)
                 if total > limit:
                     raise ApiError("Download zu groß (>300 MB)", "other")
                 f.write(chunk)
+                if progress:
+                    progress(total, size)
+    if size is not None and total < size:
+        raise ApiError(f"Download unvollständig ({fmt_size(total)} von {fmt_size(size)})", "net")
     return total
+
+
+def check_zip(path):
+    """Keine Zip -> kind=download (falsche Antwort, naechster Weg); CRC-Fehler -> kind=corrupt (neuer Versuch)."""
+    if not zipfile.is_zipfile(path):
+        raise ApiError("Antwort ist keine Zip-Datei", "download")
+    try:
+        with zipfile.ZipFile(path) as z:
+            bad = z.testzip()
+    except Exception as e:  # noqa: BLE001 - jede Lese-/Entpack-Ausnahme heisst: Datei kaputt
+        raise ApiError(f"Zip-Datei beschädigt ({e})", "corrupt") from e
+    if bad:
+        raise ApiError(f"Zip-Datei beschädigt ({bad})", "corrupt")
 
 
 # ---------------------------------------------------------------- TOC / Versionen
@@ -1116,8 +1166,11 @@ def install_desktop_entry():
 # ---------------------------------------------------------------- Manager
 
 class Manager:
-    def __init__(self, home=None, addons_dir=None, log=None):
+    def __init__(self, home=None, addons_dir=None, log=None, progress=None):
         self.log = log or (lambda s: None)
+        # progress(**ereignis) aus dem Worker-Thread, siehe _fetch
+        self.progress = progress or (lambda **_kw: None)
+        self.dl_cancel = threading.Event()   # setzen bricht laufende Downloads ab
         self.paths = Paths(home)
         self.cfg = Config(self.paths, self.log)
         self.notes = []
@@ -1684,13 +1737,14 @@ class Manager:
             plan.staging = None
 
     def _plan_zip_url(self, url):
+        name = Path(urllib.parse.unquote(urllib.parse.urlparse(url).path)).stem
         st = self._new_staging()
         try:
-            download_file(url, st / "download.zip")
+            self.log(f"Lade {name} ...")
+            self._fetch([("Zip-URL", url, None, False)], st / "download.zip", name)
         except BaseException:
             shutil.rmtree(st, ignore_errors=True)
             raise
-        name = Path(urllib.parse.unquote(urllib.parse.urlparse(url).path)).stem
         return self._build_plan(st / "download.zip", st, f"zip-{name}", name, "ZIP", {}, {})
 
     def plan_zip(self, path, hint_key=None):
@@ -1756,25 +1810,8 @@ class Manager:
             raise ApiError("Kein Download-Link verfügbar (Browser-Download nötig).", "download")
         st = self._new_staging()
         try:
-            last = None
             self.log(f"Lade {rem.filename or rem.display} ...")
-            for label, u, hdr, direct in ways:
-                dest = st / "download.zip"
-                try:
-                    download_file(u, dest, headers=hdr)
-                    if not zipfile.is_zipfile(dest):
-                        raise ApiError("Antwort ist keine Zip-Datei", "download")
-                    last = None
-                    if direct:
-                        self.log(f"Direkt-Download über {'CurseForge-Website' if 'Website' in label else 'CDN'}")
-                    break
-                except ApiError as e:
-                    last = e
-                    self.log(f"{label}: {e}")
-                    with contextlib.suppress(OSError):
-                        dest.unlink()
-            if last:
-                raise ApiError(f"Download fehlgeschlagen: {last}", "download")
+            self._fetch(ways, st / "download.zip", name)
             info = dict(source=rem.source, ident_key="file_id" if rem.source == "CF" else "tag", ident=rem.ident,
                         version=rem.version, cf_mod_id=mod_id, file_date=rem.file_date, display=rem.display,
                         save_package=save_package)
@@ -1782,6 +1819,46 @@ class Manager:
         except BaseException:
             shutil.rmtree(st, ignore_errors=True)
             raise
+
+    def _fetch(self, ways, dest, name):
+        """ways: [(Label, URL, Header, ist_direkt)]. Jeder Weg bekommt bei voruebergehenden Fehlern (Netz, haengende
+        Verbindung, HTTP 5xx/429, kaputte Zip) bis zu DL_ATTEMPTS Versuche, sonst geht es mit dem naechsten Weg weiter.
+        Meldet den Verlauf an self.progress(name, way, state=download|verify|retry|fallback, ...).
+        -> Label des erfolgreichen Wegs. Fehler: kind=download (alle Wege gescheitert, mit Liste) oder kind=cancel."""
+        cancel = self.dl_cancel
+        tried = []
+        for wi, (label, url, hdr, _direct) in enumerate(ways):
+            nxt = ways[wi + 1][0] if wi + 1 < len(ways) else None
+            for attempt in range(1, DL_ATTEMPTS + 1):
+                def prog(done, total, label=label, attempt=attempt):
+                    self.progress(name=name, way=label, state="download", done=done, total=total, attempt=attempt)
+                try:
+                    n = download_file(url, dest, cancel=cancel, headers=hdr, progress=prog)
+                    self.progress(name=name, way=label, state="verify", done=n, total=n, attempt=attempt)
+                    check_zip(dest)
+                    self.log(f"{name}: {fmt_size(n)} geladen über {label}")
+                    return label
+                except ApiError as e:
+                    with contextlib.suppress(OSError):
+                        dest.unlink()
+                    if e.kind == "cancel" or cancel.is_set():
+                        self.log(f"{name}: Download abgebrochen")
+                        raise ApiError("Download abgebrochen", "cancel") from e
+                    if e.transient and attempt < DL_ATTEMPTS:
+                        wait = DL_BACKOFF[min(attempt, len(DL_BACKOFF)) - 1]
+                        self.log(f"{name} – {label}: {e} – neuer Versuch {attempt + 1}/{DL_ATTEMPTS} in {wait} s")
+                        self.progress(name=name, way=label, state="retry", error=str(e), attempt=attempt + 1,
+                                      wait=wait)
+                        if cancel.wait(wait):
+                            self.log(f"{name}: Download abgebrochen")
+                            raise ApiError("Download abgebrochen", "cancel") from e
+                        continue
+                    tried.append(f"{label}: {e}" + (f" ({attempt} Versuche)" if attempt > 1 else ""))
+                    self.log(f"{name} – {label}: {e}" + (f" – weiter mit {nxt}" if nxt else ""))
+                    if nxt:
+                        self.progress(name=name, way=label, state="fallback", error=str(e), next=nxt)
+                    break
+        raise ApiError("Download fehlgeschlagen, alle Wege versucht:\n  " + "\n  ".join(tried), "download")
 
     def _build_plan(self, zpath, st, key, name, source, meta, info):
         x = st / "x"
