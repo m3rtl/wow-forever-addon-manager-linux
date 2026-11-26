@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
 import threading
 import time
+from pathlib import Path
 
 import wfa_core as core
 from wfa_core import ApiError, InstallPlan, Manager
@@ -14,7 +16,9 @@ from wfa_core import ApiError, InstallPlan, Manager
 USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 COLORS = {"red": "31", "green": "32", "yellow": "33", "cyan": "36", "grey": "90", "bold": "1"}
 STATUS_COLOR = {core.UPDATE: "green", core.CURRENT: "cyan", core.NEWER: "yellow", core.UNKNOWN: "yellow",
-                core.NOKEY: "yellow", core.UNASSIGNED: "grey", core.ERROR: "red", core.NO_FOREVER: "yellow"}
+                core.NOKEY: "yellow", core.UNASSIGNED: "grey", core.ERROR: "red", core.NO_FOREVER: "yellow",
+                core.HELD: "grey", core.SKIPPED: "grey"}
+CHANNEL_LABEL = {"release": "Nur Release", "beta": "Beta", "alpha": "Alpha"}
 FOREVER_COLOR = {"ok": "green", "veraltet": "yellow", "nein": "red"}
 
 
@@ -123,12 +127,16 @@ def table(mgr, pkgs):
     for i, p in enumerate(pkgs, 1):
         name = p.name if len(p.name) <= 38 else p.name[:37] + "…"
         data.append([(str(i), None), (name, None), (core.display_version(p.local_version) or "?", None),
-                     (core.display_version(p.remote.version) if p.remote else "–", None), (p.source, None),
+                     ((core.display_version(p.remote.version) if p.remote else "–")
+                      + {"beta": " β", "alpha": " α"}.get(p.channel, ""), None), (p.source, None),
                      (p.forever, FOREVER_COLOR.get(p.forever)), (p.status, STATUS_COLOR.get(p.status))])
     w = [max(len(h), *(len(row[c][0]) for row in data)) if data else len(h) for c, h in enumerate(heads)]
     print(paint("  ".join(h.ljust(w[c]) for c, h in enumerate(heads)), "bold"))
     for row in data:
         print("  ".join(paint(t.rjust(w[c]) if c == 0 else t.ljust(w[c]), col) for c, (t, col) in enumerate(row)))
+    for p in pkgs:
+        if p.pin:
+            print(paint(f"* {p.name}: {core.pin_text(p.pin)}", "grey"))
     for n in dict.fromkeys(mgr.notes):
         print(paint("! " + n, "yellow"))
 
@@ -168,6 +176,21 @@ def confirm_apply(mgr, plans):
             keep.append(p)
         if not keep:
             return results
+        try:
+            deps = mgr.resolve_deps(keep)
+        except ApiError as e:
+            print(paint(f"Abhängigkeiten nicht prüfbar: {e}", "yellow"))
+            deps = []
+        for dn in deps:
+            if not dn.cand:
+                print(paint(f"  Benötigt: {dn.name} – {dn.note} ({dn.reason})", "yellow"))
+            elif yn(f"  Benötigt: {dn.name} ({dn.reason}) – mitinstallieren?"):
+                try:
+                    plans.append(mgr.plan_candidate(dn.cand))
+                    keep.append(plans[-1])
+                    show_plan(plans[-1])
+                except ApiError as e:
+                    print(paint(f"  {dn.name}: {e}", "red"))
         if mgr.wow_running() and not yn(paint("WoW scheint zu laufen! Trotzdem fortfahren?", "yellow")):
             return results
         if not yn(f"{len(keep)} Paket(e) installieren?"):
@@ -270,6 +293,60 @@ def menu_updates(mgr, pkgs):
         browser_queue(mgr, queue)
 
 
+def menu_version(mgr, pkgs):
+    s = parse_selection(ask("Addon-Nummer (Enter = zurück): "), len(pkgs))
+    if not s:
+        return False
+    p = pkgs[s[0] - 1]
+    if p.meta.get("unassigned"):
+        print("Erst zuordnen (Taste z).")
+        return False
+    print(f"{p.name}: Kanal {CHANNEL_LABEL.get(p.channel, 'Standard')}" + (f"; {core.pin_text(p.pin)}" if p.pin else ""))
+    print("[1] Bestimmte Version installieren  [2] Kanal setzen" + ("  [3] Festhalten/Auslassen aufheben" if p.pin else ""))
+    c = ask("Auswahl (Enter = zurück): ")
+    if c == "1":
+        install_version(mgr, p)
+    elif c == "2":
+        print("[0] Standard (wie Einstellung)  [1] Nur Release  [2] Beta  [3] Alpha")
+        ch = {"0": None, "1": "release", "2": "beta", "3": "alpha"}
+        k = ask("Kanal (Enter = zurück): ")
+        if k in ch:
+            mgr.set_channel(p.key, ch[k])
+    elif c == "3" and p.pin:
+        mgr.clear_pin(p.key)
+    else:
+        return False
+    return True
+
+
+def install_version(mgr, p):
+    page, remotes = 0, []
+    while True:
+        res, more = mgr.versions(p, page)
+        remotes += res
+        if not remotes:
+            print("Keine Versionen gefunden.")
+            return
+        ident = mgr.installed_ident(p)
+        for i, r in enumerate(remotes, 1):
+            mark = paint(" [installiert]", "cyan") if ident is not None and r.ident == ident else ""
+            print(f"  {i:2}) {r.display or r.version}  {r.file_date[:10]}  {core.TYPE_NAMES.get(r.rtype, 'Release')}{mark}")
+        arg = ask("Nummer" + (", 'm' = mehr laden" if more else "") + " (Enter = zurück): ").lower()
+        if arg == "m" and more:
+            page += 1
+            continue
+        s = parse_selection(arg, len(remotes))
+        if not s:
+            return
+        break
+    r, newest = remotes[s[0] - 1], mgr.newest_allowed(p, remotes)
+    mode = None
+    if r.ident != newest.ident:
+        k = ask("Danach: [1] nur neuere Versionen auslassen  [2] auf dieser Version festhalten (Enter = 1): ")
+        mode = "hold" if k == "2" else "skip"
+    confirm_apply(mgr, [mgr.plan_version(p, r, mode, newest)])
+
+
 def pick(cands, what="Nummer (Enter = zurück): "):
     if not cands:
         print("Keine Treffer.")
@@ -357,8 +434,25 @@ def menu_assign(mgr, pkgs):
         return
     folders = [un[i - 1].name for i in s]
     title = un[s[0] - 1].note or folders[0]
-    q = ask(f"CF-Projekt-ID, gh:owner/repo oder CF-Suchbegriff [{title}]: ") or title
-    repo = core.parse_github(q) if q.startswith("gh:") or "github.com/" in q else None
+    try:
+        sugs = mgr.suggest_assignments(un[s[0] - 1])
+    except ApiError as e:
+        print(paint(f"Vorschläge nicht ermittelbar: {e}", "yellow"))
+        sugs = []
+    for i, sg in enumerate(sugs, 1):
+        print(f"  v{i}) {sg.cand.name}  ({sg.cand.source} {sg.cand.ident})  – {sg.reason}")
+    q = ask(f"{'Vorschlag (v1 …), ' if sugs else ''}CF-Projekt-ID, gh:owner/repo oder CF-Suchbegriff [{title}]: ") or title
+    pre = re.fullmatch(r"v(\d+)", q.lower())
+    if pre and 1 <= int(pre.group(1)) <= len(sugs):
+        c = sugs[int(pre.group(1)) - 1].cand
+        q = f"gh:{c.ident}" if c.source == "GH" else str(c.ident)
+    repo = None
+    if q.lower().startswith("gh:") or "github.com/" in q.lower():
+        try:
+            repo = mgr.assign_target(q).ident
+        except ApiError as e:
+            print(paint(f"Fehler: {e}", "red"))
+            return
     try:
         if repo:
             mgr.assign_folders(folders, title, gh=repo)
@@ -381,6 +475,70 @@ def menu_assign(mgr, pkgs):
         print(paint(f"Fehler: {e}", "red"))
         return
     print(f"Zugeordnet: {', '.join(folders)}")
+
+
+def export_cmd(mgr, target):
+    mgr.log = lambda s: print(s, file=sys.stderr)
+    pkgs = mgr.scan()
+    mgr.check(pkgs)
+    data = mgr.export_data(pkgs)
+    out = core.export_text(data) if target.lower().endswith(".txt") else json.dumps(data, indent=2, ensure_ascii=False)
+    if target == "-":
+        print(out)
+    else:
+        try:
+            Path(target).expanduser().write_text(out + "\n", "utf-8")
+        except OSError as e:
+            print(paint(f"Export nicht gespeichert: {e}", "red"), file=sys.stderr)
+            return 1
+        print(f"{len(data['packages'])} Addons exportiert nach {target}")
+    if not mgr.api_key:
+        print("Hinweis: Ohne CurseForge-Key werden CF-Addons evtl. nicht erkannt und fehlen dann in der Liste.", file=sys.stderr)
+    if not data["packages"]:
+        print("Hinweis: Keine übertragbaren Addons (CurseForge-/GitHub-Zuordnung fehlt).", file=sys.stderr)
+    if data["untransferable"]:
+        print("Nicht übertragbar: " + ", ".join(data["untransferable"]), file=sys.stderr)
+    return 0
+
+
+def import_cmd(mgr, source):
+    p = Path(source).expanduser()
+    try:
+        try:
+            is_file = p.is_file()
+        except OSError:   # z. B. zu langer Name: ist dann Text
+            is_file = False
+        entries = core.parse_import(p.read_text("utf-8-sig") if is_file else source)
+    except (OSError, UnicodeDecodeError) as e:
+        print(paint(f"Datei nicht lesbar: {e}", "red"))
+        return 1
+    except ApiError as e:
+        print(paint(str(e), "red"))
+        return 1
+    mgr.scan()
+    items = mgr.import_preview(entries)
+    for it in items:
+        print(f"  {it['name']}" + (f"  ({it['source']})" if it["name"] != it["source"] else "") + (f" [{it['channel']}]" if it.get("channel") else "")
+              + (paint("  – schon installiert", "cyan") if it["installed"] else ""))
+    todo = [it for it in items if not it["installed"]]
+    if not todo or not yn(f"{len(todo)} Addon(s) installieren?"):
+        return 0
+    plans = []
+    try:
+        for it in todo:
+            try:
+                plans.append(mgr.plan_candidate(mgr.import_candidate(it), it.get("channel")))
+            except ApiError as e:
+                print(paint(f"{it['name']}: {e}", "red"))
+        results = confirm_apply(mgr, plans)
+    finally:
+        for pl in plans:
+            mgr.discard(pl)
+    wanted = {pl.key for pl in plans}   # mitinstallierte Abhängigkeiten nicht mitzählen
+    bad = len(todo) - sum(1 for r in results if r.ok and r.key in wanted)
+    if bad and (results or not plans):
+        print(paint(f"{bad} von {len(todo)} Addon(s) nicht installiert.", "yellow"))
+    return 1 if todo and not any(r.ok for r in results) and (results or not plans) else 0
 
 
 def menu_browser(mgr, pkgs):
@@ -410,12 +568,16 @@ def menu_key(mgr):
 
 
 def menu_restore(mgr):
-    sets = mgr.list_backups()
+    sets = [(b.created, b) for b in mgr.list_backups()] + [(v.created, v) for v in mgr.list_sv_backups()]
+    sets = [x[1] for x in sorted(sets, key=lambda x: x[0], reverse=True)]
     if not sets:
         print("Keine Sicherungen vorhanden.")
         return False
     for i, b in enumerate(sets, 1):
-        print(f"  {i}) {b.name}: {', '.join(b.folders)}")
+        if isinstance(b, core.SvSet):
+            print(f"  {i}) {b.name}: Einstellungen (SavedVariables), {len(b.addons)} Addons")
+        else:
+            print(f"  {i}) {b.name}: {', '.join(b.folders)}")
     s = ask("Sicherung wählen (Enter = zurück): ")
     sel = parse_selection(s, len(sets)) if s else None
     if s and sel is None:
@@ -423,6 +585,8 @@ def menu_restore(mgr):
     if not sel:
         return False
     b = sets[sel[0] - 1]
+    if isinstance(b, core.SvSet):
+        return restore_sv_cli(mgr, b)
     if not b.folders or not yn(f"{len(b.folders)} Ordner wiederherstellen (aktuelle Versionen werden vorher gesichert)?"):
         return False
     if mgr.wow_running() and not yn(paint("WoW scheint zu laufen! Trotzdem fortfahren?", "yellow")):
@@ -430,6 +594,33 @@ def menu_restore(mgr):
     r = mgr.restore(b)
     print(paint(r.message, "green" if r.ok else "red"))
     return r.ok
+
+
+def restore_sv_cli(mgr, b):
+    if mgr.wow_running():
+        print(paint("WoW läuft – Einstellungen lassen sich nur bei beendetem WoW wiederherstellen.", "red"))
+        return False
+    print("Addons: " + ", ".join(b.addons))
+    s = ask("Nur bestimmte Addons (Namen, durch Leerzeichen getrennt)? Enter = alle: ")
+    only = s.split() if s else None
+    if not yn("Einstellungen wiederherstellen (aktueller Stand wird vorher gesichert)?"):
+        return False
+    r = mgr.restore_sv(b, only)
+    print(paint(r.message, "green" if r.ok else "red"))
+    return r.ok
+
+
+def menu_history(mgr):
+    entries = mgr.read_history(30)
+    if not entries:
+        print("Noch keine Änderungen protokolliert.")
+    for e in entries:
+        old, new = e.get("old"), e.get("new")
+        ver = f"  {old or '–'} → {new or '–'}" if (old or new) else ""
+        print(f"  {str(e.get('ts') or '?').replace('T', ' ')}  {str(e.get('kind') or ''):<17} {str(e.get('name') or '')}{ver}"
+              + (f"  [Sicherung {e['backup']}]" if e.get("backup") else "")
+              + (f"  [Einstellungen {e['sv']}]" if e.get("sv") else ""))
+    return False
 
 
 def menu_uninstall(mgr, pkgs):
@@ -467,7 +658,7 @@ def run(mgr):
         header(mgr)
         table(mgr, pkgs)
         print("\n[u] Updates  [n] Neu installieren  [z] Zuordnen  [b] Browser-Download  [k] CF-Key  "
-              f"[e] Beta: {'an' if mgr.cfg['include_beta'] else 'aus'}  [r] Neu prüfen  [d] Deinstallieren  [w] Wiederherstellen  [q] Ende")
+              f"[e] Beta: {'an' if mgr.cfg['include_beta'] else 'aus'}  [v] Version/Kanal  [r] Neu prüfen  [d] Deinstallieren  [w] Wiederherstellen  [h] Verlauf  [q] Ende")
         c = ask("> ").lower()
         if c == "q":
             return
@@ -485,6 +676,8 @@ def run(mgr):
             elif c == "b":
                 menu_browser(mgr, pkgs)
                 again = True
+            elif c == "v":
+                again = menu_version(mgr, pkgs)
             elif c == "k":
                 again = menu_key(mgr)
             elif c == "e":
@@ -494,6 +687,8 @@ def run(mgr):
                 again = menu_uninstall(mgr, pkgs)
             elif c == "w":
                 again = menu_restore(mgr)
+            elif c == "h":
+                menu_history(mgr)
             elif c:
                 print("Unbekannte Eingabe.")
             if again:
@@ -510,6 +705,9 @@ def main(argv=None):
     ap.add_argument("--cli", action="store_true", help="Kommandozeile erzwingen (statt GUI)")
     ap.add_argument("--check", action="store_true", help="nur Tabelle ausgeben, nicht interaktiv")
     ap.add_argument("--addons-dir", metavar="PATH", help="AddOns-Ordner (nur für diesen Lauf, wird nicht gespeichert)")
+    ap.add_argument("--export", metavar="PFAD", help="Addon-Liste als JSON (oder Kurztext bei .txt) schreiben, „-“ = stdout")
+    ap.add_argument("--import", dest="import_list", metavar="PFAD|TEXT",
+                    help="Addon-Liste aus Datei oder Kurztext (WFA1 cf:… gh:…) installieren")
     ap.add_argument("--version", action="version", version=f"%(prog)s {core.__version__}")
     args = ap.parse_args(argv)
     try:
@@ -526,6 +724,10 @@ def main(argv=None):
                 return 1
             if not setup_flow(mgr):
                 return 1
+        if args.export:
+            return export_cmd(mgr, args.export)
+        if args.import_list:
+            return import_cmd(mgr, args.import_list)
         if args.check:
             pkgs = refresh(mgr)
             header(mgr)

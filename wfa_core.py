@@ -5,6 +5,7 @@ Keine Ein-/Ausgabe fuer Interaktion: Meldungen laufen ueber den log-Callback des
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import fnmatch
 import hashlib
 import html
@@ -24,6 +25,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 import webbrowser
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -31,7 +33,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 
 APP_NAME = "wow-forever-addon-manager"
 UA = f"{APP_NAME}/{__version__}"
@@ -43,6 +45,7 @@ DL_TIMEOUT = 30           # Sekunden ohne Daten, bis ein Download als haengend g
 DL_ATTEMPTS = 3           # Versuche je Download-Weg bei voruebergehenden Fehlern
 DL_BACKOFF = (2, 5)       # Wartezeit vor dem 2. und 3. Versuch
 KEEP_BACKUPS = 5
+HISTORY_MAX = 500
 FOREVER_RE = re.compile(r"^1\.6\d\.")
 CF_API = "https://api.curseforge.com"
 CF_KEY_URL = "https://console.curseforge.com"
@@ -51,6 +54,7 @@ CF_CDNS = ("https://mediafilez.forgecdn.net", "https://edge.forgecdn.net")
 BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"  # nur fuer Website/CDN-Downloads
 MAX_IMAGE = 2 * 1024 * 1024
 IMAGE_HOSTS = ("forgecdn.net", "githubusercontent.com", "github.com")
+TYPE_NAMES = {1: "Release", 2: "Beta", 3: "Alpha"}
 SORT_FIELDS = {"downloads": 6, "popularity": 2, "updated": 3, "name": 4}
 
 # Status-Konstanten
@@ -62,6 +66,8 @@ NOKEY = "kein Key"
 UNASSIGNED = "nicht zugeordnet"
 ERROR = "Fehler"
 NO_FOREVER = "keine Forever-Datei"
+HELD = "festgehalten"
+SKIPPED = "ausgelassen"
 UNCHECKED = "nicht geprüft"
 
 CATALOG = [
@@ -120,6 +126,8 @@ class Remote:
     cf_id: int | None = None
     file_date: str = ""
     notes: str = ""  # GitHub-Release-Body
+    rtype: int = 1  # 1 Release, 2 Beta, 3 Alpha (GitHub: Prerelease = Beta)
+    deps: list = field(default_factory=list)  # CF-Projekt-IDs der Pflicht-Abhaengigkeiten (relationType 3)
 
 
 @dataclass
@@ -138,6 +146,9 @@ class Package:
     note: str = ""
     meta: dict = field(default_factory=dict)  # gh, tag_prefix, asset_regex, vfolder, unassigned
     ignored: bool = False
+    pin: dict | None = None  # dict(mode="hold"|"skip", since, ref)
+    channel: str | None = None  # None = globale Einstellung
+    missing: list = field(default_factory=list)  # Ordner, die der TOC verlangt, die aber fehlen
 
 
 @dataclass
@@ -173,12 +184,29 @@ class InstallPlan:
 
 
 @dataclass
+class DepNeed:
+    name: str
+    reason: str  # z. B. „benötigt von DBM-Dungeons“
+    cand: Candidate | None = None  # None: nur Hinweis, nicht automatisch installierbar
+    note: str = ""
+    via: str = "cf"  # "cf" (CF-Abhaengigkeit) | "toc" (nur im TOC genannt)
+
+
+@dataclass
+class Suggestion:
+    cand: Candidate
+    reason: str
+    strong: bool = False  # eindeutig und geprueft: darf automatisch zugeordnet werden
+
+
+@dataclass
 class Result:
     key: str
     name: str
     ok: bool
     message: str
     backup_set: str | None = None
+    sv_set: str | None = None
 
 
 @dataclass
@@ -196,6 +224,15 @@ class BackupSet:
     path: Path
     created: float
     folders: list
+
+
+@dataclass
+class SvSet:
+    name: str
+    path: Path
+    created: float
+    addons: list  # Namen der gesicherten SavedVariables-Dateien (ohne .lua)
+    files: int = 0
 
 
 # ---------------------------------------------------------------- Pfade / Config
@@ -216,6 +253,8 @@ class Paths:
             self.config_dir, self.data_dir, self.cache = base, base, base / "cache"
         self.config_file = self.config_dir / "config.json"
         self.backups = self.data_dir / "backups"
+        self.sv_backups = self.data_dir / "sv_backups"
+        self.history = self.data_dir / "history.jsonl"
 
 
 def tilde(p):
@@ -377,6 +416,7 @@ SCHEMA = {
     "direct_download": (bool, True), "close_to_tray": (bool, True), "check_interval_min": (int, 60),
     "auto_update": (bool, False), "ignored": (list, []), "tray_notified": (dict, {}),
     "self_update_check": (bool, True), "self_auto_update": (bool, False), "self_update_skipped": (str, ""),
+    "pins": (dict, {}), "channels": (dict, {}), "sv_backup": (bool, True), "assign_failed": (dict, {}),
 }
 
 
@@ -620,16 +660,34 @@ def forever_toc(folder, client=DEFAULT_CLIENT):
     return status, ver, chosen
 
 
+def toc_dependency_names(folder, client=DEFAULT_CLIENT):
+    """Ordnernamen (Schreibweise wie im TOC), die der Forever-TOC als Abhaengigkeit verlangt."""
+    toc = forever_toc(folder, client)[2]
+    out = []
+    for k, v in (parse_toc(toc).items() if toc else ()):
+        if k.startswith("dep") or k == "requireddeps":
+            out += [x.strip() for x in v.split(",") if x.strip() and x.strip() not in out]
+    return out
+
+
 def toc_dependencies(folder, client=DEFAULT_CLIENT):
     """Ordnernamen (klein geschrieben), die der Forever-TOC als Abhaengigkeit verlangt."""
-    toc = forever_toc(folder, client)[2]
-    if not toc:
-        return set()
-    out = set()
-    for k, v in parse_toc(toc).items():
-        if k.startswith("dep") or k == "requireddeps":
-            out |= {x.strip().lower() for x in v.split(",") if x.strip()}
-    return out
+    return {x.lower() for x in toc_dependency_names(folder, client)}
+
+
+def toc_meta(folder):
+    """TOC-Felder eines Ordners: bevorzugt die Forever-TOC, sonst die erste .toc."""
+    toc = forever_toc(folder)[2]
+    if toc:
+        return parse_toc(toc)
+    for fn in toc_files(folder).values():
+        if fn.lower().endswith(".toc"):
+            return parse_toc(Path(folder) / fn)
+    return {}
+
+
+def _slug(s):
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
 def _read_text(path):
@@ -846,26 +904,44 @@ class CurseForge:
     def fingerprints(self, fps):
         return self.post("/v1/fingerprints/1", {"fingerprints": list(fps)}).get("data", {})
 
-    def latest(self, mid, tid, include_beta):
-        params = {"pageSize": 50, "index": 0}
-        if tid:
-            params["gameVersionTypeId"] = tid
-        allowed = {1, 2} if include_beta else {1}
+    def files(self, mid, tid, index=0):
+        """Eine Seite Forever-Dateien (so, wie die API sie liefert) -> (Dateien, gibt_es_mehr)."""
         hits = []
-        for f in self.get(f"/v1/mods/{mid}/files", **params).get("data", []):
-            if f.get("isAvailable") is False or f.get("releaseType") not in allowed:
-                continue
-            by_type = tid and any(s.get("gameVersionTypeId") == tid for s in f.get("sortableGameVersions") or [])
-            by_str = any(FOREVER_RE.match(str(g)) for g in f.get("gameVersions") or [])
-            if by_type or by_str:
-                hits.append(f)
-        if not hits:
-            return None
-        f = max(hits, key=lambda x: x.get("fileDate", ""))
+        for _ in range(5):   # leere Seiten nach dem Filtern ueberspringen, aber begrenzt
+            params = {"pageSize": 50, "index": index}
+            if tid:
+                params["gameVersionTypeId"] = tid
+            data = self.get(f"/v1/mods/{mid}/files", **params).get("data", [])
+            more = len(data) >= 50
+            for f in data:
+                if f.get("isAvailable") is False:
+                    continue
+                by_type = tid and any(s.get("gameVersionTypeId") == tid for s in f.get("sortableGameVersions") or [])
+                by_str = any(FOREVER_RE.match(str(g)) for g in f.get("gameVersions") or [])
+                if by_type or by_str:
+                    hits.append(f)
+            index += len(data)
+            if hits or not more:
+                break
+        self.next_index = index
+        return hits, more
+
+    @staticmethod
+    def remote_of(f, mid):
         name = f.get("displayName") or f.get("fileName") or ""
         ver = _version_token(name) or _version_token(f.get("fileName", "")) or re.sub(r"\.zip$", "", name)
         return Remote(ver, name, "CF", f.get("downloadUrl"), f["id"], f.get("fileName") or "", None,
-                      [m.get("name") for m in f.get("modules") or []], mid, f.get("fileDate", ""))
+                      [m.get("name") for m in f.get("modules") or []], mid, f.get("fileDate", ""),
+                      rtype=f.get("releaseType") or 1,
+                      deps=[d["modId"] for d in f.get("dependencies") or [] if d.get("relationType") == 3 and d.get("modId")])
+
+    def latest(self, mid, tid, allowed):
+        """allowed: Menge erlaubter releaseTypes (bool bleibt als „Beta ja/nein“ zulaessig)."""
+        allowed = channel_types(allowed)
+        hits = [f for f in self.files(mid, tid)[0] if f.get("releaseType") in allowed]
+        if not hits:
+            return None
+        return self.remote_of(max(hits, key=lambda x: x.get("fileDate", "")), mid)
 
     def download_urls(self, rem):
         urls = [rem.url] if rem.url else []
@@ -908,6 +984,15 @@ def _html_to_text(s):
     return re.sub(r"\n\s*\n+", "\n\n", "\n".join(l.rstrip() for l in s.splitlines())).strip()
 
 
+def channel_types(ch):
+    """Kanal ("release"|"beta"|"alpha"), Menge oder bool (Beta ja/nein) -> erlaubte releaseTypes."""
+    if isinstance(ch, (set, frozenset)):
+        return set(ch)
+    if isinstance(ch, str):
+        return {1, 2, 3} if ch == "alpha" else ({1, 2} if ch == "beta" else {1})
+    return {1, 2} if ch else {1}
+
+
 # ---------------------------------------------------------------- GitHub
 
 def gh_pick_asset(rel, meta):
@@ -937,18 +1022,38 @@ def gh_pick_asset(rel, meta):
     return plain[0] if len(plain) == 1 else None
 
 
-def gh_latest(repo, meta, include_beta):
-    rels = http_json(f"https://api.github.com/repos/{repo}/releases?per_page=15")
+def _gh_remote(rel, meta):
+    tag = rel.get("tag_name") or ""
     prefix = meta.get("tag_prefix") or ""
+    if rel.get("draft") or not tag.startswith(prefix):
+        return None
+    a = gh_pick_asset(rel, meta)
+    if not a:
+        return None
+    return Remote(short_version(tag[len(prefix):]), tag, "GH", a["browser_download_url"], tag, a["name"],
+                  rel.get("html_url"), notes=rel.get("body") or "", file_date=rel.get("published_at") or "",
+                  rtype=2 if rel.get("prerelease") else 1)
+
+
+def gh_latest(repo, meta, allowed):
+    rels = http_json(f"https://api.github.com/repos/{repo}/releases?per_page=15")
+    allowed = channel_types(allowed)
     for rel in rels if isinstance(rels, list) else []:
-        tag = rel.get("tag_name") or ""
-        if rel.get("draft") or (rel.get("prerelease") and not include_beta) or not tag.startswith(prefix):
+        if rel.get("prerelease") and 2 not in allowed:
             continue
-        a = gh_pick_asset(rel, meta)
-        if a:
-            return Remote(short_version(tag[len(prefix):]), tag, "GH", a["browser_download_url"], tag,
-                          a["name"], rel.get("html_url"), notes=rel.get("body") or "")
+        rem = _gh_remote(rel, meta)
+        if rem:
+            return rem
     return None
+
+
+def gh_releases(repo, meta, page=1, per_page=30):
+    """Eine Seite Releases (inkl. Prereleases, neueste zuerst) mit Forever-Zip -> (Remotes, gibt_es_mehr)."""
+    rels = http_json(f"https://api.github.com/repos/{repo}/releases?per_page={per_page}&page={page}")
+    rels = [r for r in rels if isinstance(r, dict)] if isinstance(rels, list) else []
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        out = [r for r in ex.map(lambda r: _gh_remote(r, meta), rels) if r]
+    return out, len(rels) >= per_page
 
 
 def parse_github(s):
@@ -1205,6 +1310,33 @@ def install_desktop_entry():
 
 # ---------------------------------------------------------------- Manager
 
+def _pin_record(mode, rem):
+    return dict(mode=mode, since=time.strftime("%Y-%m-%dT%H:%M:%S"),
+                ref=dict(ident=rem.ident, file_date=rem.file_date, display=rem.display, version=rem.version))
+
+
+def pin_text(pin):
+    if not pin:
+        return ""
+    ref = pin.get("ref") or {}
+    ver = display_version(ref.get("version")) or ref.get("display") or "?"
+    since = (pin.get("since") or "?")[:10]
+    if pin["mode"] == "hold":
+        return f"Auf Version {ver} festgehalten (seit {since}); Updates werden nicht angeboten."
+    return f"Ausgelassen bis eine Version neuer als {ver} erscheint (seit {since})."
+
+
+def _remote_newer(rem, ref):
+    """Ist `rem` neuer als die Referenz eines Pins? Vergleich ueber Datum bzw. Datei-ID, nicht ueber Versionstexte."""
+    if not isinstance(ref, dict) or rem.ident == ref.get("ident"):
+        return not isinstance(ref, dict)
+    if rem.file_date and ref.get("file_date"):
+        return rem.file_date > ref["file_date"]
+    if isinstance(rem.ident, int) and isinstance(ref.get("ident"), int):
+        return rem.ident > ref["ident"]
+    return not isinstance(rem.ident, int) and not isinstance(ref.get("ident"), int)   # z. B. GitHub-Tags: ungleich = neuer
+
+
 class Manager:
     def __init__(self, home=None, addons_dir=None, log=None, progress=None):
         self.log = log or (lambda s: None)
@@ -1221,11 +1353,15 @@ class Manager:
         self._folders = []
         self._fps = {}
         self._installed_ids = set()
+        self._installed_gh = set()
+        self._assign_tried = set()
         self._meta = {}
         self._hash_lock = threading.Lock()
         self._hash_cache = None
         self._hash_seen = set()
         self._apply_lock = threading.RLock()
+        self._hist_lock = threading.Lock()
+        self._ver_cursor = {}   # Index der naechsten CF-Dateiseite je Paket (Seiten koennen nach dem Filtern leer sein)
         if addons_dir:  # Override gilt nur fuer diese Sitzung
             self.addons_dir = normalize_addons_dir(addons_dir)
         else:
@@ -1292,6 +1428,43 @@ class Manager:
             if on:
                 lst.append(key)
             self.cfg["ignored"] = lst
+            self.cfg.save()
+
+    def channel(self, key):
+        ch = self.cfg["channels"].get(key)
+        return ch if ch in ("release", "beta", "alpha") else None
+
+    def allowed_types(self, key):
+        return channel_types(self.channel(key) or self.cfg["include_beta"])
+
+    def set_channel(self, key, ch):
+        with self.cfg.lock:
+            if ch in ("release", "beta", "alpha"):
+                self.cfg["channels"][key] = ch
+            else:
+                self.cfg["channels"].pop(key, None)
+            self.cfg.save()
+
+    def pin(self, key):
+        pin = self.cfg["pins"].get(key)
+        return pin if isinstance(pin, dict) and pin.get("mode") in ("hold", "skip") else None
+
+    def clear_pin(self, key):
+        with self.cfg.lock:
+            if self.cfg["pins"].pop(key, None) is not None:
+                self.cfg.save()
+
+    def hold(self, key, rem):
+        """Version festhalten: keine Update-Angebote, bis der Pin aufgehoben wird."""
+        self._set_pin(key, "hold", rem)
+
+    def skip_newer(self, key, rem):
+        """Updates erst wieder anbieten, wenn etwas neuer als `rem` (die bisher neueste Version) erscheint."""
+        self._set_pin(key, "skip", rem)
+
+    def _set_pin(self, key, mode, rem):
+        with self.cfg.lock:
+            self.cfg["pins"][key] = _pin_record(mode, rem)
             self.cfg.save()
 
     def _mark_ignored(self, pkgs):
@@ -1445,7 +1618,8 @@ class Manager:
         mid = g["cf"]
         page = self._mod_url(mid) if mid else (f"https://github.com/{meta['gh']}/releases" if meta.get("gh") else None)
         return Package(g["key"], g["name"], folders, ver, st, "–", None, UNCHECKED, mid,
-                       best.get("file_id") if best else None, page, "", meta)
+                       best.get("file_id") if best else None, page, "", meta,
+                       pin=self.pin(g["key"]), channel=self.channel(g["key"]))
 
     # -- Fingerprints (Dateihashes werden auf der Platte zwischengespeichert; reines Python ist langsam)
     def _hash_file(self, path):
@@ -1498,9 +1672,17 @@ class Manager:
         self._save_hash_cache()
         pkgs = self._group(self._folders, self._fps)
         self._installed_ids = {p.cf_mod_id for p in pkgs if p.cf_mod_id}
+        self._installed_gh = {p.meta["gh"].lower() for p in pkgs if p.meta.get("gh")}
         self._meta = {p.key: p.meta for p in pkgs}
         self._mark_ignored(pkgs)
+        self._mark_missing(pkgs)
         return pkgs
+
+    def _mark_missing(self, pkgs):
+        have = {f.lower() for f in self._folders}
+        for p in pkgs:
+            p.missing = sorted({n for f in p.folders for n in toc_dependency_names(self.addons_dir / f, self.client_interface)
+                                if n.lower() not in have and not n.lower().startswith("blizzard_")}, key=str.lower)
 
     def _query_fingerprints(self, cf, folders):
         """Fragt unbekannte Ordner-Fingerprints ab und schreibt das Ergebnis in den Cache. -> True bei Aenderung."""
@@ -1544,7 +1726,6 @@ class Manager:
         """Netzabfrage; fuellt pkg.remote/source/status/note. Regruppiert `packages` bei neuen CF-Erkennungen
         in place (packages[:] = ...). progress(done, total, text)."""
         self.notes = []
-        beta = self.cfg["include_beta"]
         cf = None
         if self.api_key:
             cf = CurseForge(self.api_key)
@@ -1572,6 +1753,10 @@ class Manager:
                     packages[:] = self._group(self._folders, self._fps)
                 else:
                     self._fill_mod_info(cf, sorted({p.cf_mod_id for p in packages if p.cf_mod_id}))
+                if self._auto_assign(packages):
+                    packages[:] = self._group(self._folders, self._fps)
+                    self._fill_mod_info(cf, sorted({p.cf_mod_id for p in packages if p.cf_mod_id}))
+                    self._mark_missing(packages)
             except ApiError as e:
                 self.notes.append(f"CurseForge-Erkennung: {e}")
             for p in packages:  # Namen/Links nachziehen
@@ -1589,7 +1774,7 @@ class Manager:
             if cancel is not None and cancel.is_set():
                 return
             try:
-                self._check_one(p, cf, tid, beta)
+                self._check_one(p, cf, tid)
             except Exception as e:  # ein Paket darf die Pruefung nicht abbrechen
                 p.status, p.note = ERROR, f"{type(e).__name__}: {e}"
             done[0] += 1
@@ -1601,17 +1786,26 @@ class Manager:
         if not self.api_key and any(p.cf_mod_id and not p.meta.get("gh") for p in packages):
             self.notes.append("Ohne CurseForge-Key sind reine CF-Pakete nicht prüfbar.")
         self._mark_ignored(packages)
+        self._mark_missing(packages)
         for p in packages:
             if p.status == ERROR and p.note:
                 self.notes.append(f"{p.name}: {p.note}")
 
-    def _check_one(self, p, cf, tid, beta):
+    def recheck(self, p):
+        """Nur dieses Paket neu pruefen (z. B. nach Kanal- oder Pin-Wechsel)."""
+        cf = CurseForge(self.api_key) if self.api_key and not self._key_invalid else None
+        self._check_one(p, cf, self._tid())
+        self._mark_ignored([p])
+
+    def _check_one(self, p, cf, tid):
+        p.pin, p.channel = self.pin(p.key), self.channel(p.key)
         if p.meta.get("unassigned"):
             return
+        allowed = self.allowed_types(p.key)
         rem, errs = None, []
         if cf and p.cf_mod_id:
             try:
-                rem = cf.latest(p.cf_mod_id, tid, beta)
+                rem = cf.latest(p.cf_mod_id, tid, allowed)
                 if rem:
                     rem.page_url = p.page_url
                 else:
@@ -1620,7 +1814,7 @@ class Manager:
                 errs.append(f"CF: {e}")
         if rem is None and p.meta.get("gh"):
             try:
-                rem = gh_latest(p.meta["gh"], p.meta, beta)
+                rem = gh_latest(p.meta["gh"], p.meta, allowed)
                 if rem is None:
                     errs.append("GH: kein Forever-Release")
             except ApiError as e:
@@ -1638,7 +1832,15 @@ class Manager:
             else:
                 p.status = UNASSIGNED
             return
-        p.status = self._status(p, rem)
+        p.status = self._pinned(p, rem, self._status(p, rem))
+
+    @staticmethod
+    def _pinned(p, rem, st):
+        if st != UPDATE or not p.pin:
+            return st
+        if p.pin["mode"] == "hold":
+            return HELD
+        return UPDATE if _remote_newer(rem, p.pin.get("ref")) else SKIPPED
 
     def _status(self, p, rem):
         rec = self.cfg["installed"].get(p.key) or {}
@@ -1808,28 +2010,62 @@ class Manager:
             raise ApiError("Keine Update-Quelle bekannt.", "nofile")
         return self._plan_remote(pkg.remote, pkg.key, pkg.name, pkg.meta, pkg.cf_mod_id)
 
-    def plan_candidate(self, cand):
-        beta = self.cfg["include_beta"]
+    def plan_candidate(self, cand, channel=None):
+        """channel: Kanal fuer diese Installation (wird nach dem Installieren als Kanal des Addons gemerkt)."""
         if cand.source == "CF":
-            rem = self._cf().latest(int(cand.ident), self._tid(), beta)
-            if not rem:
-                raise ApiError("Keine Forever-Datei bei CurseForge.", "nofile")
             meta, key = {}, f"cf-{cand.ident}"
             for spec in self._specs():
                 if self._spec_cf_id(spec) == cand.ident:
                     key, meta = spec["key"], {k: spec.get(k) for k in ("vfolder", "gh") if spec.get(k)}
-            return self._plan_remote(rem, key, cand.name, meta, int(cand.ident))
+            rem = self._cf().latest(int(cand.ident), self._tid(), channel or self.allowed_types(key))
+            if not rem:
+                raise ApiError("Keine Forever-Datei bei CurseForge.", "nofile")
+            return self._plan_remote(rem, key, cand.name, meta, int(cand.ident), channel=channel)
         repo = str(cand.ident)
         meta = {}
         key = "gh-" + repo.replace("/", "-")
         for spec in self._specs():
             if spec.get("gh") == repo:
                 key, meta = spec["key"], {k: spec.get(k) for k in ("vfolder", "gh", "tag_prefix", "asset_regex") if spec.get(k)}
-        rem = gh_latest(repo, dict(meta), beta)
+        rem = gh_latest(repo, dict(meta), channel_types(channel) if channel else self.allowed_types(key))
         if not rem:
             raise ApiError("Kein GitHub-Release mit Forever-Zip gefunden.", "nofile")
         meta.setdefault("gh", repo)
-        return self._plan_remote(rem, key, cand.name, meta, None, save_package=key.startswith("gh-"))
+        return self._plan_remote(rem, key, cand.name, meta, None, save_package=key.startswith("gh-"), channel=channel)
+
+    # -- Versionswahl
+    def versions(self, pkg, page=0):
+        """Verfuegbare Forever-Versionen (neueste zuerst) -> (Remotes, gibt_es_mehr)."""
+        rem = pkg.remote
+        if (rem and rem.source == "CF") or (not rem and pkg.cf_mod_id and self.api_key):
+            if not pkg.cf_mod_id:
+                raise ApiError("Keine Versionsquelle bekannt.", "nofile")
+            cf = self._cf()
+            cur = self._ver_cursor.get(pkg.key) if page else None
+            files, more = cf.files(pkg.cf_mod_id, self._tid(), cur if cur is not None else page * 50)
+            self._ver_cursor[pkg.key] = cf.next_index
+            out = sorted((CurseForge.remote_of(f, pkg.cf_mod_id) for f in files), key=lambda r: r.file_date, reverse=True)
+            for r in out:
+                r.page_url = pkg.page_url
+            return out, more
+        if pkg.meta.get("gh"):
+            return gh_releases(pkg.meta["gh"], pkg.meta, page + 1)
+        raise ApiError("Keine Versionsquelle bekannt.", "nofile")
+
+    def installed_ident(self, pkg):
+        rec = self.cfg["installed"].get(pkg.key) or {}
+        src = pkg.remote.source if pkg.remote else pkg.source
+        return rec.get("tag") if src == "GH" else (pkg.installed_file_id or rec.get("file_id"))
+
+    def newest_allowed(self, pkg, remotes):
+        """Neueste der Versionen, die der Kanal des Pakets erlaubt (Grundlage fuer „Auslassen“)."""
+        allowed = self.allowed_types(pkg.key)
+        return next((r for r in remotes if r.rtype in allowed), remotes[0] if remotes else None)
+
+    def plan_version(self, pkg, rem, pin_mode=None, newest=None):
+        """Eine bestimmte Version installieren; pin_mode "hold" haelt sie fest, "skip" laesst alles bis `newest` aus."""
+        pin = _pin_record(pin_mode, rem if pin_mode == "hold" else newest) if pin_mode else None
+        return self._plan_remote(rem, pkg.key, pkg.name, pkg.meta, pkg.cf_mod_id, pin=pin)
 
     def _download_ways(self, rem):
         """Reihenfolge der Download-Wege -> Liste (Label, URL, Header, ist_direkt)."""
@@ -1849,7 +2085,7 @@ class Manager:
                 out.append(w)
         return out
 
-    def _plan_remote(self, rem, key, name, meta, mod_id, save_package=False):
+    def _plan_remote(self, rem, key, name, meta, mod_id, save_package=False, pin=None, channel=None):
         ways = self._download_ways(rem)
         if not ways:
             raise ApiError("Kein Download-Link verfügbar (Browser-Download nötig).", "download")
@@ -1859,7 +2095,7 @@ class Manager:
             self._fetch(ways, st / "download.zip", name)
             info = dict(source=rem.source, ident_key="file_id" if rem.source == "CF" else "tag", ident=rem.ident,
                         version=rem.version, cf_mod_id=mod_id, file_date=rem.file_date, display=rem.display,
-                        save_package=save_package)
+                        save_package=save_package, pin=pin, cf_deps=list(rem.deps), channel=channel)
             return self._build_plan(st / "download.zip", st, key, name, rem.source, meta, info)
         except BaseException:
             shutil.rmtree(st, ignore_errors=True)
@@ -2071,10 +2307,12 @@ class Manager:
             raise
         return moved
 
-    def apply(self, plans):
-        """Installiert alle Plaene in einem gemeinsamen Backup-Satz. Fehler je Plan -> Rollback dieses Plans."""
+    def apply(self, plans, origin=None):
+        """Installiert alle Plaene in einem gemeinsamen Backup-Satz. Fehler je Plan -> Rollback dieses Plans.
+        origin="auto": Hintergrund-Update (nur fuer den Verlauf)."""
         results = []
         with self._apply_lock:
+            sv = self.snapshot_sv() if self.cfg["sv_backup"] and any(p.extra.get("dirs") for p in plans) else None
             bdir = self._new_backup_dir()
             try:
                 for plan in plans:
@@ -2090,8 +2328,12 @@ class Manager:
                         self._record(plan, list(dirs))
                     except Exception as e:
                         self.log(f"Konfiguration konnte nicht gespeichert werden: {e}")
+                    kind = "Automatisch" if origin == "auto" else (
+                        "Installation" if not plan.old_version else "Versionswechsel" if plan.extra.get("pin") else "Update")
+                    self.add_history(kind, plan.key, plan.name, plan.old_version, plan.new_version, plan.source,
+                                     bdir.name if moved else None, sv, list(dirs))
                     results.append(Result(plan.key, plan.name, True, f"{len(dirs)} Ordner installiert",
-                                          bdir.name if moved else None))
+                                          bdir.name if moved else None, sv))
                     self.discard(plan)
             finally:
                 for plan in plans:
@@ -2111,6 +2353,11 @@ class Manager:
             if info.get("ident_key"):
                 rec[info["ident_key"]] = info["ident"]
             self.cfg["installed"][plan.key] = rec
+            self.cfg["pins"].pop(plan.key, None)  # ein Update loest „Auslassen“/„Festhalten“ ab
+            if info.get("pin"):
+                self.cfg["pins"][plan.key] = info["pin"]
+            if info.get("channel") in ("release", "beta", "alpha"):
+                self.cfg["channels"][plan.key] = info["channel"]
             if info.get("save_package"):
                 meta = info.get("meta") or {}
                 sp = {k: meta.get(k) for k in ("gh", "tag_prefix", "asset_regex") if meta.get(k)}
@@ -2174,8 +2421,13 @@ class Manager:
                     except Exception as e:
                         results.append(Result(plan.key, plan.name, False, f"Fehler: {e} (Zustand wiederhergestellt)"))
                         continue
+                    rec = self.cfg["installed"].get(plan.key) or {}
+                    self.add_history("Deinstallation", plan.key, plan.name, rec.get("version"), None, rec.get("source"),
+                                     bdir.name, None, plan.folders)
                     try:
                         self._forget(plan.folders)
+                        self.clear_pin(plan.key)
+                        self.set_channel(plan.key, None)
                     except Exception as e:
                         self.log(f"Konfiguration konnte nicht gespeichert werden: {e}")
                     results.append(Result(plan.key, plan.name, True, f"{len(plan.folders)} Ordner entfernt", bdir.name))
@@ -2225,8 +2477,11 @@ class Manager:
             out.append(BackupSet(p.name, p, created, sorted(x.name for x in p.iterdir())))
         return out
 
-    def restore(self, bset):
+    def restore(self, bset, only=None):
+        """Stellt den Satz wieder her; `only` (Ordnernamen) beschraenkt auf diese Ordner des Satzes."""
         names = sorted(x.name for x in Path(bset.path).iterdir()) if Path(bset.path).is_dir() else []
+        if only is not None:
+            names = [n for n in names if n in set(only)]
         if not names:
             return Result(bset.name, bset.name, False, "Sicherung ist leer oder fehlt.")
         with self._apply_lock:
@@ -2250,7 +2505,183 @@ class Manager:
                     self.cfg.save()
             with contextlib.suppress(OSError):
                 self._prune_backups()
+        self.add_history("Wiederherstellung", "", ", ".join(names), None, None, None, bdir.name, folders=names)
         return Result(bset.name, bset.name, True, f"Wiederhergestellt: {', '.join(names)}", bdir.name)
+
+    # -- SavedVariables-Schnappschuesse (nur WTF/Account/*/SavedVariables und .../<Realm>/<Char>/SavedVariables)
+    def wtf_dir(self):
+        if not self.addons_dir:
+            return None
+        base = self.addons_dir.parent.parent
+        return self._ci_child(base, "WTF") or base / "WTF"
+
+    @staticmethod
+    def _ci_child(parent, name):
+        """Unterordner ohne Beachtung der Gross-/Kleinschreibung (Wine/Proton auf Linux ist case-sensitiv)."""
+        with contextlib.suppress(OSError):
+            for c in parent.iterdir():
+                if c.name.lower() == name.lower() and c.is_dir():
+                    return c
+        return None
+
+    @staticmethod
+    def _subdirs(d):
+        try:
+            return [c for c in d.iterdir() if c.is_dir()]
+        except OSError:
+            return []
+
+    @classmethod
+    def _sv_files(cls, root):
+        """Relative Pfade aller SavedVariables-*.lua unter root (WTF bzw. Schnappschuss)."""
+        acc = cls._ci_child(root, "Account")
+        out = set()
+
+        def grab(d):
+            sv = cls._ci_child(d, "SavedVariables")
+            with contextlib.suppress(OSError):
+                out.update(f.relative_to(root) for f in (sv.iterdir() if sv else ()) if f.suffix.lower() == ".lua" and f.is_file())
+        for a in cls._subdirs(acc) if acc else ():
+            grab(a)
+            for realm in cls._subdirs(a):
+                for char in cls._subdirs(realm):
+                    grab(char)
+        return sorted(out)
+
+    @classmethod
+    def _ci_dest(cls, base, rel):
+        """Zielpfad unter base; vorhandene Ordner werden ohne Beachtung der Schreibweise gefunden."""
+        cur = base
+        for part in rel.parts[:-1]:
+            cur = cls._ci_child(cur, part) or cur / part
+        return cur / rel.name
+
+    def snapshot_sv(self, prune=True):
+        """Kopiert die SavedVariables in einen neuen Satz. -> Satzname oder None (Fehler landen im Protokoll)."""
+        wtf = self.wtf_dir()
+        try:
+            if not wtf or not wtf.is_dir():
+                raise OSError(f"WTF-Ordner nicht gefunden ({wtf})")
+            files = self._sv_files(wtf)
+            if not files:
+                self.log("SavedVariables-Sicherung übersprungen: keine Dateien gefunden.")
+                return None
+            root = self.paths.sv_backups
+            root.mkdir(parents=True, exist_ok=True)
+            base = time.strftime("%Y%m%d-%H%M%S")
+            d, n = root / base, 0
+            while d.exists():
+                n += 1
+                d = root / f"{base}-{n}"
+            try:
+                for rel in files:
+                    (d / rel).parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(wtf / rel, d / rel)
+            except BaseException:
+                shutil.rmtree(d, ignore_errors=True)
+                raise
+            if prune:
+                self._prune_sv()
+            self.log(f"SavedVariables gesichert: {d.name} ({len(files)} Dateien)")
+            return d.name
+        except Exception as e:  # noqa: BLE001
+            self.log(f"SavedVariables-Sicherung fehlgeschlagen: {e}")
+            return None
+
+    def _prune_sv(self):
+        root = self.paths.sv_backups
+        def age(p):
+            try:
+                t = datetime.strptime(p.name[:15], "%Y%m%d-%H%M%S").timestamp()
+            except ValueError:
+                t = p.stat().st_mtime
+            suffix = p.name[16:]
+            return t, int(suffix) if suffix.isdigit() else 0, p.name
+        sets = sorted((p for p in root.iterdir() if p.is_dir()), key=age) if root.exists() else []
+        for p in sets[:-KEEP_BACKUPS]:
+            shutil.rmtree(p, ignore_errors=True)
+
+    def list_sv_backups(self):
+        root = self.paths.sv_backups
+        out = []
+        for p in sorted((x for x in root.iterdir() if x.is_dir()), reverse=True) if root.exists() else []:
+            try:
+                created = datetime.strptime(p.name[:15], "%Y%m%d-%H%M%S").timestamp()
+            except ValueError:
+                created = p.stat().st_mtime
+            files = self._sv_files(p)
+            out.append(SvSet(p.name, p, created, sorted({f.stem for f in files}, key=str.lower), len(files)))
+        return out
+
+    def restore_sv(self, sset, addons=None):
+        """Schreibt die Dateien eines Satzes (optional nur bestimmte Addons) nach WTF zurueck; vorher Schnappschuss
+        des aktuellen Stands. Nicht bei laufendem WoW."""
+        label = f"Einstellungen {sset.name}"
+        if self.wow_running():
+            return Result(sset.name, label, False, "WoW läuft – bitte beenden, sonst überschreibt es die "
+                          "wiederhergestellten Einstellungen beim Beenden wieder.")
+        wtf = self.wtf_dir()
+        if not wtf or not wtf.is_dir():
+            return Result(sset.name, label, False, f"WTF-Ordner nicht gefunden ({wtf}).")
+        want = {a.lower() for a in addons} if addons is not None else None
+        files = [f for f in self._sv_files(Path(sset.path)) if want is None or f.stem.lower() in want]
+        if not files:
+            return Result(sset.name, label, False, "Keine passenden Dateien im Satz.")
+        with self._apply_lock:
+            pre = self.snapshot_sv(prune=False)
+            if pre is None and self._sv_files(wtf):
+                return Result(sset.name, label, False, "Aktueller Stand konnte nicht gesichert werden – abgebrochen.")
+            try:
+                for rel in files:
+                    dest = self._ci_dest(wtf, rel)
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(Path(sset.path) / rel, dest)
+            except OSError as e:
+                return Result(sset.name, label, False, f"Fehler beim Zurückschreiben: {e} (aktueller Stand: {pre})", None, pre)
+            self._prune_sv()
+        names = sorted({f.stem for f in files}, key=str.lower)
+        self.add_history("Einstellungen", "", ", ".join(names), None, None, None, None, pre)
+        return Result(sset.name, label, True, f"{len(files)} Dateien zurückgeschrieben ({len(names)} Addons)", None, pre)
+
+    # -- Update-Verlauf (JSON-Lines, neueste zuletzt)
+    def add_history(self, kind, key, name, old, new, source, backup, sv=None, folders=None):
+        e = dict(ts=time.strftime("%Y-%m-%dT%H:%M:%S"), kind=kind, key=key, name=name, old=old, new=new,
+                 source=source, backup=backup, sv=sv)
+        if folders is not None:
+            e["folders"] = list(folders)
+        hist = self.paths.history
+        tmp = hist.with_name(f"{hist.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+        try:
+            hist.parent.mkdir(parents=True, exist_ok=True)
+            with self._hist_lock, open(hist.with_name(hist.name + ".lock"), "a") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)   # schuetzt auch gegen parallele Prozesse (GUI + CLI)
+                lines = self._hist_lines()[-(HISTORY_MAX - 1):] + [json.dumps(e, ensure_ascii=False)]
+                tmp.write_text("\n".join(lines) + "\n", "utf-8")
+                os.replace(tmp, hist)
+        except OSError as ex:
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            self.log(f"Verlauf konnte nicht gespeichert werden: {ex}")
+
+    def _hist_lines(self):
+        try:
+            return [l for l in self.paths.history.read_text("utf-8", "replace").splitlines() if l.strip()]
+        except OSError:
+            return []
+
+    def read_history(self, limit=None):
+        """Eintraege, neueste zuerst."""
+        out = []
+        for l in reversed(self._hist_lines()):
+            try:
+                e = json.loads(l)
+            except ValueError:
+                continue
+            if isinstance(e, dict):
+                out.append(e)
+                if limit and len(out) >= limit:
+                    break
+        return out
 
     # -- Zuordnung unbekannter Ordner
     def assign_folders(self, folders, name=None, cf_id=None, gh=None):
@@ -2266,3 +2697,291 @@ class Manager:
                                              vfolder=min(allf, key=len), cf=int(cf_id) if cf_id else None, gh=gh)
             self.cfg.save()
         return key
+
+    # -- Abhaengigkeiten
+    def _have_ids(self, plans):
+        have = set(self._installed_ids)
+        folders = {f.lower() for f in os.listdir(self.addons_dir)}
+        for f, e in self.cfg["cf_fp_cache"].items():
+            if isinstance(e, dict) and e.get("mod_id") and f.lower() in folders:
+                have.add(int(e["mod_id"]))
+        have |= {p.extra["cf_mod_id"] for p in plans if p.extra.get("cf_mod_id")}
+        return have, folders
+
+    def resolve_deps(self, plans, cf_only=False, max_depth=2):
+        """Fehlende Pflicht-Abhaengigkeiten der geplanten Installationen -> [DepNeed]. Quellen: CF-Abhaengigkeiten
+        (relationType 3, rekursiv bis max_depth Ebenen) und die TOC-Zeilen der neuen Ordner. Eintraege ohne `cand`
+        sind nur Hinweise. cf_only: TOC-only-Abhaengigkeiten werden nicht per Suche aufgeloest."""
+        cf = CurseForge(self.api_key) if self.api_key and not self._key_invalid else None
+        tid = self._tid()
+        have_ids, have_dirs = self._have_ids(plans)
+        batch = {n.lower() for p in plans for n in p.install_folders}
+        seen, out, provided = set(have_ids), [], set()
+        queue = [(mid, p.name, 1) for p in plans for mid in p.extra.get("cf_deps") or []]
+        while queue:
+            mid, von, lvl = queue.pop(0)
+            if mid in seen:
+                continue
+            seen.add(mid)
+            name, rem, err = self._mod_name(mid), None, ""
+            try:
+                if cf:
+                    if name is None:
+                        self._fill_mod_info(cf, [mid])
+                        name = self._mod_name(mid)
+                    rem = cf.latest(mid, tid, self.allowed_types(f"cf-{mid}"))
+                    if rem is None:
+                        err = "keine Forever-Datei bei CurseForge"
+                else:
+                    err = "ohne CurseForge-Key nicht installierbar"
+            except ApiError as e:
+                err = str(e)
+            name = name or f"CurseForge {mid}"
+            reason = f"benötigt von {von}"
+            if rem is None:
+                out.append(DepNeed(name, reason, None, err or "nicht gefunden"))
+                continue
+            mods = {m.lower() for m in rem.modules if m}
+            if mods and mods <= have_dirs:   # Ordner liegen schon da (auch unzugeordnet)
+                continue
+            provided |= mods
+            cand = Candidate("CF", mid, name, page_url=self._mod_url(mid), has_forever=True)
+            out.append(DepNeed(name, reason, cand))
+            if lvl < max_depth:
+                queue += [(d, name, lvl + 1) for d in rem.deps]
+        toc = {}
+        for p in plans:
+            for n, d in (p.extra.get("dirs") or {}).items():
+                if n in p.install_folders:
+                    for dep in toc_dependency_names(d, self.client_interface):
+                        toc.setdefault(dep, p.name)
+        for dep, von in sorted(toc.items(), key=lambda t: t[0].lower()):
+            low = dep.lower()
+            if low in have_dirs or low in batch or low in provided or low.startswith("blizzard_"):
+                continue
+            need = self._find_dep_folder(cf, tid, dep, seen) if not cf_only and cf else None
+            reason = f"benötigt von {von}"
+            if need:
+                seen.add(need.ident)
+                out.append(DepNeed(need.name, reason, need, via="toc"))
+            else:
+                out.append(DepNeed(dep, reason, None, "fehlt, nicht automatisch gefunden", "toc"))
+        return out
+
+    def _find_dep_folder(self, cf, tid, name, seen):
+        """Eindeutiger CF-Treffer fuer einen Ordnernamen (Name oder Slug stimmt genau) -> Candidate | None."""
+        try:
+            res = cf.search(name, tid)
+        except ApiError:
+            return None
+        key = _slug(name)
+        hits = [m for m in res if key in (_slug(m.get("name")), _slug(m.get("slug"))) and m["id"] not in seen]
+        if len(hits) != 1:
+            return None
+        try:
+            files, _ = cf.files(hits[0]["id"], tid)
+        except ApiError:
+            return None
+        newest = max(files, key=lambda x: x.get("fileDate", ""), default=None)
+        if not newest or name.lower() not in {(x.get("name") or "").lower() for x in newest.get("modules") or []}:
+            return None
+        cand = self._candidate(hits[0])
+        return cand if cand and cand.has_forever is not False else None
+
+    # -- Nicht zugeordnete Ordner
+    def suggest_assignments(self, pkg, verify=False, names=True):
+        """Kandidaten fuer ein nicht zugeordnetes Paket -> [Suggestion]: Projekt-ID, CF-/GitHub-Adresse aus dem TOC,
+        zuletzt (names) CF-Suche nach Titel/Ordnername. verify: CF-Treffer gelten nur als eindeutig (strong), wenn die
+        Forever-Datei genau diesen Ordner enthaelt."""
+        cf = CurseForge(self.api_key) if self.api_key and not self._key_invalid else None
+        tid = self._tid()
+        out, seen = [], set()
+
+        def add(cand, reason, strong=False):
+            if (cand.source, str(cand.ident).lower()) in seen:
+                return
+            seen.add((cand.source, str(cand.ident).lower()))
+            out.append(Suggestion(cand, reason, strong))
+
+        def from_cf(m, reason, folder, trusted):
+            strong = False
+            if verify and trusted and cf:
+                files, _ = cf.files(m["id"], tid)
+                newest = max(files, key=lambda x: x.get("fileDate", ""), default=None)
+                strong = bool(newest) and folder.lower() in {(x.get("name") or "").lower() for x in newest.get("modules") or []}
+            add(self._candidate(m), reason, strong)
+
+        for folder in pkg.folders:
+            meta = toc_meta(self.addons_dir / folder)
+            title = clean_title(meta.get("title")) or folder
+            text = " ".join(meta.values())
+            for u in re.findall(r"(?:https?://)?github\.com/[\w.-]+/[\w.-]+", text):
+                repo = parse_github(u if u.startswith("http") else "https://" + u)
+                if repo:
+                    add(Candidate("GH", repo, repo.split("/")[1], repo.split("/")[0], "", 0, None, False,
+                                  f"https://github.com/{repo}"), "GitHub-Adresse aus TOC")
+            if not cf:
+                continue
+            try:
+                cid = (meta.get("x-curse-project-id") or "").strip()
+                if cid.isdigit():
+                    from_cf(cf.get(f"/v1/mods/{int(cid)}")["data"], "Projekt-ID aus TOC", folder, True)
+                for slug in dict.fromkeys(re.findall(r"curseforge\.com/wow/addons/([\w-]+)", text, re.I)):
+                    for m in cf.search(slug, tid):
+                        if (m.get("slug") or "").lower() == slug.lower():
+                            from_cf(m, "CurseForge-Adresse aus TOC", folder, True)
+                if names:
+                    for term in dict.fromkeys((title, folder)):
+                        for m in cf.search(term, tid):
+                            if _slug(term) in (_slug(m.get("name")), _slug(m.get("slug"))):
+                                from_cf(m, "Name passt (CurseForge-Suche)", folder, False)
+            except ApiError as e:
+                self.notes.append(f"Zuordnung {folder}: {e}")
+        return out[:6]
+
+    def assign_target(self, text):
+        """Freitext (CF-ID, CF-Adresse, gh:owner/repo, GitHub-URL) -> Candidate fuer assign_folders."""
+        t = (text or "").strip()
+        repo = parse_github(t if re.match(r"(?i)(https?://|gh:)", t) else re.sub(r"(?i)^(www\.)?github\.com/", "https://github.com/", t))
+        if repo:
+            return Candidate("GH", repo, repo.split("/")[1], repo.split("/")[0], "", 0, None, False,
+                             f"https://github.com/{repo}")
+        slug = re.search(r"curseforge\.com/wow/addons/([\w-]+)", t, re.I)
+        if t.isdigit():
+            return self._candidate(self._cf().get(f"/v1/mods/{int(t)}")["data"])
+        if slug:
+            for m in self._cf().search(slug.group(1), self._tid()):
+                if (m.get("slug") or "").lower() == slug.group(1).lower():
+                    return self._candidate(m)
+            raise ApiError("Zu dieser CurseForge-Adresse wurde kein Projekt gefunden.")
+        raise ApiError("Bitte eine CurseForge-Projekt-ID, eine CurseForge-/GitHub-Adresse oder gh:owner/repo angeben.")
+
+    def _auto_assign(self, packages):
+        """Ordner mit CF-Adresse im TOC, deren Forever-Datei genau diesen Ordner enthaelt, automatisch zuordnen."""
+        changed, budget = False, ASSIGN_MAX_LOOKUPS
+        for p in [p for p in packages if p.meta.get("unassigned")]:
+            folder = p.folders[0]
+            if folder in self._assign_tried:
+                continue
+            failed = self.cfg["assign_failed"].get(folder)
+            if isinstance(failed, (int, float)) and time.time() - failed < ASSIGN_RETRY_S:
+                continue
+            meta = toc_meta(self.addons_dir / folder)
+            if not re.search(r"curseforge\.com/wow/addons/[\w-]+", " ".join(meta.values()), re.I):
+                self._assign_tried.add(folder)
+                continue
+            if budget <= 0:
+                continue
+            budget -= 1
+            self._assign_tried.add(folder)
+            notes = len(self.notes)
+            strong = [s for s in self.suggest_assignments(p, verify=True, names=False) if s.strong and s.cand.source == "CF"]
+            if len(strong) != 1 and len(self.notes) == notes:   # Netzfehler zaehlen nicht als Misserfolg
+                with self.cfg.lock:
+                    self.cfg["assign_failed"][folder] = int(time.time())
+                    with contextlib.suppress(OSError):
+                        self.cfg.save()
+            if len(strong) == 1:
+                c = strong[0].cand
+                self.assign_folders(p.folders, c.name, cf_id=int(c.ident))
+                self.log(f"Automatisch zugeordnet: {folder} → {c.name} (CurseForge {c.ident}, {strong[0].reason})")
+                changed = True
+        return changed
+
+    # -- Export / Import
+    def export_data(self, pkgs):
+        """Addon-Liste als Dict (siehe parse_import); Pakete ohne CF-/GitHub-Quelle stehen unter „untransferable“."""
+        items, lost = [], []
+        for p in pkgs:
+            src = f"cf:{p.cf_mod_id}" if p.cf_mod_id else (f"gh:{p.meta['gh']}" if p.meta.get("gh") else None)
+            if src and not p.meta.get("unassigned"):
+                item = dict(source=src, name=p.name, version=display_version(p.local_version) or "")
+                if p.channel:
+                    item["channel"] = p.channel
+                items.append(item)
+            else:
+                lost.append(p.name)
+        return dict(format=EXPORT_FORMAT, created=time.strftime("%Y-%m-%dT%H:%M:%S"), manager=__version__,
+                    packages=items, untransferable=lost)
+
+    def import_preview(self, entries):
+        """Ergaenzt Eintraege um Namen und `installed` (Netz nur fuer unbekannte CF-Namen)."""
+        ids = [int(e["source"][3:]) for e in entries if e["source"].startswith("cf:")]
+        if self.api_key and any(str(i) not in self.cfg["cf_mods"] for i in ids):
+            with contextlib.suppress(ApiError):
+                self._fill_mod_info(CurseForge(self.api_key), ids)
+        out = []
+        for e in entries:
+            kind, ident = e["source"].split(":", 1)
+            installed = int(ident) in self._installed_ids if kind == "cf" else ident.lower() in self._installed_gh
+            name = e.get("name") or (self._mod_name(int(ident)) if kind == "cf" else ident.split("/")[1]) or e["source"]
+            out.append(dict(e, name=name, installed=installed))
+        return out
+
+    def import_candidate(self, entry):
+        kind, ident = entry["source"].split(":", 1)
+        if kind == "cf":
+            return Candidate("CF", int(ident), entry["name"], page_url=self._mod_url(int(ident)))
+        return Candidate("GH", ident, entry["name"], ident.split("/")[0], "", 0, None, False,
+                         f"https://github.com/{ident}")
+
+
+EXPORT_FORMAT = 1
+ASSIGN_MAX_LOOKUPS = 10            # Netzabfragen je Lauf bei der automatischen Zuordnung
+ASSIGN_RETRY_S = 7 * 86400         # erfolglose Zuordnungen frühestens nach 7 Tagen wiederholen
+_SRC_RE = re.compile(r"^(cf:\d+|gh:[\w.-]+/[\w.-]+)(?:@(release|beta|alpha))?$", re.I)
+
+
+def export_text(data):
+    """Kurzformat fuer Chats: `WFA1 cf:18808 cf:4646@beta gh:owner/repo` (Namen gehen dabei verloren)."""
+    return "WFA1 " + " ".join(p["source"] + (f"@{p['channel']}" if p.get("channel") else "") for p in data["packages"])
+
+
+def parse_import(text):
+    """JSON-Dokument oder Kurzformat -> [dict(source, name?, channel?, version?)]. Wirft ApiError bei Unbekanntem."""
+    t = re.sub(r"```[A-Za-z]*", "", text or "").strip("`\n\t \"'“”„‚‘’")
+    out = []
+    if "{" in t and not re.match(r"(?i)\s*WFA1\b", t):
+        try:
+            doc, _ = json.JSONDecoder().raw_decode(t[t.index("{"):])
+        except ValueError as e:
+            raise ApiError(f"Die Liste ist kein gültiges JSON: {e}")
+        if not isinstance(doc, dict) or not isinstance(doc.get("packages"), list):
+            raise ApiError("Das ist keine Addon-Liste dieses Programms.")
+        fmt = doc.get("format", 1)
+        if isinstance(fmt, int) and fmt > EXPORT_FORMAT:
+            raise ApiError(f"Die Liste hat Format {fmt}; dieses Programm kennt nur Format {EXPORT_FORMAT} – bitte aktualisieren.")
+        for p in doc["packages"]:
+            m = _SRC_RE.match(str(p.get("source", "")).strip()) if isinstance(p, dict) else None
+            if m:
+                e = dict(source=m.group(1).lower() if m.group(1)[:2].lower() == "cf" else "gh:" + m.group(1)[3:],
+                         name=str(p.get("name") or ""), version=str(p.get("version") or ""))
+                if p.get("channel") in ("release", "beta", "alpha"):
+                    e["channel"] = p["channel"]
+                out.append(e)
+    else:
+        w = re.search(r"(?i)\bWFA(\d+)\b:?", t)
+        if w:
+            if int(w.group(1)) > EXPORT_FORMAT:
+                raise ApiError(f"Die Liste hat Format {w.group(1)}; dieses Programm kennt nur Format {EXPORT_FORMAT} – bitte aktualisieren.")
+            t = t[w.end():]
+        for tok in (x.strip("\"'“”„‚‘’") for x in re.split(r"[\s,;]+", t)):
+            if not tok:
+                continue
+            m = _SRC_RE.match(tok)
+            if not m:
+                raise ApiError(f"Unbekannter Eintrag in der Liste: „{tok[:40]}“")
+            e = dict(source="cf:" + m.group(1)[3:] if m.group(1)[:2].lower() == "cf" else "gh:" + m.group(1)[3:])
+            if m.group(2):
+                e["channel"] = m.group(2).lower()
+            out.append(e)
+    uniq = {}
+    for e in out:
+        old = uniq.setdefault(e["source"].lower(), e)
+        for k, v in e.items():
+            if v and not old.get(k):
+                old[k] = v
+    out = list(uniq.values())
+    if not out:
+        raise ApiError("Keine übertragbaren Addons in der Liste gefunden.")
+    return out

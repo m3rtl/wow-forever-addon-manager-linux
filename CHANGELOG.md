@@ -2,6 +2,25 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
+## 0.3.0 – 2026-11-26
+
+### Neu
+
+- **Andere Version installieren**: Rechtsklick → „Andere Version …“ lädt die verfügbaren Versionen zur Auswahl. Danach lässt sich die Version festhalten, bis du es aufhebst, oder es werden nur die jetzt neueren Versionen ausgelassen. „Festhalten aufheben“ bzw. „Auslassen aufheben“ macht beides rückgängig.
+- **Kanal pro Addon**: Rechtsklick → „Kanal“ (Standard, Nur Release, Beta, Alpha). Beta- und Alpha-Versionen sind in der Liste mit β bzw. α gekennzeichnet.
+- **Fehlende Pflicht-Abhängigkeiten**: CurseForge-Relationen „erforderlich“ und TOC-Dependencies werden im Bestätigungsdialog angezeigt und auf Wunsch mitinstalliert (abwählbar). Das Auto-Update installiert nur CurseForge-Abhängigkeiten mit; der Tooltip nennt fehlende Addons („Fehlt: …“).
+- **Nicht erkannte Ordner zuordnen**: Rechtsklick → „Zuordnen …“ schlägt Treffer aus der TOC (Projekt-ID, CurseForge- oder GitHub-Adresse) und der CurseForge-Suche vor. Eindeutige Fälle werden automatisch zugeordnet.
+- **Addon-Liste exportieren und importieren** (☰-Menü): als JSON-Datei oder Kurztext wie `WFA1 cf:18808 cf:4646@beta gh:owner/repo`, z. B. für Discord. In der Kommandozeile mit `--export PFAD|-` und `--import PFAD|TEXT`.
+- **SavedVariables-Schnappschuss vor jedem Update**: Gesichert werden `WTF/Account/*/SavedVariables` und die Charakterebene, die letzten 5 Sätze bleiben. Wiederherstellen unter ☰ → Backups, ganz oder je Addon, nur wenn WoW nicht läuft.
+- **Update-Verlauf**: ☰ → „Verlauf …“ (auch per Rechtsklick, dann vorgefiltert). „Zurücksetzen“ stellt die Ordner eines Addons aus dem Backup-Satz her, „Einstellungen zurücksetzen“ die SavedVariables.
+- **Kommandozeile**: neue Menütasten `v` (Version/Kanal) und `h` (Verlauf); `w` zeigt auch SavedVariables-Sätze.
+
+### Geändert
+
+- Der Kanal gilt jetzt je Addon; „Standard“ folgt der Einstellung „Beta-Versionen anzeigen“.
+- Neuer Schalter unter ☰ → Einstellungen: „Vor Updates die Addon-Einstellungen (SavedVariables) sichern“ (Standard: an).
+- Beim Ersetzen von Addon-Ordnern bleibt `WTF` weiterhin unverändert; geschrieben wird dort nur beim ausdrücklichen Wiederherstellen.
+
 ## 0.2.2 – 2026-11-26
 
 ### Behoben
