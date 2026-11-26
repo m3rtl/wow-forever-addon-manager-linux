@@ -584,7 +584,8 @@ class App:
     def update_info(self):
         m = self.mgr
         state = m.cf_key_state()
-        parts = [f"Client-Interface {m.client_interface}"]
+        parts = [f"Client {m.client_version} (Interface {m.client_interface})" if m.client_version
+                 else f"Client-Interface {m.client_interface} (aus den Addons geschätzt)"]
         if state == "fehlt":
             parts.append(f'<span foreground="{ORANGE}">CurseForge: kein API-Key – kostenlos unter '
                          f'{GLib.markup_escape_text(core.CF_KEY_URL)} erzeugen.</span>')

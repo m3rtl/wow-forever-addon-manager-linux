@@ -115,7 +115,7 @@ Dein API-Key wird nur lokal in `config.json` gespeichert (Rechte 0600) und ist n
 
 ## Kompatibilitätsregeln
 
-Das Client-Interface wird aus deiner Installation gelesen (derzeit 16001). Für jeden Addon-Ordner zählt die erste vorhandene TOC-Datei aus `<Name>_Forever.toc`, `<Name>-Forever.toc`, `<Name>.toc`. Installiert werden nur kompatible Ordner (oder solche, die bereits installiert sind); alle anderen werden übersprungen und aufgelistet.
+Das Client-Interface ergibt sich aus der Spielversion in `.build.info` deiner WoW-Installation (1.60.1 → 16001) und wird bei jeder Prüfung neu gelesen, Client-Patches werden also automatisch berücksichtigt. Fehlt die Datei, gilt die Interface-Nummer, die die meisten installierten Addons angeben. Die Spalte „Forever“ zeigt „veraltet“, wenn ein Addon nur ältere Nummern als der Client nennt. Für jeden Addon-Ordner zählt die erste vorhandene TOC-Datei aus `<Name>_Forever.toc`, `<Name>-Forever.toc`, `<Name>.toc`. Installiert werden nur kompatible Ordner (oder solche, die bereits installiert sind); alle anderen werden übersprungen und aufgelistet.
 
 ## Schrift und Grafiken
 

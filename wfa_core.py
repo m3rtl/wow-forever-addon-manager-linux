@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 APP_NAME = "wow-forever-addon-manager"
 UA = f"{APP_NAME}/{__version__}"
@@ -632,18 +632,58 @@ def toc_dependencies(folder, client=DEFAULT_CLIENT):
     return out
 
 
+def _read_text(path):
+    try:
+        return Path(path).read_text("utf-8", "replace")
+    except OSError:
+        return ""
+
+
+def client_version(addons):
+    """Spielversion des installierten Clients (z. B. "1.60.1") aus <WoW>/.build.info, sonst None.
+    addons: <WoW>/<_flavor_>/Interface/AddOns; der Flavor (z. B. wowf) steht in <_flavor_>/.flavor.info."""
+    flavor_dir = Path(addons).parent.parent
+    lines = [ln.strip() for ln in _read_text(flavor_dir / ".flavor.info").splitlines() if ln.strip()]
+    flavor = lines[1] if len(lines) > 1 else None
+    rows = [ln.split("|") for ln in _read_text(flavor_dir.parent / ".build.info").splitlines() if ln.strip()]
+    if len(rows) < 2:
+        return None
+    head = [c.split("!")[0].strip().lower() for c in rows[0]]
+    found = []
+    for r in rows[1:]:
+        row = dict(zip(head, (c.strip() for c in r)))
+        m = re.match(r"(\d+)\.(\d+)\.(\d+)", row.get("version", ""))
+        if m and (flavor is None or row.get("product") == flavor):
+            found.append(m.group(0))
+    forever = [v for v in found if FOREVER_RE.match(v + ".")]
+    return (forever or found or [None])[0]
+
+
+def version_interface(ver):
+    """"1.60.1" -> 16001 (Major*10000 + Minor*100 + Patch)"""
+    m = re.match(r"(\d+)\.(\d+)\.(\d+)", ver or "")
+    return int(m.group(1)) * 10000 + int(m.group(2)) * 100 + int(m.group(3)) if m else None
+
+
 def client_interface(addons):
-    best = 0
+    """Interface-Nummer des Clients: aus der Spielversion in .build.info; fehlt sie, die Nummer, die die meisten
+    installierten Addons angeben (nicht die hoechste: ein einzelnes Addon mit einer kuenftigen Nummer wuerde sonst
+    alle anderen als veraltet markieren)."""
+    iface = version_interface(client_version(addons))
+    if iface and 16000 <= iface < 17000:
+        return iface
+    votes = {}
     try:
         for d in os.listdir(addons):
+            best = 0
             for f in toc_files(Path(addons) / d).values():
                 if f.lower().endswith(".toc"):
-                    for i in interfaces(parse_toc(Path(addons) / d / f)):
-                        if 16000 <= i < 17000:
-                            best = max(best, i)
+                    best = max([best] + [i for i in interfaces(parse_toc(Path(addons) / d / f)) if 16000 <= i < 17000])
+            if best:
+                votes[best] = votes.get(best, 0) + 1
     except OSError:
         pass
-    return best or DEFAULT_CLIENT
+    return max(votes, key=lambda i: (votes[i], i)) if votes else DEFAULT_CLIENT
 
 
 # Tokens: rNNN(.N)*, a.b.c, NNN. Interface-Zahlen (1xxxx) und Spielversionen (1.6x.y) sind keine Addon-Versionen.
@@ -1175,6 +1215,7 @@ class Manager:
         self.cfg = Config(self.paths, self.log)
         self.notes = []
         self.client_interface = DEFAULT_CLIENT
+        self.client_version = None   # z. B. "1.60.1" aus .build.info
         self.addons_dir = None
         self._key_invalid = False
         self._folders = []
@@ -1192,7 +1233,11 @@ class Manager:
             if cfgd and normalize_addons_dir(cfgd).is_dir():
                 self.addons_dir = normalize_addons_dir(cfgd)
         if self.addons_dir and self.addons_dir.is_dir():
-            self.client_interface = client_interface(self.addons_dir)
+            self._read_client()
+
+    def _read_client(self):
+        self.client_version = client_version(self.addons_dir)
+        self.client_interface = client_interface(self.addons_dir)
 
     # -- Einrichtung
     def needs_setup(self):
@@ -1214,7 +1259,7 @@ class Manager:
             self.cfg["addons_dir"] = str(q)
             self.cfg.save()
         self.addons_dir = q
-        self.client_interface = client_interface(q)
+        self._read_client()
 
     @property
     def api_key(self):
@@ -1443,7 +1488,7 @@ class Manager:
         """Nur lokal: Ordner lesen, fingerprinten, anhand Cache/Katalog gruppieren."""
         if self.needs_setup():
             raise ApiError("Kein AddOns-Ordner eingerichtet.", "setup")
-        self.client_interface = client_interface(self.addons_dir)
+        self._read_client()
         self._folders = self._addon_folders()
         self._fps = {}
         self._hash_seen = set()

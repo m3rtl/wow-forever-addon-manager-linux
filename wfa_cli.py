@@ -105,7 +105,8 @@ def setup_flow(mgr):
 def header(mgr):
     print(paint(f"== WoW: Forever Addon-Manager {core.__version__} ==", "bold"))
     print(f"AddOns:     {mgr.addons_dir}")
-    print(f"Interface:  {mgr.client_interface} (Client)")
+    print(f"Interface:  {mgr.client_interface} " + (f"(Client {mgr.client_version})" if mgr.client_version
+                                                       else "(aus den Addons geschätzt)"))
     print(f"Download-Ordner: {mgr.download_summary()}")
     state = mgr.cf_key_state()
     if state == "fehlt":

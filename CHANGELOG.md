@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
+## 0.2.2 – 2026-11-26
+
+### Behoben
+
+- **Spalte „Forever“ zeigte fast überall „veraltet“**: Die Client-Version wurde bisher aus den Addons geschätzt, und zwar als höchste Interface-Nummer, die irgendein Addon angibt. Nannte ein einzelnes Addon schon eine künftige Nummer (z. B. ForeverThreat mit 16002), galten alle anderen als veraltet. Jetzt wird die tatsächliche Spielversion aus `.build.info` der WoW-Installation gelesen (z. B. 1.60.1 → Interface 16001), bei jeder Prüfung neu, sodass Client-Patches automatisch erkannt werden. Fehlt die Datei, zählt die Nummer, die die meisten Addons angeben.
+- Die Infozeile zeigt jetzt die erkannte Client-Version, z. B. „Client 1.60.1 (Interface 16001)“, bzw. den Hinweis „aus den Addons geschätzt“.
+
 ## 0.2.1 – 2026-11-26
 
 ### Neu
