@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.m3rtl.WowForeverAddonManager</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>WoW: Forever Addon-Manager</name>
+  <summary>Unofficial addon manager for WoW: Forever on Linux</summary>
+  <summary xml:lang="de">Inoffizieller Addon-Manager für WoW: Forever unter Linux</summary>
+
+  <developer id="io.github.m3rtl">
+    <name>m3rtl</name>
+  </developer>
+
+  <description>
+    <p>
+      Finds the AddOns folder of your WoW: Forever installation (Steam/Proton, Lutris, Wine, Bottles, Heroic),
+      detects installed addons, shows available updates and installs them with a backup. The user interface is in German.
+    </p>
+    <p xml:lang="de">
+      Findet den AddOns-Ordner deiner WoW: Forever-Installation (Steam/Proton, Lutris, Wine, Bottles, Heroic),
+      erkennt die installierten Addons, zeigt Updates an und installiert sie mit Backup.
+    </p>
+    <ul>
+      <li>Addon detection via CurseForge fingerprints, GitHub releases as an alternative source</li>
+      <li xml:lang="de">Erkennung per CurseForge-Fingerprint, GitHub-Releases als Ausweichquelle</li>
+      <li>Version pinning, release/beta/alpha channel per addon, required dependencies</li>
+      <li xml:lang="de">Version festhalten, Kanal je Addon (Release, Beta, Alpha), Pflicht-Abhängigkeiten</li>
+      <li>Backups of replaced folders and SavedVariables snapshots before every update</li>
+      <li xml:lang="de">Backups ersetzter Ordner und SavedVariables-Schnappschuss vor jedem Update</li>
+      <li>Optional tray mode with periodic update checks</li>
+      <li xml:lang="de">Optional im Tray mit regelmäßiger Prüfung</li>
+    </ul>
+    <p>
+      Not affiliated with or endorsed by Blizzard Entertainment or CurseForge/Overwolf.
+    </p>
+    <p xml:lang="de">
+      Nicht verbunden mit oder unterstützt von Blizzard Entertainment oder CurseForge/Overwolf.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.m3rtl.WowForeverAddonManager.desktop</launchable>
+  <provides>
+    <binary>wow-forever-addon-manager</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/m3rtl/wow-forever-addon-manager-linux</url>
+  <url type="bugtracker">https://github.com/m3rtl/wow-forever-addon-manager-linux/issues</url>
+  <url type="vcs-browser">https://github.com/m3rtl/wow-forever-addon-manager-linux</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main window with available updates</caption>
+      <image>https://raw.githubusercontent.com/m3rtl/wow-forever-addon-manager-linux/master/docs/screenshots/main.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Installing a new addon</caption>
+      <image>https://raw.githubusercontent.com/m3rtl/wow-forever-addon-manager-linux/master/docs/screenshots/new-addon.png</image>
+    </screenshot>
+  </screenshots>
+
+  <categories>
+    <category>Game</category>
+  </categories>
+  <keywords>
+    <keyword>WoW</keyword>
+    <keyword>Addon</keyword>
+    <keyword>CurseForge</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1"/>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <releases>
+    <release version="0.3.0" date="2026-11-26">
+      <description>
+        <p>Version selection and pinning, per-addon channels, required dependencies, export/import of the addon list,
+          SavedVariables snapshots and update history.</p>
+      </description>
+    </release>
+    <release version="0.2.2" date="2026-11-26"/>
+    <release version="0.2.1" date="2026-11-26"/>
+    <release version="0.2.0" date="2026-11-25"/>
+  </releases>
+</component>

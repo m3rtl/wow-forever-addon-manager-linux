@@ -37,7 +37,11 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if "--install-desktop-entry" in argv:
         import wfa_core
-        print(f"Startmenü-Eintrag angelegt: {wfa_core.install_desktop_entry()}")
+        try:
+            print(f"Startmenü-Eintrag angelegt: {wfa_core.install_desktop_entry()}")
+        except OSError as e:
+            print(e, file=sys.stderr)
+            return 1
         return 0
     if not _wants_cli(argv):
         code = _gui(argv)

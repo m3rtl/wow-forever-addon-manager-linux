@@ -405,16 +405,11 @@ class NewAddonDialog(Gtk.Dialog):
         self.stack.add_titled(page, "direct", "Direkt")
 
     def _pick_zip(self, *_):
-        d = Gtk.FileChooserDialog(title="Zip-Datei wählen", transient_for=self, action=Gtk.FileChooserAction.OPEN)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        G.add_button(d, "Öffnen", Gtk.ResponseType.OK, suggested=True)
         f = Gtk.FileFilter()
         f.set_name("Zip-Archive")
         f.add_pattern("*.zip")
         f.add_pattern("*.ZIP")
-        d.add_filter(f)
-        path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
-        d.destroy()
+        path = G.choose_file(self, "Zip-Datei wählen", Gtk.FileChooserAction.OPEN, "Öffnen", filters=(f,))
         if path:
             self.result = ("zip", Path(path))
             self.response(Gtk.ResponseType.OK)

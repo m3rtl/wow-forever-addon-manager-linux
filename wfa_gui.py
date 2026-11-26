@@ -23,7 +23,7 @@ import wfa_core as core  # noqa: E402
 from wfa_core import ApiError, Manager  # noqa: E402
 
 TITLE = "WoW: Forever Addon-Manager"
-APP_ID = "io.github.m3rtl.WowForeverAddonManager"
+APP_ID = core.APP_ID
 REPO_URL = "https://github.com/m3rtl/wow-forever-addon-manager-linux"
 RED, ORANGE, GREY, GREEN = "#e74c3c", "#e67e22", "#8a8a8a", "#2e9e5b"
 STATUS_COLOR = {}
@@ -287,13 +287,23 @@ def run_in_thread(fn, cb):
     threading.Thread(target=work, daemon=True).start()
 
 
-def choose_folder(parent, title="Ordner wählen"):
-    d = Gtk.FileChooserDialog(title=title, transient_for=parent, action=Gtk.FileChooserAction.SELECT_FOLDER)
-    d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-    add_button(d, "Auswählen", Gtk.ResponseType.OK, suggested=True)
-    path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
-    d.destroy()
+def choose_file(parent, title, action, accept, filters=(), name=None):
+    """Datei-/Ordnerauswahl ueber Gtk.FileChooserNative: im Flatpak laeuft sie ueber das Datei-Portal, das den
+    gewaehlten Ort fuer das Programm freigibt (Pfad unter /run/user/<uid>/doc/). -> Pfad oder None."""
+    fc = Gtk.FileChooserNative.new(title, parent, action, accept, "Abbrechen")
+    if action == Gtk.FileChooserAction.SAVE:
+        fc.set_do_overwrite_confirmation(True)
+        if name:
+            fc.set_current_name(name)
+    for f in filters:
+        fc.add_filter(f)
+    path = fc.get_filename() if fc.run() == Gtk.ResponseType.ACCEPT else None
+    fc.destroy()
     return path
+
+
+def choose_folder(parent, title="Ordner wählen"):
+    return choose_file(parent, title, Gtk.FileChooserAction.SELECT_FOLDER, "Auswählen")
 
 
 def choose_addons_dir(mgr, parent=None):
@@ -305,6 +315,17 @@ def choose_addons_dir(mgr, parent=None):
     intro = Gtk.Label(xalign=0, wrap=True,
                       label="Wähle den AddOns-Ordner deiner WoW: Forever-Installation (…/_forever_/Interface/AddOns).")
     box.pack_start(intro, False, False, 0)
+    if core.in_flatpak():
+        txt = ("Flatpak: Freigegeben sind die üblichen Orte von Steam, Lutris, Bottles, Heroic, Wine und ~/Games. "
+               "Liegt WoW woanders, wähle mit „Anderen Ordner wählen …“ den Ordner „World of Warcraft“; "
+               "er wird dann dauerhaft freigegeben.")
+        blocked = core.sandbox_blocked_libraries()
+        if blocked:
+            txt += ("\n\nNicht freigegebene Steam-Bibliotheken: " + ", ".join(short_path(b) for b in blocked)
+                    + "\nFreigeben (danach neu starten): " + "; ".join(core.flatpak_override_cmd(b) for b in blocked))
+        fl = Gtk.Label(xalign=0, wrap=True, selectable=True, max_width_chars=80, label=txt)
+        fl.get_style_context().add_class("dim-label")
+        box.pack_start(fl, False, False, 0)
     group = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
     box.pack_start(group, False, False, 0)
     choices = []
@@ -325,10 +346,12 @@ def choose_addons_dir(mgr, parent=None):
     other = Gtk.Button(label="Anderen Ordner wählen …", halign=Gtk.Align.START)
 
     def on_other(_b):
-        p = choose_folder(d, "AddOns-Ordner wählen")
+        p = choose_folder(d, "Ordner „World of Warcraft“ oder AddOns-Ordner wählen" if core.in_flatpak()
+                          else "AddOns-Ordner wählen")
         if p:
             ok, h = mgr.validate_addons_dir(p)
-            hint.set_text(h)
+            sh = core.sandbox_hint(core.normalize_addons_dir(p)) if ok else ""
+            hint.set_text("\n".join(x for x in (h, sh) if x))
             if ok:
                 add_choice(core.normalize_addons_dir(p), True)
     other.connect("clicked", on_other)
@@ -411,10 +434,13 @@ class App:
         menu_btn = self.menu_btn = Gtk.MenuButton()
         menu_btn.add(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
         menu = Gtk.Menu()
+        managed = core.managed_install()   # Paket/Flatpak: Startmenue-Eintrag und Updates kommen von dort
         for label, cb in (("Protokoll …", self.show_log), ("Backups …", self.on_backups), ("Verlauf …", self.on_history),
                           ("Addon-Liste exportieren …", self.on_export), ("Addon-Liste importieren …", self.on_import),
-                          ("Einstellungen …", self.on_settings), ("Startmenü-Eintrag anlegen", self.on_desktop_entry),
-                          ("Nach Programm-Updates suchen …", lambda *_: self.check_self_update(True)),
+                          ("Einstellungen …", self.on_settings),
+                          *(() if managed else (("Startmenü-Eintrag anlegen", self.on_desktop_entry),
+                                                ("Nach Programm-Updates suchen …",
+                                                 lambda *_: self.check_self_update(True)))),
                           ("Über", self.on_about), (None, None), ("Beenden", self.on_quit_item)):
             mi = Gtk.SeparatorMenuItem() if label is None else Gtk.MenuItem(label=label)
             if cb:
@@ -1451,10 +1477,11 @@ class App:
                 self.present()
                 self.install_flow(planners, finish=fin_interactive, planned=(plans, errs))
         def work():
-            if self.mgr.wow_running():
+            # unbekannt (Flatpak ohne Host-Zugriff) zaehlt hier wie "laeuft": still wird nichts installiert
+            if self.mgr.wow_running() is not False:
                 return [], [], True
             plans, errs = self.plan_all(planners)
-            running = self.mgr.wow_running()
+            running = self.mgr.wow_running() is not False
             return (plans if running else self.auto_deps(plans)), errs, running
         self.bg(work, planned, "Lade Updates …")
 
@@ -1820,9 +1847,15 @@ class App:
 
     def restore_sv_flow(self, sset):
         """Einstellungen (SavedVariables) wiederherstellen: ganzer Satz oder einzelne Addons."""
-        if self.mgr.wow_running():
+        running = self.mgr.wow_running()
+        if running:
             message(self.win, "WoW läuft", "Einstellungen lassen sich nur wiederherstellen, solange WoW beendet ist – "
                     "sonst überschreibt WoW sie beim Beenden wieder.", Gtk.MessageType.WARNING)
+            return
+        if running is None and not ask(self.win, "Ist WoW beendet?",
+                                       "Im Flatpak kann der Manager nicht sehen, ob WoW läuft. Läuft es noch, "
+                                       "überschreibt es die wiederhergestellten Einstellungen beim Beenden wieder.",
+                                       "WoW ist beendet", kind=Gtk.MessageType.WARNING):
             return
         d = make_dialog("Einstellungen wiederherstellen", self.win, 460, 420)
         d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
@@ -1949,13 +1982,8 @@ class App:
                 done.set_text("Als Text in die Zwischenablage kopiert.")
                 self.log(f"Addon-Liste ({n}) als Text kopiert")
             elif r == 1:
-                fc = Gtk.FileChooserDialog(title="Addon-Liste speichern", transient_for=d, action=Gtk.FileChooserAction.SAVE)
-                fc.set_do_overwrite_confirmation(True)
-                fc.set_current_name("wow-forever-addons.json")
-                fc.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-                add_button(fc, "Speichern", Gtk.ResponseType.OK, suggested=True)
-                path = fc.get_filename() if fc.run() == Gtk.ResponseType.OK else None
-                fc.destroy()
+                path = choose_file(d, "Addon-Liste speichern", Gtk.FileChooserAction.SAVE, "Speichern",
+                                   name="wow-forever-addons.json")
                 if path:
                     try:
                         Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", "utf-8")
@@ -1982,11 +2010,7 @@ class App:
         fb = Gtk.Button(label="Datei laden …", halign=Gtk.Align.START)
 
         def load_file(*_a):
-            fc = Gtk.FileChooserDialog(title="Addon-Liste wählen", transient_for=d, action=Gtk.FileChooserAction.OPEN)
-            fc.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-            add_button(fc, "Öffnen", Gtk.ResponseType.OK, suggested=True)
-            path = fc.get_filename() if fc.run() == Gtk.ResponseType.OK else None
-            fc.destroy()
+            path = choose_file(d, "Addon-Liste wählen", Gtk.FileChooserAction.OPEN, "Öffnen")
             if path:
                 try:
                     with open(path, encoding="utf-8-sig") as f:
@@ -2121,7 +2145,8 @@ class App:
                              label=f'<span foreground="{ORANGE}">Kein Tray verfügbar (kein StatusNotifier-Host gefunden). '
                                    "Das Schließen des Fensters beendet dann das Programm.</span>")
             box.pack_start(hint, False, False, 0)
-        autostart = check("Beim Systemstart im Tray starten", core.autostart_enabled())
+        autostart_on = bool(m.cfg["autostart_portal"]) if core.in_flatpak() else core.autostart_enabled()
+        autostart = check("Beim Systemstart im Tray starten", autostart_on)
         to_tray = check("Fenster schließen minimiert in den Tray", m.cfg["close_to_tray"])
         irow = Gtk.Box(spacing=8)
         irow.pack_start(Gtk.Label(label="Prüfintervall (Minuten)"), False, False, 0)
@@ -2130,9 +2155,21 @@ class App:
         irow.pack_start(spin, False, False, 0)
         box.pack_start(irow, False, False, 0)
         auto = check("Updates automatisch installieren (nur wenn WoW nicht läuft)", m.cfg["auto_update"])
+        if core.in_flatpak() and not core.host_spawn_available():
+            wl = Gtk.Label(xalign=0, wrap=True, selectable=True, max_width_chars=70,
+                           label="Im Flatpak ist nicht erkennbar, ob WoW läuft; Updates werden deshalb nur gemeldet, "
+                                 "nicht still installiert. Erkennung freigeben (erlaubt dem Programm, Befehle "
+                                 f"außerhalb der Sandbox zu starten):\n{core.WOW_DETECT_OVERRIDE}")
+            wl.get_style_context().add_class("dim-label")
+            box.pack_start(wl, False, False, 0)
         section("Programm-Updates")
         su_check = check("Beim Start nach Programm-Updates suchen", m.cfg["self_update_check"])
         su_auto = check("Programm-Updates automatisch installieren", m.cfg["self_auto_update"])
+        if core.managed_install():
+            for c in (su_check, su_auto):
+                c.set_no_show_all(True)
+            box.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
+                                     label=f"Programm-Updates kommen über {core.package_channel()}."), False, False, 0)
         d.show_all()
         if d.run() == Gtk.ResponseType.OK:
             old_interval = m.cfg["check_interval_min"]
@@ -2147,11 +2184,8 @@ class App:
                 m.cfg.save()
             if theme_changed:
                 self.set_theme(new["classic_theme"])
-            if autostart.get_active() != core.autostart_enabled():
-                try:
-                    core.set_autostart(autostart.get_active())
-                except OSError as e:
-                    message(d, "Autostart fehlgeschlagen", str(e), Gtk.MessageType.ERROR)
+            if autostart.get_active() != autostart_on:
+                self.set_autostart(autostart.get_active(), d)
             if clear.get_active():
                 m.set_cf_key("")
             elif key.get_text().strip():
@@ -2167,6 +2201,26 @@ class App:
         if changed:
             self.update_subtitle()
             self.rescan()
+
+    def set_autostart(self, on, parent=None):
+        if not core.in_flatpak():
+            try:
+                core.set_autostart(on)
+            except OSError as e:
+                message(parent or self.win, "Autostart fehlgeschlagen", str(e), Gtk.MessageType.ERROR)
+            return
+        import wfa_portal
+
+        def done(ok, text):
+            if ok:
+                with self.mgr.cfg.lock:
+                    self.mgr.cfg["autostart_portal"] = bool(on)
+                    self.mgr.cfg.save()
+                self.log("Autostart " + ("eingerichtet." if on else "entfernt."))
+            else:
+                self.log(f"Autostart: {text}")
+                message(self.win, "Autostart fehlgeschlagen", text, Gtk.MessageType.ERROR)
+        wfa_portal.request_autostart(on, done)
 
     def set_theme(self, on):
         marked = {r[C_KEY] for r in self.store if r[C_CHECK]}
@@ -2217,9 +2271,10 @@ class App:
 
     def check_self_update(self, manual=False):
         su = self.selfupdate_module()
-        if su is None:
+        if su is None or not su.enabled():
             if manual:
-                message(self.win, "Nicht verfügbar", "Die Programm-Updates sind in dieser Version nicht enthalten.")
+                message(self.win, "Nicht verfügbar", f"Programm-Updates kommen über {core.package_channel()}."
+                        if su is not None else "Die Programm-Updates sind in dieser Version nicht enthalten.")
             return
 
         def done(rel, err):
@@ -2487,7 +2542,7 @@ def main(argv):
             app.present()
             app.rescan()
             app.start_background(False)
-        if app.background is None and mgr.cfg["self_update_check"]:
+        if app.background is None and mgr.cfg["self_update_check"] and not core.managed_install():
             app.check_self_update()
 
     def on_command_line(_gapp, cl):

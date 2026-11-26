@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=WoW: Forever Addon-Manager
+GenericName=Addon-Manager
+GenericName[de]=Addon-Manager
+Comment=Manage addons for WoW: Forever
+Comment[de]=Addons für WoW: Forever verwalten
+Exec=wow-forever-addon-manager
+Icon=io.github.m3rtl.WowForeverAddonManager
+Terminal=false
+Categories=Game;
+Keywords=WoW;Warcraft;Forever;Addon;AddOns;CurseForge;
+StartupNotify=true
+StartupWMClass=wow-forever-addon-manager

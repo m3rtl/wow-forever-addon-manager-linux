@@ -1,0 +1,58 @@
+# Flatpak-Manifest. Lokal bauen (aus dem Projektordner):
+#   flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.m3rtl.WowForeverAddonManager.yml
+# Fuer Flathub die Quelle "dir" durch ein git-Tag ersetzen (type: git, url, tag, commit).
+id: io.github.m3rtl.WowForeverAddonManager
+runtime: org.gnome.Platform
+runtime-version: '51'
+sdk: org.gnome.Sdk
+command: wow-forever-addon-manager
+
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Tray (StatusNotifierItem) und Desktop-Benachrichtigungen
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.Notifications
+  # WoW: Forever liegt in einem Wine/Proton-Prefix; freigegeben sind nur die ueblichen Orte.
+  # Alles andere waehlt man im Programm ueber das Datei-Portal (Ordner "World of Warcraft").
+  - --filesystem=~/.steam
+  - --filesystem=xdg-data/Steam
+  - --filesystem=~/.var/app/com.valvesoftware.Steam/.local/share/Steam
+  - --filesystem=~/.wine
+  - --filesystem=~/Games
+  - --filesystem=xdg-data/lutris
+  - --filesystem=xdg-data/bottles
+  - --filesystem=~/.var/app/com.usebottles.bottles/data/bottles
+  - --filesystem=xdg-data/umu
+  - --filesystem=~/Faugus
+  # Browser-Download als letzter Ausweg: Zip-Dateien im Download-Ordner lesen
+  - --filesystem=xdg-download:ro
+  # Dieselben Einstellungen, Backups und Verlauf wie Release-Datei und AUR-Paket. Flatpak blendet diese Ordner
+  # zusaetzlich unter ~/.var/app/<ID>/config bzw. /data ein, also genau dort, wo das Programm sucht.
+  - --filesystem=xdg-config/wow-forever-addon-manager:create
+  - --filesystem=xdg-data/wow-forever-addon-manager:create
+
+modules:
+  - name: wow-forever-addon-manager
+    buildsystem: simple
+    build-commands:
+      - sh packaging/install.sh /app flatpak
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - .git
+          - .venv
+          - .flatpak-builder
+          - build-flatpak
+          - repo
+          - build
+          - dist
+          - backups
+          - sv_backups
+          - cache
+          - __pycache__
+          - config.json
+          - history.jsonl

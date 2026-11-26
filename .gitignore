@@ -8,3 +8,7 @@ build/
 dist/
 *.spec
 .venv/
+build-flatpak/
+.flatpak-builder/
+*.flatpak
+repo/

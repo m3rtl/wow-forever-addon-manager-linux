@@ -47,6 +47,11 @@ def _newer(a, b):
     return x + (0,) * (n - len(x)) > y + (0,) * (n - len(y))
 
 
+def enabled():
+    """Pakete (AUR) und Flatpak werden ueber ihre Paketverwaltung aktualisiert: keine eigene Pruefung."""
+    return not core.managed_install()
+
+
 def check(current=None):
     """Neuestes Release, falls neuer als current; sonst None. Fehler -> ApiError."""
     current = current or core.__version__
