@@ -1,6 +1,7 @@
 """Addons je Charakter an- und ausschalten (WTF/Account/<KONTO>/<REALM>/<CHAR>/AddOns.txt). GUI-frei, ohne globalen Zustand."""
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -99,14 +100,28 @@ def is_enabled(states, folder) -> bool:
     return True
 
 
-def write_states(char, changes: dict[str, bool], backup_dir: Path | None = None):
-    """Aenderungen in AddOns.txt einfuegen; Reihenfolge, fremde Zeilen und Zeilenende bleiben erhalten."""
+def backup_root(backup_dir, install=None) -> Path:
+    """Wurzel fuer AddOns.txt-Backups; mit install (AddOns-Pfad) je Installation ein eigener Unterordner."""
+    if not install:
+        return Path(backup_dir)
+    root = Path(backup_dir) / ("inst-" + hashlib.sha1(str(install).encode("utf-8")).hexdigest()[:8])
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        (root / ".wfa-install").write_text(str(install), "utf-8")
+    except OSError:
+        pass
+    return root
+
+
+def write_states(char, changes: dict[str, bool], backup_dir: Path | None = None, install: str | None = None):
+    """Aenderungen in AddOns.txt einfuegen; Reihenfolge, fremde Zeilen und Zeilenende bleiben erhalten.
+    install: AddOns-Pfad der Installation, zu der das Backup gehoert (ohne: alte Ablage)."""
     p = _file(char)
     exists = p.is_file()
     try:
         text = _read_text(p) if exists else ""
         if exists and backup_dir is not None:
-            dst = Path(backup_dir) / char.account / char.realm / char.name / "AddOns.txt"
+            dst = backup_root(backup_dir, install) / char.account / char.realm / char.name / "AddOns.txt"
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(p, dst)
         eol = "\r\n" if ("\r\n" in text or not text) else "\n"
@@ -142,6 +157,6 @@ def write_states(char, changes: dict[str, bool], backup_dir: Path | None = None)
         raise OSError(_("AddOns.txt von {name} konnte nicht geschrieben werden: {error}").format(name=char.name, error=e)) from e
 
 
-def write_states_all(chars, changes: dict[str, bool], backup_dir: Path | None = None):
+def write_states_all(chars, changes: dict[str, bool], backup_dir: Path | None = None, install: str | None = None):
     for c in chars:
-        write_states(c, changes, backup_dir)
+        write_states(c, changes, backup_dir, install)

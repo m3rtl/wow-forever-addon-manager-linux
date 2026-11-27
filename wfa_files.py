@@ -200,6 +200,22 @@ def validate_addons_dir(p):
     return False, _("Ordner existiert nicht.")
 
 
+def installation_name(addons_dir):
+    """Anzeigename einer Installation aus dem Pfad: Steam, Lutris, sonst Name des WoW-Ordners."""
+    p = Path(addons_dir)
+    low = str(p).lower()
+    if "/steamapps/" in low or "/.steam/" in low or "com.valvesoftware.steam" in low:
+        return "Steam"
+    if "lutris" in low:
+        return "Lutris"
+    parts = p.parts
+    # <WoW>/_forever_/Interface/AddOns -> Ordner ueber _forever_
+    for i in range(len(parts) - 1, 0, -1):
+        if parts[i].lower() == "_forever_":
+            return parts[i - 1]
+    return p.parent.name or p.name or str(p)
+
+
 def portal_path(p):
     """True, wenn p ueber das Dokument-Portal freigegeben wurde (/run/user/<uid>/doc/...)."""
     parts = Path(p).parts

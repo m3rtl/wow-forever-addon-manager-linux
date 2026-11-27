@@ -747,6 +747,29 @@ def cleanup_cmd(mgr, apply):
     return code
 
 
+def update_cmd(mgr, args):
+    """--update / --run: ohne Rueckfragen aktualisieren; bei --run danach CMD starten (auch nach Fehlern)."""
+    import wfa_unattended
+    code = 1
+    try:
+        res = wfa_unattended.run_update(mgr, log=print, quiet=args.quiet)
+        code = res.exit_code
+    except KeyboardInterrupt:
+        print(file=sys.stderr)
+    except Exception as e:  # noqa: BLE001
+        print(paint(_("Update fehlgeschlagen: {error}").format(error=e), "red"), file=sys.stderr)
+    if args.run:
+        cmd = list(args.run)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        try:
+            os.execvp(cmd[0], cmd)
+        except OSError as e:
+            print(paint(_("Programm konnte nicht gestartet werden: {error}").format(error=e), "red"), file=sys.stderr)
+            return 127
+    return code
+
+
 def run(mgr):
     pkgs = refresh(mgr)
     while True:
@@ -811,12 +834,26 @@ def main(argv=None):
     ap.add_argument("--restore-snapshot", metavar="ID", help=_("Gesamtstand wiederherstellen (ID aus --snapshots)"))
     ap.add_argument("--cleanup", action="store_true", help=_("Funde zum Aufräumen auflisten"))
     ap.add_argument("--apply", action="store_true", help=_("mit --cleanup: Funde in den Papierkorb verschieben"))
+    ap.add_argument("--update", action="store_true",
+                    help=_("veraltete Addons ohne Rückfragen aktualisieren (nicht bei laufendem WoW); Exit-Code 0 ok, 1 Fehler, 2 übersprungen"))
+    ap.add_argument("--quiet", action="store_true", help=_("mit --update: nur Zusammenfassung und Fehler ausgeben"))
+    ap.add_argument("--run", nargs=argparse.REMAINDER, metavar="CMD",
+                    help=_("nach dem Update CMD starten (impliziert --update), z. B. Steam-Startoption: wfa --update --run %%command%%"))
     ap.add_argument("--version", action="version", version=f"%(prog)s {core.__version__}")
     args = ap.parse_args(argv)
     if args.apply and not args.cleanup:
         ap.error(_("--apply gehört zu --cleanup"))
+    if args.run is not None and args.run[:1] == ["--"]:
+        args.run = args.run[1:]
+    if args.run is not None and not args.run:
+        ap.error(_("--run braucht einen Befehl"))
+    if args.quiet and not (args.update or args.run):
+        ap.error(_("--quiet gehört zu --update"))
     try:
-        mgr = Manager(addons_dir=args.addons_dir, log=print)
+        quiet = args.quiet and bool(args.update or args.run)
+        mgr = Manager(addons_dir=args.addons_dir, log=(lambda _s: None) if quiet else print)
+        if args.update or args.run:
+            return update_cmd(mgr, args)
         if mgr.needs_setup():
             if args.addons_dir:
                 print(_("AddOns-Ordner nicht gefunden: {path}").format(path=args.addons_dir), file=sys.stderr)

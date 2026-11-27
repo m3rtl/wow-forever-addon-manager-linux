@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import tarfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -27,6 +27,11 @@ class Snapshot:
     addons: list[str]
     client: str
     manager_version: str
+    auto: bool = False      # automatisch angelegt (vor Update, bei Client-Wechsel)
+    reason: str = ""
+    install: str = ""       # AddOns-Pfad der Installation; "" = aelterer Satz ohne Kennung
+    reason_kind: str = "manual"      # "bulk" | "client" | "manual" (maschinenlesbar, fuer die Anzeige)
+    reason_data: dict = field(default_factory=dict)   # z. B. {"n": 7} oder {"old": "1.60.1", "new": "1.60.2"}
 
 
 def _ci_child(parent, name):
@@ -75,11 +80,18 @@ def _extract(archive, dest):
 def _meta(d):
     m = json.loads((d / _META).read_text(encoding="utf-8"))
     return Snapshot(str(m["id"]), d, str(m["created"]), str(m.get("label", "")), int(m.get("size", 0)),
-                    [str(a) for a in m.get("addons", [])], str(m.get("client", "")), str(m.get("manager_version", "")))
+                    [str(a) for a in m.get("addons", [])], str(m.get("client", "")), str(m.get("manager_version", "")),
+                    bool(m.get("auto", False)), str(m.get("reason", "")), str(m.get("install", "")),
+                    str(m.get("reason_kind") or "manual"), m["reason_data"] if isinstance(m.get("reason_data"), dict) else {})
 
 
-def list_snapshots(snap_root) -> list[Snapshot]:
-    """Neueste zuerst; kaputte Saetze werden uebersprungen."""
+def owner(snap, legacy=None) -> str:
+    """Installation eines Satzes; Saetze ohne Kennung gehoeren zu `legacy` (Installation beim ersten Laden)."""
+    return snap.install or (legacy or "")
+
+
+def list_snapshots(snap_root, install=None, legacy=None) -> list[Snapshot]:
+    """Neueste zuerst; kaputte Saetze werden uebersprungen. install: nur Saetze dieser Installation."""
     out = []
     try:
         dirs = [d for d in Path(snap_root).iterdir() if d.is_dir() and _ID.match(d.name)]
@@ -91,17 +103,25 @@ def list_snapshots(snap_root) -> list[Snapshot]:
                 out.append(_meta(d))
         except (OSError, ValueError, KeyError, TypeError):
             continue
+    if install is not None:
+        out = [s for s in out if owner(s, legacy) == str(install)]
     out.sort(key=lambda s: s.id, reverse=True)
     return out
 
 
-def _rotate(snap_root, keep, protect=()):
-    for s in list_snapshots(snap_root)[max(keep, 1):]:
-        if s.id not in protect:
-            shutil.rmtree(s.path, ignore_errors=True)
+def _rotate(snap_root, keep, protect=(), keep_auto=2, legacy=None):
+    """Je Installation getrennt: manuelle Saetze behalten `keep`, automatische `keep_auto`."""
+    groups = {}
+    for s in list_snapshots(snap_root):
+        groups.setdefault((owner(s, legacy), s.auto), []).append(s)
+    for (_inst, auto), snaps in groups.items():
+        for s in snaps[max(keep_auto if auto else keep, 1):]:
+            if s.id not in protect:
+                shutil.rmtree(s.path, ignore_errors=True)
 
 
-def create(addons_dir, wtf, snap_root, label="", client="", keep=3, protect=()) -> Snapshot:
+def create(addons_dir, wtf, snap_root, label="", client="", keep=3, protect=(), auto=False, reason="",
+           install=None, keep_auto=2, legacy=None, reason_kind="manual", reason_data=None) -> Snapshot:
     snap_root = Path(snap_root)
     try:
         snap_root.mkdir(parents=True, exist_ok=True)
@@ -122,7 +142,9 @@ def create(addons_dir, wtf, snap_root, label="", client="", keep=3, protect=()) 
             names = sorted(c.name for c in Path(addons_dir).iterdir() if c.is_dir()) if Path(addons_dir).is_dir() else []
             size = sum(f.stat().st_size for f in tmp.iterdir())
             meta = {"id": sid, "created": datetime.now().isoformat(timespec="seconds"), "label": label, "size": size,
-                    "addons": names, "client": client, "manager_version": wfa_core.__version__}
+                    "addons": names, "client": client, "manager_version": wfa_core.__version__,
+                    "auto": bool(auto), "reason": reason, "reason_kind": reason_kind,
+                    "reason_data": dict(reason_data or {}), "install": str(install if install is not None else addons_dir)}
             (tmp / _META).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
             os.rename(tmp, snap_root / sid)
         except BaseException:
@@ -131,7 +153,7 @@ def create(addons_dir, wtf, snap_root, label="", client="", keep=3, protect=()) 
     except (OSError, tarfile.TarError) as e:
         raise OSError(_("Der Schnappschuss konnte nicht angelegt werden: {error}").format(error=e)) from e
     snap = _meta(snap_root / sid)
-    _rotate(snap_root, keep, set(protect) | {sid})
+    _rotate(snap_root, keep, set(protect) | {sid}, keep_auto, legacy or str(addons_dir))
     return snap
 
 
@@ -161,9 +183,13 @@ def _swap_in(archive, target):
     return target, (old if had else None)
 
 
-def restore(snap, addons_dir, wtf, snap_root, keep=3) -> Snapshot:
-    """Stellt snap wieder her; legt vorher einen Sicherheits-Satz an und gibt ihn zurueck."""
+def restore(snap, addons_dir, wtf, snap_root, keep=3, legacy=None) -> Snapshot:
+    """Stellt snap wieder her; legt vorher einen Sicherheits-Satz an und gibt ihn zurueck.
+    Ein Satz einer anderen Installation wird abgelehnt."""
     sp = Path(snap.path)
+    own = owner(snap, legacy)
+    if own and own != str(addons_dir):
+        raise ValueError(_("Der Gesamtstand gehört zu einer anderen Installation ({path}).").format(path=own))
     if not (sp / _ADDONS).is_file():
         raise ValueError(_("Der Schnappschuss ist unvollstaendig (addons.tar.gz fehlt)"))
     parts = [(sp / _ADDONS, Path(addons_dir))]
@@ -175,7 +201,7 @@ def restore(snap, addons_dir, wtf, snap_root, keep=3) -> Snapshot:
                 _members_ok(tf)
         except tarfile.TarError as e:
             raise ValueError(_("Das Archiv {name} ist beschaedigt: {error}").format(name=arc.name, error=e)) from e
-    safety = create(addons_dir, wtf, snap_root, label=N_("Vor Wiederherstellung"), keep=keep, protect={sp.name})
+    safety = create(addons_dir, wtf, snap_root, label=N_("Vor Wiederherstellung"), keep=keep, protect={sp.name}, legacy=legacy)
     done = []
     try:
         for arc, tgt in parts:

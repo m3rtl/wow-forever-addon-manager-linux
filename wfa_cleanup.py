@@ -122,10 +122,10 @@ def scan(addons_dir, wtf) -> list[Finding]:
     return out
 
 
-def _write_manifest(set_dir, items):
+def _write_manifest(set_dir, items, install=""):
     fd, tmp = tempfile.mkstemp(dir=set_dir, prefix=".manifest.", suffix=".tmp")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump({"items": items}, f, ensure_ascii=False, indent=1)
+        json.dump({"items": items, "install": install}, f, ensure_ascii=False, indent=1)
     os.replace(tmp, set_dir / "manifest.json")
 
 
@@ -142,10 +142,24 @@ def _new_set(trash_root):
             name = "{}-{}".format(base, n)
 
 
-def _rotate(trash_root, keep, protect=None):
+def _install_of(set_dir, legacy=None):
+    """Installation eines Papierkorb-Satzes; ohne Kennung (alt) gilt `legacy`."""
+    try:
+        data = json.loads((set_dir / "manifest.json").read_text(encoding="utf-8"))
+        inst = data.get("install")
+    except (OSError, ValueError, AttributeError):
+        inst = None
+    return inst if isinstance(inst, str) and inst else (legacy or "")
+
+
+def _rotate(trash_root, keep, protect=None, legacy=None):
+    """Je Installation die neuesten `keep` Saetze behalten."""
     sets = sorted((d for d in _subdirs(trash_root) if _SET.match(d.name)), key=lambda d: d.name, reverse=True)
-    for d in sets[max(keep, 1):]:
-        if d != protect:
+    seen = {}
+    for d in sets:
+        inst = _install_of(d, legacy)
+        seen[inst] = seen.get(inst, 0) + 1
+        if seen[inst] > max(keep, 1) and d != protect:
             shutil.rmtree(d, ignore_errors=True)
 
 
@@ -183,8 +197,9 @@ def _apply_one(f, addons_dir, set_dir, idx):
     return {"kind": f.kind, "original": str(p), "stored": str(dest.relative_to(set_dir))}
 
 
-def apply(findings, addons_dir, trash_root, keep=5) -> list[tuple[Finding, bool, str]]:
-    """Verschiebt die Funde in einen neuen Satz im Papierkorb (mit manifest.json); rotiert auf keep Saetze."""
+def apply(findings, addons_dir, trash_root, keep=5, legacy=None) -> list[tuple[Finding, bool, str]]:
+    """Verschiebt die Funde in einen neuen Satz im Papierkorb (mit manifest.json, Installation = addons_dir);
+    rotiert je Installation auf keep Saetze."""
     trash_root = Path(trash_root)
     res = []
     if not findings:
@@ -194,13 +209,13 @@ def apply(findings, addons_dir, trash_root, keep=5) -> list[tuple[Finding, bool,
     for i, f in enumerate(findings):
         try:
             items.append(_apply_one(f, addons_dir, set_dir, i))
-            _write_manifest(set_dir, items)
+            _write_manifest(set_dir, items, str(addons_dir))
             res.append((f, True, _("Verschoben: {name}").format(name=Path(f.path).name)))
         except (OSError, ValueError, shutil.Error) as e:
             res.append((f, False, _("{name} konnte nicht verarbeitet werden: {error}").format(name=Path(f.path).name, error=e)))
     if not items:
         shutil.rmtree(set_dir, ignore_errors=True)
-    _rotate(trash_root, keep, set_dir if items else None)
+    _rotate(trash_root, keep, set_dir if items else None, legacy or str(addons_dir))
     return res
 
 
@@ -212,11 +227,14 @@ def _manifest(set_dir):
         return None
 
 
-def list_sets(trash_root) -> list[tuple[Path, datetime, int]]:
-    """(Pfad, Zeitpunkt, Anzahl Eintraege), neueste zuerst."""
+def list_sets(trash_root, install=None, legacy=None) -> list[tuple[Path, datetime, int]]:
+    """(Pfad, Zeitpunkt, Anzahl Eintraege), neueste zuerst. install: nur Saetze dieser Installation
+    (Saetze ohne Kennung zaehlen zu `legacy`)."""
     out = []
     for d in _subdirs(Path(trash_root)):
         if not _SET.match(d.name):
+            continue
+        if install is not None and _install_of(d, legacy) != str(install):
             continue
         try:
             created = datetime.strptime(d.name[:15], "%Y%m%d-%H%M%S")
@@ -228,12 +246,16 @@ def list_sets(trash_root) -> list[tuple[Path, datetime, int]]:
     return out
 
 
-def restore_set(set_dir) -> list[str]:
-    """Legt alles laut Manifest zurueck; Konflikte werden gemeldet, nichts wird ueberschrieben."""
+def restore_set(set_dir, install=None, legacy=None) -> list[str]:
+    """Legt alles laut Manifest zurueck; Konflikte werden gemeldet, nichts wird ueberschrieben.
+    install: aktive Installation; ein Satz einer anderen wird abgelehnt."""
     set_dir = Path(set_dir)
     items = _manifest(set_dir)
     if items is None:
         raise ValueError(_("Der Satz {name} hat kein lesbares Manifest").format(name=set_dir.name))
+    own = _install_of(set_dir, legacy)
+    if install is not None and own and own != str(install):
+        raise ValueError(_("Der Satz {name} gehört zu einer anderen Installation ({path})").format(name=set_dir.name, path=own))
     errors, left = [], []
     for it in items:
         src, dst = set_dir / it.get("stored", ""), Path(it.get("original", ""))
@@ -251,7 +273,7 @@ def restore_set(set_dir) -> list[str]:
             errors.append("{}: {}".format(dst.name, e))
             left.append(it)
     if left:
-        _write_manifest(set_dir, left)
+        _write_manifest(set_dir, left, _install_of(set_dir))
     else:
         shutil.rmtree(set_dir, ignore_errors=True)   # alles zurueckgelegt, nur leere Huelle
     return errors

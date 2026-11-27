@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from wfa_i18n import _  # noqa: E402
 
-CLI_FLAGS = {"--cli", "--check", "--addons-dir", "--export", "--import", "--snapshot", "--snapshots", "--restore-snapshot",
+CLI_FLAGS = {"--cli", "--check", "--update", "--quiet", "--run", "--addons-dir", "--export", "--import", "--snapshot", "--snapshots", "--restore-snapshot",
              "--cleanup", "--apply", "--version", "-h", "--help"}
 
 

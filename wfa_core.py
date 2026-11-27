@@ -39,7 +39,7 @@ from wfa_sources import (  # noqa: F401
 from wfa_files import (  # noqa: F401
     _desktop_exec, _desktop_quote, _drive_c_dirs, _expand, _forever_in_drive_c, _is_forever_root, _remove,
     _steam_libraries, asset_path, autostart_enabled, autostart_path, find_addon_dirs, find_forever_installs,
-    flatpak_override_cmd, install_desktop_entry, is_addon_dir, normalize_addons_dir, portal_path,
+    flatpak_override_cmd, install_desktop_entry, installation_name, is_addon_dir, normalize_addons_dir, portal_path,
     safe_extract, sandbox_blocked_libraries, sandbox_hint, set_autostart, validate_addons_dir,
 )
 from wfa_pins import (  # noqa: F401

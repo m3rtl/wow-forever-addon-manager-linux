@@ -12,7 +12,7 @@ from wfa_i18n import N_, _
 from wfa_apply import ApplyMixin
 from wfa_assign import AssignMixin
 from wfa_base import ApiError, CATALOG, CURRENT, DEFAULT_CLIENT, ERROR, FOREVER_TYPE_FALLBACK, HELD, NEWER, NOKEY, NO_FOREVER, Package, SKIPPED, UNASSIGNED, UNCHECKED, UPDATE
-from wfa_files import find_forever_installs, normalize_addons_dir, validate_addons_dir
+from wfa_files import find_forever_installs, installation_name, normalize_addons_dir, validate_addons_dir
 from wfa_http import github_token
 from wfa_paths import Config, Paths
 from wfa_pins import _pin_record, _remote_newer
@@ -46,6 +46,9 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         self._apply_lock = threading.RLock()
         self._hist_lock = threading.Lock()
         self._ver_cursor = {}   # Index der naechsten CF-Dateiseite je Paket (Seiten koennen nach dem Filtern leer sein)
+        self._override = bool(addons_dir)
+        self.last_client_change = None   # (alt, neu) des letzten erkannten Client-Wechsels
+        self.client_change = None   # (alt, neu) nach einem Client-Wechsel, bis take_client_change() es abholt
         if addons_dir:  # Override gilt nur fuer diese Sitzung
             self.addons_dir = normalize_addons_dir(addons_dir)
         else:
@@ -54,6 +57,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
                 self.addons_dir = normalize_addons_dir(cfgd)
         if self.addons_dir and self.addons_dir.is_dir():
             self._read_client()
+        self._ensure_installations()
 
     def _read_client(self):
         self.client_version = client_version(self.addons_dir)
@@ -77,9 +81,180 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         q.mkdir(parents=True, exist_ok=True)
         with self.cfg.lock:
             self.cfg["addons_dir"] = str(q)
+            self._add_inst(q)
             self.cfg.save()
         self.addons_dir = q
         self._read_client()
+
+    # -- Mehrere Installationen
+    def _inst_list(self):
+        lst = self.cfg["installations"]
+        return [e for e in lst if isinstance(e, dict) and isinstance(e.get("path"), str)]
+
+    def _add_inst(self, q, name=None, legacy=False):
+        """Traegt q ein, falls neu (ohne zu speichern). -> True, wenn neu."""
+        if any(normalize_addons_dir(e["path"]) == q for e in self._inst_list()):
+            return False
+        rec = {"name": name or installation_name(q), "path": str(q)}
+        if legacy:
+            rec["legacy"] = True
+        self.cfg["installations"] = self._inst_list() + [rec]
+        return True
+
+    def _ensure_installations(self):
+        """Der bisher aktive Ordner kommt beim ersten Laden in die Liste (Saetze ohne Kennung gehoeren zu ihm)."""
+        cfgd = self.cfg["addons_dir"]
+        if not cfgd:
+            return
+        with self.cfg.lock:
+            first = not self._inst_list()
+            if self._add_inst(normalize_addons_dir(cfgd), legacy=first):
+                with contextlib.suppress(OSError):
+                    self.cfg.save()
+
+    def legacy_install(self):
+        """AddOns-Pfad (str), dem Saetze ohne Installations-Kennung zugeordnet werden; sonst None."""
+        lst = self._inst_list()
+        for e in lst:
+            if e.get("legacy"):
+                return str(normalize_addons_dir(e["path"]))
+        return str(normalize_addons_dir(lst[0]["path"])) if lst else None
+
+    def install_id(self):
+        """Kennung der aktiven Installation (AddOns-Pfad) oder None."""
+        return str(self.addons_dir) if self.addons_dir else None
+
+    def installations(self):
+        out = []
+        cur = self.install_id()
+        for e in self._inst_list():
+            q = normalize_addons_dir(e["path"])
+            out.append(dict(name=str(e.get("name") or installation_name(q)), path=str(q), active=str(q) == cur,
+                            ok=q.is_dir()))
+        return out
+
+    def add_installation(self, path, name=None):
+        """-> (ok, Hinweis); fuegt nur hinzu, wechselt nicht."""
+        ok, hint = validate_addons_dir(path)
+        if not ok:
+            return False, hint
+        q = normalize_addons_dir(path)
+        with self.cfg.lock:
+            if not self._add_inst(q, (name or "").strip() or None):
+                return False, _("Diese Installation ist schon eingetragen.")
+            self.cfg.save()
+        return True, hint
+
+    def remove_installation(self, path):
+        """Entfernt nur den Eintrag (Dateien bleiben); die aktive Installation nicht."""
+        q = normalize_addons_dir(path)
+        if str(q) == self.install_id():
+            return False
+        with self.cfg.lock:
+            lst = self._inst_list()
+            left = [e for e in lst if normalize_addons_dir(e["path"]) != q]
+            if len(left) == len(lst):
+                return False
+            self.cfg["installations"] = left
+            self.cfg.save()
+        return True
+
+    def rename_installation(self, path, name):
+        q, name = normalize_addons_dir(path), (name or "").strip()
+        if not name:
+            return False
+        with self.cfg.lock:
+            for e in self._inst_list():
+                if normalize_addons_dir(e["path"]) == q:
+                    e["name"] = name
+                    self.cfg.save()
+                    return True
+        return False
+
+    def switch_installation(self, path):
+        """-> (ok, Hinweis). Gespeichert wird nicht, wenn --addons-dir nur fuer diese Sitzung gilt."""
+        q = normalize_addons_dir(path)
+        if not any(normalize_addons_dir(e["path"]) == q for e in self._inst_list()):
+            return False, _("Diese Installation ist nicht eingetragen.")
+        ok, hint = validate_addons_dir(q)
+        if not ok:
+            return False, hint
+        q.mkdir(parents=True, exist_ok=True)
+        with self._apply_lock:
+            self.addons_dir = q
+            self._folders, self._fps, self._hash_seen = [], {}, set()
+            self._read_client()
+        if not self._override:
+            with self.cfg.lock:
+                self.cfg["addons_dir"] = str(q)
+                self.cfg.save()
+        return True, hint
+
+    # -- Automatische Gesamtstaende
+    @property
+    def snapshot_root(self):
+        return self.paths.data_dir / "snapshots"
+
+    def list_snapshots(self):
+        """Gesamtstaende der aktiven Installation, neueste zuerst."""
+        import wfa_snapshot
+        if not self.addons_dir:
+            return []
+        return wfa_snapshot.list_snapshots(self.snapshot_root, install=self.install_id(), legacy=self.legacy_install())
+
+    def create_snapshot(self, label=""):
+        """Manueller Gesamtstand der aktiven Installation (OSError bei Fehler)."""
+        import wfa_snapshot
+        return wfa_snapshot.create(self.addons_dir, self.wtf_dir(), self.snapshot_root, label,
+                                   self.client_version or "", install=self.install_id(), legacy=self.legacy_install())
+
+    def restore_snapshot(self, snap):
+        """Stellt einen Gesamtstand wieder her (nicht bei laufendem WoW pruefen: Aufrufer). -> Sicherheits-Satz."""
+        import wfa_snapshot
+        return wfa_snapshot.restore(snap, self.addons_dir, self.wtf_dir(), self.snapshot_root,
+                                    legacy=self.legacy_install())
+
+    def auto_snapshot(self, reason, kind="bulk", data=None):
+        """Legt einen automatischen Gesamtstand der aktiven Installation an. Fehler landen im Protokoll und in notes.
+        kind/data: maschinenlesbarer Grund ("bulk" {"n"} | "client" {"old","new"})."""
+        try:
+            if not (self.addons_dir and self.addons_dir.is_dir()):
+                return None
+            import wfa_snapshot
+            return wfa_snapshot.create(self.addons_dir, self.wtf_dir(), self.snapshot_root, label=reason,
+                                       client=self.client_version or "", auto=True, reason=reason,
+                                       install=self.install_id(), legacy=self.legacy_install(),
+                                       reason_kind=kind, reason_data=data)
+        except Exception as e:  # noqa: BLE001
+            msg = _("Automatischer Gesamtstand fehlgeschlagen: {error}").format(error=e)
+            self.log(msg)
+            self.notes.append(msg)
+            return None
+
+    def check_client_change(self):
+        """-> (alt, neu) bei geaenderter Client-Version, sonst None. Erster Lauf merkt sich nur den Stand."""
+        cur = self.client_version
+        if not cur or not self.addons_dir:
+            return None
+        key = str(self.addons_dir)
+        with self.cfg.lock:
+            seen = self.cfg["client_seen"].get(key)
+            if seen == cur:
+                return None
+            self.cfg["client_seen"][key] = cur
+            with contextlib.suppress(OSError):
+                self.cfg.save()
+        if not seen:
+            return None
+        if self.cfg["auto_snapshot_client"]:
+            self.auto_snapshot(_("Client {old} -> {new}").format(old=seen, new=cur), "client", {"old": seen, "new": cur})
+        self.last_client_change = (seen, cur)
+        return (seen, cur)
+
+    def take_client_change(self):
+        """Holt (und loescht) den zuletzt erkannten Client-Wechsel, z. B. fuer eine Tray-Meldung."""
+        ch, self.client_change = self.client_change, None
+        return ch
 
     @property
     def api_key(self):
@@ -347,6 +522,9 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         if self.needs_setup():
             raise ApiError(_("Kein AddOns-Ordner eingerichtet."), "setup")
         self._read_client()
+        ch = self.check_client_change()
+        if ch:
+            self.client_change = ch
         self._folders = self._addon_folders()
         self._fps = {}
         self._hash_seen = set()
