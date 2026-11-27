@@ -3777,3 +3777,40 @@ msgstr "Update check"
 
 msgid "Steam, Lutris oder Heroic können Addons vor jedem Spielstart aktualisieren."
 msgstr "Steam, Lutris or Heroic can update addons before every game launch."
+
+msgid "{n} deaktiviert"
+msgstr "{n} disabled"
+
+msgid "⏸ deaktiviert"
+msgstr "⏸ disabled"
+
+msgid "Wieder aktivieren"
+msgstr "Enable again"
+
+msgid "Deaktivieren (alle Charaktere)"
+msgstr "Disable (all characters)"
+
+msgid "Deaktivieren wirkt über die Addon-Liste der Charaktere. Melde dich dafür zuerst einmal mit einem Charakter in WoW an."
+msgstr "Disabling works through the characters' addon lists. Log in with a character in WoW once first."
+
+msgid "„{name}“ bei 1 Charakter wieder aktiviert."
+msgid_plural "„{name}“ bei {n} Charakteren wieder aktiviert."
+msgstr[0] "“{name}” enabled again for 1 character."
+msgstr[1] "“{name}” enabled again for {n} characters."
+
+msgid "„{name}“ bei 1 Charakter deaktiviert. Wieder einschalten: Rechtsklick → „Wieder aktivieren“."
+msgid_plural "„{name}“ bei {n} Charakteren deaktiviert. Wieder einschalten: Rechtsklick → „Wieder aktivieren“."
+msgstr[0] "“{name}” disabled for 1 character. To turn it back on: right-click → “Enable again”."
+msgstr[1] "“{name}” disabled for {n} characters. To turn it back on: right-click → “Enable again”."
+
+msgid "Neuigkeiten …"
+msgstr "What's new …"
+
+msgid "Neuigkeiten"
+msgstr "What's new"
+
+msgid "Der Changelog liegt dieser Installation nicht bei."
+msgstr "The changelog is not included in this installation."
+
+msgid "Versionshinweise auf GitHub"
+msgstr "Release notes on GitHub"

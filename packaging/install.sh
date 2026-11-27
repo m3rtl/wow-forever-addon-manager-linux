@@ -16,7 +16,7 @@ install -d "$lib" "$lib/assets" "$root/bin"
 for f in "$src"/wfa_*.py; do
     install -m644 "$f" "$lib/"
 done
-install -m644 "$src/$name.py" "$lib/"
+install -m644 "$src/$name.py" "$src/CHANGELOG.md" "$lib/"
 cp -R "$src/assets/." "$lib/assets/"
 find "$lib/assets" -type d -exec chmod 755 {} + -o -type f -exec chmod 644 {} +
 # Marker: Programm wird von der Paketverwaltung aktualisiert, Daten liegen in den XDG-Ordnern

@@ -6,6 +6,7 @@ import contextlib
 import ctypes
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -417,6 +418,7 @@ class App:
         self.health = {}             # Paket-Key -> wfa_health.Health (nach jeder Pruefung)
         self.conflicts = []          # wfa_health.Conflict
         self.conf_keys = {}          # Paket-Key -> [Conflict]
+        self.disabled = set()        # Ordner (klein), die bei allen Charakteren deaktiviert sind
         self._shown_change = None    # zuletzt gemeldeter Client-Wechsel (alt, neu)
         self._inst_lock = False
         self.rows = {}
@@ -484,7 +486,7 @@ class App:
                           *(() if managed else ((_("Startmenü-Eintrag anlegen"), self.on_desktop_entry),
                                                 (_("Nach Programm-Updates suchen …"),
                                                  lambda *_a: self.check_self_update(True)))),
-                          (_("Über"), self.on_about), (None, None), (_("Beenden"), self.on_quit_item)):
+                          (_("Neuigkeiten …"), self.on_changelog), (_("Über"), self.on_about), (None, None), (_("Beenden"), self.on_quit_item)):
             mi = Gtk.SeparatorMenuItem() if label is None else Gtk.MenuItem(label=label)
             if cb:
                 mi.connect("activate", cb)
@@ -496,6 +498,7 @@ class App:
             mi = Gtk.MenuItem(label=label)
             mi.connect("activate", cb)
             sub.append(mi)
+        sub.show_all()   # noetig: show_all am Hauptmenue erreicht das Untermenue des ausgeblendeten Eintrags nicht
         self.expert_item = Gtk.MenuItem(label=_("Erweitert"), no_show_all=True)
         self.expert_item.set_submenu(sub)
         menu.insert(self.expert_item, 6)   # vor _("Einstellungen …")
@@ -763,6 +766,9 @@ class App:
         s = "{} · {}".format(ngettext("1 Addon", "{n} Addons", n).format(n=n), ngettext("1 Update", "{n} Updates", u).format(n=u))
         if ign:
             s += " · " + _("{n} ignoriert").format(n=ign)
+        dis = sum(1 for p in self.pkgs if self.pkg_disabled(p))
+        if dis:
+            s += " · " + _("{n} deaktiviert").format(n=dis)
         aband = sum(1 for p in self.pkgs if getattr(self.health.get(p.key), "status", "") == "abandoned")
         if aband:
             s += " · " + _("{n} verwaist").format(n=aband)
@@ -965,6 +971,8 @@ class App:
             stext, scolor, sset, weight, style = _("ignoriert"), GREY, True, 400, 2
         elif upd:
             stext, scolor, sset, weight, style = _("▲ Update"), ORANGE, True, 700, 0
+        elif self.pkg_disabled(p):
+            stext, scolor, sset, weight, style = _("⏸ deaktiviert"), GREY, True, 400, 2
         elif p.status == core.CURRENT and self.health_status(p) == "abandoned":
             stext, scolor, sset, weight, style = _("⚠ verwaist"), ORANGE, True, 400, 0
         elif p.status == core.CURRENT and self.health_status(p) == "stale":
@@ -1007,6 +1015,51 @@ class App:
                 conf.append(_("Der Ordner {folder} gehört auch zu: {names}").format(
                     folder=c.folders[0], names=names([k for k in c.keys if k != p.key])))
         return "\n\n".join(x for x in ("\n".join(lines), "\n".join(conf)) if x)
+
+    def read_disabled(self):
+        try:
+            import wfa_chars
+            wtf = self.mgr.wtf_dir()
+            return wfa_chars.disabled_folders(wfa_chars.list_characters(wtf) if wtf else [])
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+            return set()
+
+    def pkg_disabled(self, p):
+        return bool(p.folders) and all(f.lower() in self.disabled for f in p.folders)
+
+    def toggle_disabled(self, p):
+        """Addon bei allen Charakteren aus- oder wieder einschalten (AddOns.txt, mit Backup)."""
+        import wfa_chars
+        import wfa_expert
+        wtf = self.mgr.wtf_dir()
+        chars = wfa_chars.list_characters(wtf) if wtf else []
+        if not chars:
+            message(self.win, _("Keine Charaktere gefunden"),
+                    _("Deaktivieren wirkt über die Addon-Liste der Charaktere. Melde dich dafür zuerst einmal "
+                      "mit einem Charakter in WoW an."))
+            return
+        if not wfa_expert.wow_guard(self.win, self.mgr):
+            return
+        enable = self.pkg_disabled(p)
+        try:
+            wfa_chars.write_states_all(chars, {f: enable for f in p.folders},
+                                       self.mgr.paths.data_dir / "addons_txt_backups", install=self.mgr.install_id())
+        except OSError as e:
+            message(self.win, _("Fehler"), str(e), Gtk.MessageType.ERROR)
+            self.disabled = self.read_disabled()
+            self.refresh_row(p)
+            return
+        low = {f.lower() for f in p.folders}
+        self.disabled = (self.disabled - low) if enable else (self.disabled | low)
+        if enable:
+            self.log(ngettext("„{name}“ bei 1 Charakter wieder aktiviert.",
+                              "„{name}“ bei {n} Charakteren wieder aktiviert.", len(chars)).format(name=p.name, n=len(chars)))
+        else:
+            self.log(ngettext("„{name}“ bei 1 Charakter deaktiviert. Wieder einschalten: Rechtsklick → „Wieder aktivieren“.",
+                              "„{name}“ bei {n} Charakteren deaktiviert. Wieder einschalten: Rechtsklick → „Wieder aktivieren“.",
+                              len(chars)).format(name=p.name, n=len(chars)))
+        self.refresh_row(p)
 
     def update_health(self, pkgs, health, conflicts):
         self.health, self.conflicts = health, conflicts
@@ -1101,11 +1154,11 @@ class App:
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
                 health, conf = {}, []
-            return pkgs, health, conf
+            return pkgs, health, conf, self.read_disabled()
 
         def done(res, err):
             if res is not None:
-                res, health, conf = res
+                res, health, conf, self.disabled = res
                 self.update_health(res, health, conf)
                 self.pkgs = res
                 self.ready = True
@@ -1182,6 +1235,8 @@ class App:
               if p.pin else ()),
             ("@channel", p),
             (_("Updates nicht mehr ignorieren") if p.ignored else _("Updates ignorieren"), lambda: self.toggle_ignore(p), True),
+            (_("Wieder aktivieren") if self.pkg_disabled(p) else _("Deaktivieren (alle Charaktere)"),
+             lambda: self.toggle_disabled(p), bool(p.folders) and not self.busy),
             None,
             (_("Seite öffnen"), lambda: self.open_uri(url), bool(url)),
             (_("Ordner öffnen"), lambda: self.open_folder(p), bool(p.folders)),
@@ -2786,6 +2841,65 @@ class App:
             message(self.win, _("Startmenü-Eintrag fehlgeschlagen"), str(e), Gtk.MessageType.ERROR)
             return
         message(self.win, _("Startmenü-Eintrag angelegt"), short_path(p))
+
+    def on_changelog(self, *_a):
+        """Changelog des Managers (CHANGELOG.md) mit einfacher Markdown-Darstellung."""
+        try:
+            text = core.changelog_path().read_text("utf-8")
+        except OSError:
+            text = None
+        d = make_dialog(_("Neuigkeiten"), self.win, 720, 560)
+        add_button(d, _("Schließen"), Gtk.ResponseType.CLOSE, suggested=True)
+        box = d.get_content_area()
+        if text is None:
+            box.pack_start(Gtk.Label(xalign=0, wrap=True, label=_("Der Changelog liegt dieser Installation nicht bei.")), False, False, 0)
+            link = Gtk.LinkButton.new_with_label(REPO_URL + "/releases", _("Versionshinweise auf GitHub"))
+            link.set_halign(Gtk.Align.START)
+            box.pack_start(link, False, False, 0)
+        else:
+            sw = text_view_scroller("", 680, 460)
+            tv = sw.get_child()
+            tv.set_left_margin(12)
+            tv.set_right_margin(12)
+            buf = tv.get_buffer()
+            tags = {"h2": buf.create_tag("h2", weight=Pango.Weight.BOLD, scale=1.35, pixels_above_lines=14, pixels_below_lines=4),
+                    "h3": buf.create_tag("h3", weight=Pango.Weight.BOLD, scale=1.1, pixels_above_lines=8, pixels_below_lines=2),
+                    "b": buf.create_tag("b", weight=Pango.Weight.BOLD),
+                    "code": buf.create_tag("code", family="monospace"),
+                    "li": buf.create_tag("li", left_margin=30, indent=-14, pixels_below_lines=3),
+                    "li2": buf.create_tag("li2", left_margin=50, indent=-14, pixels_below_lines=2)}
+            inline = re.compile(r"(\*\*[^*]+\*\*|`[^`]+`)")
+            lines = text.splitlines()
+            start = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), 0)   # Vorspann weglassen
+            for ln in lines[start:]:
+                end = buf.get_end_iter
+                if ln.startswith("## "):
+                    buf.insert_with_tags(end(), ln[3:] + "\n", tags["h2"])
+                    continue
+                if ln.startswith("### "):
+                    buf.insert_with_tags(end(), ln[4:] + "\n", tags["h3"])
+                    continue
+                if not ln.strip():
+                    continue
+                m = re.match(r"(\s*)- (.*)", ln)
+                block = []
+                if m:
+                    block = [tags["li2" if m.group(1) else "li"]]
+                    buf.insert_with_tags(end(), ("◦ " if m.group(1) else "• "), *block)
+                    ln = m.group(2)
+                for part in inline.split(ln):
+                    if part.startswith("**") and part.endswith("**") and len(part) > 4:
+                        buf.insert_with_tags(end(), part[2:-2], tags["b"], *block)
+                    elif part.startswith("`") and part.endswith("`") and len(part) > 2:
+                        buf.insert_with_tags(end(), part[1:-1], tags["code"], *block)
+                    elif part:
+                        buf.insert_with_tags(end(), part, *block) if block else buf.insert(end(), part)
+                buf.insert_with_tags(end(), "\n", *block) if block else buf.insert(end(), "\n")
+            buf.place_cursor(buf.get_start_iter())
+            box.pack_start(sw, True, True, 0)
+        d.show_all()
+        d.run()
+        d.destroy()
 
     def on_about(self, *_a):
         d = Gtk.AboutDialog(transient_for=self.win, modal=True, program_name=TITLE, version=core.__version__,

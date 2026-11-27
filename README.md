@@ -10,6 +10,8 @@ Inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Linux 
 - Erkennung installierter Addons per CurseForge-Fingerprint, GitHub-Releases als Ausweichquelle; nur Forever-Builds (`.toc` mit Interface 16xxx).
 - Veraltete Addons sind angehakt, „N aktualisieren“ spielt sie ein; Changelog als Tooltip.
 - Updates pro Addon ignorieren, eine bestimmte Version installieren und festhalten oder auslassen.
+- Addons vorübergehend deaktivieren, ohne sie zu deinstallieren: Rechtsklick → „Deaktivieren (alle Charaktere)“, zurück mit „Wieder aktivieren“. Das schaltet das Addon in der Addon-Liste aller vorhandenen Charaktere aus (AddOns.txt, vorher gesichert); die Liste zeigt „⏸ deaktiviert“. Charaktere, die danach neu angelegt werden, haben das Addon wieder an.
+- Neuigkeiten zu jeder Version des Managers: ☰ → „Neuigkeiten …“.
 - Kanal pro Addon (Release, Beta, Alpha), erkennbar an β/α in der Liste.
 - Fehlende Pflicht-Abhängigkeiten werden angezeigt und mitinstalliert (Auto-Update: nur CurseForge).
 - Nicht erkannte Ordner per Rechtsklick „Zuordnen …“ (Vorschläge aus TOC und Suche).
@@ -77,7 +79,7 @@ Inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Linux 
 | --- | --- |
 | Auf Updates prüfen | Refresh-Symbol oben links, <kbd>F5</kbd>, <kbd>Strg</kbd>+<kbd>R</kbd> |
 | Markierte aktualisieren | „N aktualisieren“ unten links |
-| Changelog, Ignorieren, Seite/Ordner öffnen, Browser-Download, Deinstallieren | Rechtsklick auf eine Zeile (oder Menütaste) |
+| Changelog, Ignorieren, Deaktivieren, Seite/Ordner öffnen, Browser-Download, Deinstallieren | Rechtsklick auf eine Zeile (oder Menütaste) |
 | Andere Version, Festhalten/Auslassen aufheben, Kanal, Zuordnen, Verlauf | Rechtsklick auf eine Zeile |
 | Installation wechseln (ab zwei Installationen) | Umschalter in der Kopfzeile neben dem Refresh-Symbol |
 | Protokoll, Backups, Gesamtstände, Verlauf, Addon-Liste exportieren/importieren, Einstellungen, Programm-Updates, Beenden | ☰-Menü oben rechts |

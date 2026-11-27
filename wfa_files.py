@@ -262,6 +262,11 @@ def asset_path(name):
     return base / "assets" / name
 
 
+def changelog_path():
+    """CHANGELOG.md liegt neben den Modulen (Quelle, Paket, Flatpak) bzw. im PyInstaller-Bundle."""
+    return Path(getattr(sys, "_MEIPASS", None) or Path(__file__).resolve().parent) / "CHANGELOG.md"
+
+
 def _desktop_quote(s):
     s = s.replace("\\", "\\\\").replace('"', '\\"').replace("`", "\\`").replace("$", "\\$").replace("%", "%%")
     return f'"{s}"'

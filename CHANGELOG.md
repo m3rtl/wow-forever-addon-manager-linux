@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
+## 0.5.2 – 2026-11-27
+
+### Neu
+
+- **Addons vorübergehend deaktivieren**: Rechtsklick auf ein Addon → „Deaktivieren (alle Charaktere)“, zurück mit „Wieder aktivieren“. Das Addon wird in der AddOns.txt aller vorhandenen Charaktere ausgeschaltet; die bisherigen Dateien werden vorher gesichert. Die Liste zeigt „⏸ deaktiviert“, die Summenzeile zählt mit. Bei laufendem WoW wird nichts geschrieben, weil WoW die Änderung beim Beenden überschreiben würde.
+- **Neuigkeiten**: ☰ → „Neuigkeiten …“ zeigt den Changelog des Managers.
+
+### Behoben
+
+- Nach dem Einschalten von „Erweiterte Funktionen anzeigen“ klappte ☰ → „Erweitert“ ein leeres Untermenü aus.
+
 ## 0.5.1 – 2026-11-27
 
 ### Geändert

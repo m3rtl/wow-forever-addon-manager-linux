@@ -100,6 +100,21 @@ def is_enabled(states, folder) -> bool:
     return True
 
 
+def disabled_folders(chars) -> set[str]:
+    """Ordnernamen (klein), die bei allen Charakteren deaktiviert sind; ohne Charaktere leer.
+    Unlesbare AddOns.txt zaehlen als „aktiviert“ (nichts wird faelschlich als deaktiviert gemeldet)."""
+    out = None
+    for c in chars:
+        try:
+            off = {k.lower() for k, v in read_states(c).items() if not v}
+        except OSError:
+            return set()
+        out = off if out is None else out & off
+        if not out:
+            return set()
+    return out or set()
+
+
 def backup_root(backup_dir, install=None) -> Path:
     """Wurzel fuer AddOns.txt-Backups; mit install (AddOns-Pfad) je Installation ein eigener Unterordner."""
     if not install:

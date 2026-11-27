@@ -32,6 +32,17 @@ class CharsTests(unittest.TestCase):
     def _zed(self):
         return next(c for c in ch.list_characters(self.wtf) if c.name == "Zed")
 
+    def test_disabled_folders(self):
+        chars = ch.list_characters(self.wtf)
+        self.assertEqual(ch.disabled_folders(chars), set())          # Bob/Amy ohne AddOns.txt: alles an
+        zed = self._zed()
+        self.assertEqual(ch.disabled_folders([zed]), {"b"})
+        ch.write_states_all(chars, {"Foo": False, "B": False})
+        self.assertEqual(ch.disabled_folders(chars), {"foo", "b"})
+        ch.write_states(zed, {"foo": True})
+        self.assertEqual(ch.disabled_folders(chars), {"b"})
+        self.assertEqual(ch.disabled_folders([]), set())
+
     def test_read_and_default(self):
         c = self._zed()
         st = ch.read_states(c)
