@@ -380,7 +380,7 @@ def install_candidate(mgr, cand):
 def forbidden_alternatives(mgr, q):
     print(paint(_("Suche ist für diesen API-Key nicht freigeschaltet."), "yellow"))
     print(_("Alternativen: [1] Beliebte Forever-Addons  [2] CurseForge-Projekt-ID eingeben  [3] Im Browser suchen"))
-    c = ask("Auswahl (Enter = zurück): ")
+    c = ask(_("Auswahl (Enter = zurück): "))
     if c == "1":
         cand = pick(mgr.featured())
         if cand:

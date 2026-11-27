@@ -2,7 +2,7 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
-## Unveröffentlicht
+## 0.4.0 – 2026-11-27
 
 ### Neu
 
@@ -23,6 +23,10 @@ Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte die
 - Unter der Haube: `wfa_core.py` ist in thematische Module aufgeteilt (`wfa_base`, `wfa_paths`, `wfa_http`, `wfa_toc`, `wfa_sources`, `wfa_files`, `wfa_manager` und weitere); `wfa_core` bleibt als Sammelmodul erhalten. Neu sind eine Testsuite (`python3 -m unittest discover -s tests`) und ein CI-Workflow, der sie bei jedem Push ausführt.
 - Datei- und Ordnerwahl laufen über `Gtk.FileChooserNative` (im Flatpak das Datei-Portal).
 - Flatpak: Autostart über das Hintergrund-Portal; Tray meldet sich mit dem eindeutigen D-Bus-Namen an. Ist nicht erkennbar, ob WoW läuft, meldet der Tray Updates nur, statt sie still zu installieren, und vor dem Wiederherstellen von SavedVariables kommt eine Rückfrage.
+
+### Behoben
+
+- `--export` und `--import` starteten bei vorhandenem Display die GUI statt der Kommandozeile.
 
 ## 0.3.0 – 2026-11-26
 

@@ -35,7 +35,7 @@ jobs:
             --hidden-import wfa_base --hidden-import wfa_paths --hidden-import wfa_http --hidden-import wfa_toc --hidden-import wfa_sources --hidden-import wfa_files --hidden-import wfa_pins \
             --hidden-import wfa_manager --hidden-import wfa_plan --hidden-import wfa_apply --hidden-import wfa_savedvars --hidden-import wfa_assign \
             --hidden-import wfa_tray --hidden-import wfa_background --hidden-import wfa_newaddon --hidden-import wfa_selfupdate \
-            --hidden-import wfa_portal \
+            --hidden-import wfa_portal --hidden-import wfa_i18n --hidden-import wfa_expert --hidden-import wfa_chars --hidden-import wfa_cleanup --hidden-import wfa_snapshot \
             wow-forever-addon-manager.py
 
       - name: Smoke test
@@ -44,6 +44,8 @@ jobs:
         run: |
           ./dist/wow-forever-addon-manager --version
           ./dist/wow-forever-addon-manager --help
+          # Uebersetzungskatalog liegt in der Datei
+          WFA_LANG=en ./dist/wow-forever-addon-manager --help | grep -q "Addon manager"
           # ohne AddOns-Ordner: sauberer Exit mit Code 1, kein Absturz
           rc=0; ./dist/wow-forever-addon-manager --check || rc=$?
           test "$rc" -eq 1

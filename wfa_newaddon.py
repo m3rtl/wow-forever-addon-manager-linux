@@ -408,7 +408,7 @@ class NewAddonDialog(Gtk.Dialog):
         page.pack_start(b, False, False, 0)
         self.stack.add_titled(page, "direct", _("Direkt"))
 
-    def _pick_zip(self, *_):
+    def _pick_zip(self, *_a):
         f = Gtk.FileFilter()
         f.set_name(_("Zip-Archive"))
         f.add_pattern("*.zip")

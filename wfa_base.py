@@ -10,7 +10,7 @@ from pathlib import Path
 
 from wfa_i18n import N_, _
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 APP_NAME = "wow-forever-addon-manager"
 APP_ID = "io.github.m3rtl.WowForeverAddonManager"   # Gtk-Application-ID, Flatpak-ID, Name von .desktop/Icon/Metainfo
