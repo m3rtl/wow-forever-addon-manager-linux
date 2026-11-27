@@ -6,6 +6,7 @@ import fnmatch
 import json
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from wfa_i18n import N_, _
@@ -18,7 +19,7 @@ from wfa_paths import Config, Paths
 from wfa_pins import _pin_record, _remote_newer
 from wfa_plan import PlanMixin
 from wfa_savedvars import SavedVarsMixin
-from wfa_sources import CurseForge, channel_types, gh_latest, parse_github
+from wfa_sources import CurseForge, channel_types, gh_latest, gh_repo_info, mod_info, parse_github
 from wfa_toc import _file_hash, clean_title, client_interface, client_version, compare, fingerprint, forever_toc, parse_toc, toc_dependency_names, toc_files
 
 class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
@@ -574,14 +575,29 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         return True
 
     def _fill_mod_info(self, cf, ids):
-        missing = [i for i in ids if str(i) not in self.cfg["cf_mods"]]
+        # neu holen: unbekannt, aus aelteren Versionen (ohne fetched) oder aelter als ein Tag (Projektstatus)
+        now = time.time()
+        missing = [i for i in ids if now - (self.cfg["cf_mods"].get(str(i)) or {}).get("fetched", 0) > 86400]
         if not missing:
             return
+        tid = self.cfg["cf_forever_type_id"]
         for m in cf.mods(missing):
             with self.cfg.lock:
-                self.cfg["cf_mods"][str(m["id"])] = dict(name=m.get("name") or "", slug=m.get("slug") or "",
-                                                         url=(m.get("links") or {}).get("websiteUrl") or "")
+                self.cfg["cf_mods"][str(m["id"])] = dict(mod_info(m, tid), fetched=now)
         with self.cfg.lock:
+            self.cfg.save()
+
+    def _fill_gh_info(self, repo):
+        """GitHub-Repo-Status (archiviert) fuer wfa_health, hoechstens einmal am Tag je Repo."""
+        key, now = "gh:" + str(repo), time.time()
+        if now - (self.cfg["cf_mods"].get(key) or {}).get("fetched", 0) <= 86400:
+            return
+        try:
+            info = gh_repo_info(repo)
+        except ApiError:
+            return
+        with self.cfg.lock:
+            self.cfg["cf_mods"][key] = dict(info, fetched=now)
             self.cfg.save()
 
     def check(self, packages, progress=None, cancel=None):
@@ -678,6 +694,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         if rem is None and p.meta.get("gh"):
             try:
                 rem = gh_latest(p.meta["gh"], p.meta, allowed)
+                self._fill_gh_info(p.meta["gh"])
                 if rem is None:
                     errs.append(_("GH: kein Forever-Release"))
                     nofile += 1

@@ -203,6 +203,13 @@ def gh_latest(repo, meta, allowed):
     return None
 
 
+def gh_repo_info(repo):
+    """Repo-Metadaten fuer den Verwaist-Hinweis: archived und letzter Push."""
+    r = http_json(f"https://api.github.com/repos/{repo}")
+    r = r if isinstance(r, dict) else {}
+    return dict(archived=r.get("archived") is True, pushed=str(r.get("pushed_at") or ""))
+
+
 def gh_releases(repo, meta, page=1, per_page=30):
     """Eine Seite Releases (inkl. Prereleases, neueste zuerst) mit Forever-Zip -> (Remotes, gibt_es_mehr)."""
     rels = http_json(f"https://api.github.com/repos/{repo}/releases?per_page={per_page}&page={page}")
