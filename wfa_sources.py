@@ -13,6 +13,26 @@ from wfa_toc import _version_token, short_version
 
 # ---------------------------------------------------------------- CurseForge-API
 
+def mod_info(m, tid=None):
+    """Felder eines CurseForge-Projekts fuer den cf_mods-Cache (ohne zusaetzlichen Request, aus der /v1/mods-Antwort).
+    Neu: status (ModStatus), available (isAvailable) und last_file (Datum der juengsten Forever-Datei aus latestFiles)."""
+    last = ""
+    for f in m.get("latestFiles") or []:
+        if not isinstance(f, dict) or f.get("isAvailable") is False:
+            continue
+        by_type = tid and any(isinstance(s, dict) and s.get("gameVersionTypeId") == tid for s in f.get("sortableGameVersions") or [])
+        by_str = any(FOREVER_RE.match(str(g)) for g in f.get("gameVersions") or [])
+        if (by_type or by_str) and str(f.get("fileDate") or "") > last:
+            last = str(f["fileDate"])
+    out = dict(name=m.get("name") or "", slug=m.get("slug") or "",
+               url=(m.get("links") or {}).get("websiteUrl") or "", last_file=last)
+    if isinstance(m.get("status"), int):
+        out["status"] = m["status"]
+    if isinstance(m.get("isAvailable"), bool):
+        out["available"] = m["isAvailable"]
+    return out
+
+
 class CurseForge:
     def __init__(self, key):
         self.key = key
@@ -52,7 +72,7 @@ class CurseForge:
             for f in data:
                 if f.get("isAvailable") is False:
                     continue
-                by_type = tid and any(s.get("gameVersionTypeId") == tid for s in f.get("sortableGameVersions") or [])
+                by_type = tid and any(isinstance(s, dict) and s.get("gameVersionTypeId") == tid for s in f.get("sortableGameVersions") or [])
                 by_str = any(FOREVER_RE.match(str(g)) for g in f.get("gameVersions") or [])
                 if by_type or by_str:
                     hits.append(f)

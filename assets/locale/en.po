@@ -3126,3 +3126,37 @@ msgstr "Network too slow: aborted after {s} s."
 #: wfa_unattended.py
 msgid "Prüfung"
 msgstr "Check"
+
+# ---------------------------------------------------------------- wfa_bugs.py
+
+#: wfa_bugs.py
+msgid "Unbekannt"
+msgstr "Unknown"
+
+#: wfa_health.py
+msgid "Projekt auf CurseForge als {state} markiert"
+msgstr "Project marked as {state} on CurseForge"
+
+#: wfa_health.py
+msgid "Projekt auf CurseForge nicht mehr verfügbar"
+msgstr "Project no longer available on CurseForge"
+
+#: wfa_health.py
+msgid "GitHub-Repository ist archiviert"
+msgstr "GitHub repository is archived"
+
+#: wfa_health.py
+msgid "Seit {days} Tagen keine neue Forever-Datei und TOC älter als der Client"
+msgstr "No new Forever file for {days} days and TOC older than the client"
+
+#: wfa_health.py
+msgid "inaktiv"
+msgstr "inactive"
+
+#: wfa_health.py
+msgid "aufgegeben"
+msgstr "abandoned"
+
+#: wfa_health.py
+msgid "gelöscht"
+msgstr "deleted"
