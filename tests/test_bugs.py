@@ -48,6 +48,20 @@ long ]] string with "quotes" and \n literal]==],
 '''
 
 
+class SampleTextTests(unittest.TestCase):
+    def test_samples_full_message_and_stack(self):
+        errs = [b.BugError("Interface\\AddOns\\Foo\\a.lua:1: zeile eins\nzeile zwei", "stack1\nstack2", datetime(2026, 4, 1), 1,
+                           None, ["Foo"])]
+        errs += [b.BugError(f"Foo\\x.lua:{i}: boom {i}", "", datetime(2026, 3, 2 + i), 1, None, ["Foo"]) for i in range(7)]
+        g = b.group_errors(errs, {"Foo": ("foo", "Foo")}, [])[0]
+        self.assertEqual(len(g.samples), 5)
+        long = [s for s in g.samples if "zeile eins" in s][0]
+        self.assertIn("zeile zwei\n\nstack1\nstack2", long)
+        big = b.group_errors([b.BugError("Foo\\a.lua: " + "x" * 5000, "y" * 5000, None, 1, None, ["Foo"])],
+                             {"Foo": ("foo", "Foo")}, [])[0].samples[0]
+        self.assertLess(len(big), 4100)
+
+
 class ParserTests(unittest.TestCase):
     def test_sample(self):
         errs = [e for e, _t in b.parse_bug_grabber(SAMPLE)]

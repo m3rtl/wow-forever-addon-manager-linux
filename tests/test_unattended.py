@@ -149,6 +149,7 @@ class LaunchTests(UnattendedCase):
         lines = p.read_text().splitlines()
         self.assertEqual(lines[0], "#!/bin/sh")
         self.assertEqual(lines[1], un.launch_command() + " --update --quiet")
+        self.assertTrue(lines[-1].startswith("exit 0"))   # Exit-Code von --update darf den Start nicht abbrechen
 
 
 class CliTests(UnattendedCase):

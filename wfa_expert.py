@@ -41,6 +41,12 @@ def wow_guard(parent, mgr):
     return True
 
 
+def merge_findings(found, conflicts):
+    """Funde zusammenfuehren; derselbe Ordner als Duplikat und als no_toc/nested wird nur einmal gelistet (Duplikat gewinnt)."""
+    dup = {f.path for f in conflicts if f.kind == "duplicate"}
+    return [f for f in found if f.path not in dup] + list(conflicts)
+
+
 def esc(text):
     return GLib.markup_escape_text(text)
 
@@ -133,7 +139,7 @@ class _Base:
 
 class CharactersDialog(_Base):
     def __init__(self, app, chars, folders):
-        super().__init__(app, _("Addons je Charakter"), 560, 560)
+        super().__init__(app, _("Addons je Charakter und Sets"), 560, 560)
         self.chars, self.folders = chars, folders
         multi = len({c.account for c in chars}) > 1
         names = [_("{name} – {realm} (Konto {account})").format(name=c.name, realm=c.realm, account=c.account) if multi
@@ -214,6 +220,8 @@ class CharactersDialog(_Base):
         self.set_plan = None
         self.set_hint.set_visible(False)
         if name is None:
+            self.status.set_text("")
+            self.load()   # Haken wieder auf den echten Zustand
             return
         folders = wfa_sets.get_set(self.mgr.cfg, name)
         if folders is None:
@@ -401,7 +409,7 @@ class CleanupDialog(_Base):
     def refresh(self):
         wtf = self.mgr.wtf_dir()
         pkgs = list(getattr(self.app, "pkgs", None) or [])
-        self.work(lambda: (wfa_cleanup.scan(self.mgr.addons_dir, wtf) + self.conflict_findings(pkgs),
+        self.work(lambda: (merge_findings(wfa_cleanup.scan(self.mgr.addons_dir, wtf), self.conflict_findings(pkgs)),
                            wfa_cleanup.disk_usage(self.usage_paths())), self.loaded, _("Suche …"))
 
     def conflict_findings(self, pkgs):
@@ -488,6 +496,7 @@ class CleanupDialog(_Base):
 class TrashDialog(_Base):
     def __init__(self, app, parent, changed):
         super().__init__(app, _("Papierkorb"), 480, 360, parent)
+        self.app.pack_install_line(self.body)
         self.trash = self.mgr.paths.data_dir / "trash"
         self.changed = changed
         self.store = Gtk.ListStore(str, str, object)   # Datum, Anzahl, Pfad
@@ -550,6 +559,7 @@ def open_cleanup(app):
 class SnapshotsDialog(_Base):
     def __init__(self, app):
         super().__init__(app, _("Gesamtstände"), 620, 420)
+        self.app.pack_install_line(self.body)
         self.body.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
                                        label=_("Ein Gesamtstand sichert alle Addons und die Einstellungen aller Konten (WTF)."),
                                        ), False, False, 0)
@@ -767,7 +777,8 @@ class BugsDialog(_Base):
             self.store.append([name, str(g.count), since, _upd_text(g.last_update) if g.last_update else "–",
                                fmt_dt(g.last), Pango.Weight.BOLD if new else Pango.Weight.NORMAL,
                                G.ORANGE if new else None, g])
-        self.head.set_text(_("{n} Fehler in {m} Addons, aufgezeichnet von !BugGrabber.")
+        self.head.set_text(ngettext("{n} Fehler in 1 Addon, aufgezeichnet von !BugGrabber.",
+                                    "{n} Fehler in {m} Addons, aufgezeichnet von !BugGrabber.", len(self.groups))
                            .format(n=total, m=len(self.groups)))
         if self.mgr.wow_running():
             self.running.set_markup('<span foreground="{}">{}</span>'.format(
@@ -810,7 +821,7 @@ class BugsDialog(_Base):
             else:
                 self.verdict.set_text(_("{a} Fehler seit dem Update vom {date}, {b} schon davor.")
                                       .format(a=g.since_update, date=date, b=g.before_update))
-        self.text.get_buffer().set_text("\n\n".join(g.samples))
+        self.text.get_buffer().set_text("\n\n----\n\n".join(g.samples))
 
     def on_rollback(self):
         g = self.selected()
@@ -822,11 +833,14 @@ class BugsDialog(_Base):
             return
         fl = g.last_update.get("folders")
         only = [f for f in fl if isinstance(f, str)] if isinstance(fl, list) else None
+        if not wow_guard(self.d, self.mgr):
+            return
         app = self.app
 
         def go():   # nach dem Schliessen, damit die Rueckfrage nicht hinter dem Dialog liegt
-            app.restore_backup_flow(b, only)
-            app.log(_("Zurückgesetzt. Die Fehlerliste ändert sich erst nach dem nächsten Spielen."))
+            def ok():
+                app.log(_("Zurückgesetzt. Die Fehlerliste ändert sich erst nach dem nächsten Spielen."))
+            app.restore_backup_flow(b, only, on_done=ok)
         self.after = go
         self.d.response(Gtk.ResponseType.CLOSE)
 
@@ -841,7 +855,7 @@ class BugsDialog(_Base):
     def on_copy(self):
         g = self.selected()
         if g is not None:
-            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text("\n\n".join(g.samples), -1)
+            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text("\n\n----\n\n".join(g.samples), -1)
             self.status.set_text(_("Fehlertext kopiert."))
 
 

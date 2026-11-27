@@ -73,7 +73,7 @@ def write_prelaunch_script(path) -> Path:
     """Schreibt ein ausfuehrbares sh-Skript (0755), das vor dem Spielstart still aktualisiert."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("#!/bin/sh\n{} --update --quiet\n".format(launch_command()), "utf-8")
+    path.write_text("#!/bin/sh\n{} --update --quiet\nexit 0   # Fehler stehen im Log; der Spielstart darf nie am Update scheitern\n".format(launch_command()), "utf-8")
     os.chmod(path, 0o755)
     return path
 

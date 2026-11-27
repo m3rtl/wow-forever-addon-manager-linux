@@ -2638,8 +2638,8 @@ msgid "Nur aufgelistet. Mit --cleanup --apply in den Papierkorb verschieben."
 msgstr "Listed only. Use --cleanup --apply to move them to the trash."
 
 #: wfa_cli.py
-msgid "[u] Updates  [n] Neu installieren  [z] Zuordnen  [b] Browser-Download  [k] CF-Key  [e] Beta: {beta}  [v] Version/Kanal  [r] Neu prüfen  [d] Deinstallieren  [w] Wiederherstellen  [h] Verlauf  [q] Ende"
-msgstr "[u] Updates  [n] Install new  [z] Match  [b] Browser download  [k] CF key  [e] Beta: {beta}  [v] Version/channel  [r] Check again  [d] Uninstall  [w] Restore  [h] History  [q] Quit"
+msgid "[u] Updates  [n] Neu installieren  [z] Zuordnen  [b] Browser-Download  [k] CF-Key  [e] Beta: {beta}  [v] Version/Kanal  [r] Neu prüfen  [d] Deinstallieren  [w] Wiederherstellen  [h] Verlauf"
+msgstr "[u] Updates  [n] Install new  [z] Match  [b] Browser download  [k] CF key  [e] Beta: {beta}  [v] Version/channel  [r] Check again  [d] Uninstall  [w] Restore  [h] History"
 
 #: wfa_cli.py
 msgid "an"
@@ -3512,8 +3512,10 @@ msgid "Zuletzt"
 msgstr "Last seen"
 
 #: wfa_expert.py
-msgid "{n} Fehler in {m} Addons, aufgezeichnet von !BugGrabber."
-msgstr "{n} errors in {m} addons, recorded by !BugGrabber."
+msgid "{n} Fehler in 1 Addon, aufgezeichnet von !BugGrabber."
+msgid_plural "{n} Fehler in {m} Addons, aufgezeichnet von !BugGrabber."
+msgstr[0] "{n} errors in 1 addon, recorded by !BugGrabber."
+msgstr[1] "{n} errors in {m} addons, recorded by !BugGrabber."
 
 #: wfa_expert.py
 msgid "Der Name „{name}“ ist schon vergeben."
@@ -3612,8 +3614,8 @@ msgid "mit --set: nur dieser Charakter (mehrfach erlaubt)"
 msgstr "with --set: only this character (repeatable)"
 
 #: wfa_cli.py
-msgid "Fehleranalyse aus !BugGrabber"
-msgstr "error analysis from !BugGrabber"
+msgid "Fehleranalyse aus !BugGrabber; Exit-Code 0 Analyse lief (auch ohne Treffer), 1 nicht möglich"
+msgstr "error analysis from !BugGrabber; exit code 0 analysis ran (even without hits), 1 not possible"
 
 #: wfa_cli.py
 msgid "bekannte Installationen auflisten"
@@ -3640,8 +3642,10 @@ msgid "Set „{name}“ → {n} Charaktere: {on} an, {off} aus."
 msgstr "Set “{name}” → {n} characters: {on} on, {off} off."
 
 #: wfa_cli.py
-msgid "{n} Fehler in {m} Addons"
-msgstr "{n} errors in {m} addons"
+msgid "{n} Fehler in 1 Addon"
+msgid_plural "{n} Fehler in {m} Addons"
+msgstr[0] "{n} errors in 1 addon"
+msgstr[1] "{n} errors in {m} addons"
 
 #: wfa_cli.py
 msgid "{name:<28} {count:>4}  seit Update {since:>3}  davor {before:>3}"
@@ -3656,8 +3660,10 @@ msgid "Der Ordner {folder} gehört zu mehreren Addons"
 msgstr "The folder {folder} belongs to several addons"
 
 #: wfa_cli.py
-msgid "{name}  {n} Addons"
-msgstr "{name}  {n} addons"
+msgid "{name}  1 Addon"
+msgid_plural "{name}  {n} Addons"
+msgstr[0] "{name}  1 addon"
+msgstr[1] "{name}  {n} addons"
 
 #: wfa_cli.py
 msgid "  Zusätzlich aktiv (Abhängigkeit): {names}"
@@ -3706,3 +3712,31 @@ msgstr "[i] Installation"
 #: wfa_cli.py
 msgid "Keine Fehler für „{addon}“ gefunden."
 msgstr "No errors found for “{addon}”."
+
+#: wfa_cli.py
+msgid "[q] Ende"
+msgstr "[q] Quit"
+
+#: wfa_cli.py
+msgid "kein Update im Verlauf"
+msgstr "no update in history"
+
+#: wfa_cli.py
+msgid "Der Name „{name}“ ist nicht eindeutig. Bitte den Pfad angeben:"
+msgstr "The name “{name}” is ambiguous. Please give the path:"
+
+#: wfa_cli.py
+msgid "--use und --addons-dir passen nicht zusammen: --addons-dir gilt nur für diesen Lauf und wird nicht gespeichert."
+msgstr "--use and --addons-dir cannot be combined: --addons-dir only applies to this run and is not saved."
+
+#: wfa_gui.py
+msgid "Es läuft gerade ein Vorgang. Bitte warten, bis er fertig ist."
+msgstr "An operation is running. Please wait until it has finished."
+
+#: wfa_gui.py
+msgid "WoW wurde aktualisiert ({old} → {new}). Die automatische Sicherung ist fehlgeschlagen – Details im Protokoll."
+msgstr "WoW was updated ({old} → {new}). The automatic backup failed – see the log for details."
+
+#: wfa_expert.py
+msgid "Addons je Charakter und Sets"
+msgstr "Addons per character and sets"

@@ -88,7 +88,7 @@ Kommandozeile: `./start.sh --cli` (Menütasten u. a. `v` Version/Kanal, `h` Verl
 | --- | --- |
 | `--update`, `--quiet`, `--run CMD …` | Updates ohne Rückfragen, nur Zusammenfassung/Fehler, danach Spiel starten (Exit-Code 0 ok, 1 Fehler, 2 übersprungen) |
 | `--sets`, `--set NAME`, `--char NAME-REALM` | Addon-Sets auflisten, auf alle oder nur diese Charaktere anwenden (`--char` mehrfach erlaubt) |
-| `--errors [ADDON]` | Fehleranalyse aus !BugGrabber, mit ADDON samt Beispielen |
+| `--errors [ADDON]` | Fehleranalyse aus !BugGrabber, mit ADDON samt Beispielen (Exit-Code 0 Analyse lief, auch ohne Treffer; 1 nicht möglich) |
 | `--installations`, `--use NAME\|PFAD` | Installationen auflisten, dauerhaft wechseln |
 | `--addons-dir PFAD` | AddOns-Ordner nur für diesen Lauf |
 

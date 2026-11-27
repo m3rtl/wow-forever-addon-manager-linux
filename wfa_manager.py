@@ -31,6 +31,8 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         self.paths = Paths(home)
         self.cfg = Config(self.paths, self.log)
         self.notes = []
+        self.snapshot_notes = []   # Fehlschlaege automatischer Gesamtstaende; check() leert sie nicht
+        self.last_client_snapshot = None   # Gesamtstand zum letzten Client-Wechsel (None = keiner)
         self.client_interface = DEFAULT_CLIENT
         self.client_version = None   # z. B. "1.60.1" aus .build.info
         self.addons_dir = None
@@ -191,10 +193,14 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         if not ok:
             return False, hint
         q.mkdir(parents=True, exist_ok=True)
-        with self._apply_lock:
+        if not self._apply_lock.acquire(blocking=False):   # ein Apply/Download laeuft in einem anderen Thread
+            return False, _("Es läuft gerade ein Vorgang. Bitte warten, bis er fertig ist.")
+        try:
             self.addons_dir = q
             self._folders, self._fps, self._hash_seen = [], {}, set()
             self._read_client()
+        finally:
+            self._apply_lock.release()
         if not self._override:
             with self.cfg.lock:
                 self.cfg["addons_dir"] = str(q)
@@ -226,20 +232,22 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
                                     legacy=self.legacy_install())
 
     def auto_snapshot(self, reason, kind="bulk", data=None):
-        """Legt einen automatischen Gesamtstand der aktiven Installation an. Fehler landen im Protokoll und in notes.
+        """Legt einen automatischen Gesamtstand der aktiven Installation an. Fehler landen im Protokoll und in snapshot_notes.
         kind/data: maschinenlesbarer Grund ("bulk" {"n"} | "client" {"old","new"})."""
         try:
             if not (self.addons_dir and self.addons_dir.is_dir()):
                 return None
             import wfa_snapshot
-            return wfa_snapshot.create(self.addons_dir, self.wtf_dir(), self.snapshot_root, label=reason,
+            snap = wfa_snapshot.create(self.addons_dir, self.wtf_dir(), self.snapshot_root, label=reason,
                                        client=self.client_version or "", auto=True, reason=reason,
                                        install=self.install_id(), legacy=self.legacy_install(),
                                        reason_kind=kind, reason_data=data)
+            self.snapshot_notes = []
+            return snap
         except Exception as e:  # noqa: BLE001
             msg = _("Automatischer Gesamtstand fehlgeschlagen: {error}").format(error=e)
             self.log(msg)
-            self.notes.append(msg)
+            self.snapshot_notes = [msg]
             return None
 
     def check_client_change(self):
@@ -257,8 +265,10 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
                 self.cfg.save()
         if not seen:
             return None
+        self.last_client_snapshot = None
         if self.cfg["auto_snapshot_client"]:
-            self.auto_snapshot(_("Client {old} -> {new}").format(old=seen, new=cur), "client", {"old": seen, "new": cur})
+            self.last_client_snapshot = self.auto_snapshot(_("Client {old} -> {new}").format(old=seen, new=cur),
+                                                           "client", {"old": seen, "new": cur})
         self.last_client_change = (seen, cur)
         return (seen, cur)
 

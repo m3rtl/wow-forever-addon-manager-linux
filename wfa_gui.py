@@ -684,7 +684,7 @@ class App:
         self._inst_lock = False
         menu.append(Gtk.SeparatorMenuItem())
         mi = Gtk.MenuItem(label=_("Installationen verwalten …"))
-        mi.connect("activate", self.on_settings)
+        mi.connect("activate", lambda *_a: self.on_settings(focus="installations"))
         menu.append(mi)
         menu.show_all()
         self.inst_btn.set_popup(menu)
@@ -743,7 +743,7 @@ class App:
             parts.append(colored(RED, _("CurseForge: Key ungültig oder abgelehnt.")))
         else:
             parts.append(GLib.markup_escape_text(_("CurseForge: Key {state}").format(state=_(state))))
-        for n in dict.fromkeys(m.notes):
+        for n in dict.fromkeys(list(m.notes) + list(m.snapshot_notes)):
             parts.append(colored(ORANGE, n))
         self.info_label.set_markup("  ·  ".join(parts))
         self.key_btn.set_visible(state in ("fehlt", "ungültig"))
@@ -1125,6 +1125,10 @@ class App:
         text = _("WoW wurde aktualisiert ({old} → {new}).").format(old=ch[0], new=ch[1])
         if not self.mgr.cfg["auto_snapshot_client"]:
             self.show_infobar(text, closable=True)
+            return
+        if not self.mgr.last_client_snapshot:
+            self.show_infobar(_("WoW wurde aktualisiert ({old} → {new}). Die automatische Sicherung ist fehlgeschlagen – "
+                                "Details im Protokoll.").format(old=ch[0], new=ch[1]), closable=True)
             return
         self.show_infobar(text + " " + _("Der vorherige Stand wurde gesichert."), [(_("Gesamtstände …"), 1, False)],
                           lambda r: self.on_expert_snapshots() if r == 1 else None, closable=True)
@@ -2089,7 +2093,7 @@ class App:
             lb.get_style_context().add_class("dim-label")
             box.pack_start(lb, False, False, 0)
 
-    def restore_backup_flow(self, chosen, only=None):
+    def restore_backup_flow(self, chosen, only=None, on_done=None):
         names = [f for f in chosen.folders if only is None or f in only]
         text = _("Die aktuellen Ordner werden vorher selbst gesichert.\n{names}").format(names=", ".join(names))
         if self.mgr.wow_running():
@@ -2103,6 +2107,8 @@ class App:
             else:
                 message(self.win, _("Wiederherstellung abgeschlossen") if res.ok else _("Wiederherstellung fehlgeschlagen"), res.message,
                         Gtk.MessageType.INFO if res.ok else Gtk.MessageType.ERROR)
+                if res.ok and on_done:
+                    on_done()
             self.rescan()
         self.bg(lambda: self.mgr.restore(chosen, only), done, _("Stelle wieder her …"))
 
@@ -2335,7 +2341,7 @@ class App:
         self.install_flow(planners, finish=fin)
 
     # ------------------------------------------------------------ Einstellungen u. a.
-    def on_settings(self, *_a):
+    def on_settings(self, *_a, focus=None):
         m = self.mgr
         d = make_dialog(_("Einstellungen"), self.win, 540)
         d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
@@ -2407,6 +2413,7 @@ class App:
         box.pack_start(lang_row, False, False, 0)
         section(_("Installationen"))
         changed = []
+        switched = []   # aktive Installation gewechselt
         inst_store = Gtk.ListStore(str, str, str, int)   # Pfad, Name, Ordner, Gewicht
         inst_tree = Gtk.TreeView(model=inst_store)
         for i, t in enumerate((_("Name"), _("Ordner"))):
@@ -2460,10 +2467,13 @@ class App:
             had = bool(m.addons_dir)
             ok, h = m.add_installation(pth)
             inst_hint.set_markup(colored(ORANGE, h) if h and not ok else "")
-            if ok and not had:
+            if ok and not had and not self.busy:
                 ok2, h2 = m.switch_installation(pth)
                 if ok2:
                     changed.append(True)
+                    switched.append(True)
+            if ok:
+                self.update_subtitle()
             reload_insts(pth if ok else None)
 
         def rename_inst(*_a):
@@ -2481,6 +2491,7 @@ class App:
             if rd.run() == Gtk.ResponseType.OK and ent.get_text().strip():
                 m.rename_installation(e["path"], ent.get_text())
                 changed.append(True)
+                self.update_subtitle()
             rd.destroy()
             reload_insts(e["path"])
 
@@ -2492,15 +2503,21 @@ class App:
                    _("Es werden keine Dateien gelöscht. Backups und Gesamtstände dieser Installation bleiben erhalten."),
                    _("Entfernen"), kind=Gtk.MessageType.WARNING):
                 m.remove_installation(e["path"])
+                self.update_subtitle()
                 reload_insts()
 
         def activate_inst(*_a):
             e = sel_inst()
             if e is None or e["active"]:
                 return
+            if self.busy:
+                inst_hint.set_markup(colored(ORANGE, _("Es läuft gerade ein Vorgang. Bitte warten, bis er fertig ist.")))
+                return
             ok, h = m.switch_installation(e["path"])
             if ok:
                 changed.append(True)
+                switched.append(True)
+                self.update_subtitle()
                 inst_hint.set_text("")
             else:
                 inst_hint.set_markup(colored(ORANGE, h))
@@ -2573,6 +2590,14 @@ class App:
                                  label=_("Blendet im Menü „Erweitert“ ein: Addons je Charakter und Sets, Aufräumen, Fehleranalyse.")),
                        False, False, 0)
         d.show_all()
+        if focus == "installations":
+            def to_installations():
+                pos = isw.translate_coordinates(box, 0, 0)
+                if pos:
+                    sc.get_vadjustment().set_value(max(0, pos[1] - 40))
+                inst_tree.grab_focus()
+                return False
+            GLib.timeout_add(80, to_installations)
         if d.run() == Gtk.ResponseType.OK:
             old_interval = m.cfg["check_interval_min"]
             new = dict(classic_theme=classic.get_active(), direct_download=direct.get_active(),
@@ -2609,7 +2634,9 @@ class App:
                     traceback.print_exc()
             changed.append(True)
         d.destroy()
-        if changed:
+        if switched:
+            self.after_switch()
+        elif changed:
             self.update_subtitle()
             self.rescan()
 

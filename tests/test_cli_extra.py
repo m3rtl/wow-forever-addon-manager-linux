@@ -52,7 +52,7 @@ class CliExtraCase(OfflineCase):
     def test_sets_lists(self):
         code, out, _e = self.cli("--sets")
         self.assertEqual(code, 0)
-        self.assertIn("Mini  1 Addons", out)
+        self.assertIn("Mini  1 Addon", out)
 
     def test_sets_empty(self):
         mgr = core.Manager(addons_dir=self.addons)
@@ -109,13 +109,14 @@ class CliExtraCase(OfflineCase):
         write(self.wtf / "Account" / "ACC" / "SavedVariables" / "!BugGrabber.lua", BUGS)
         code, out, _e = self.cli("--errors")
         self.assertEqual(code, 0, _e)
-        self.assertIn("2 Fehler in 1 Addons", out)
+        self.assertIn("2 Fehler in 1 Addon", out)
         self.assertIn("Alpha", out)
         self.assertNotIn("boom", out)
         code, out, _e = self.cli("--errors", "alpha")
         self.assertIn("boom", out)
         code, out, _e = self.cli("--errors", "gibtsnicht")
-        self.assertEqual(code, 1)
+        self.assertEqual(code, 0)   # Analyse lief, nur ohne Treffer
+        self.assertIn("kein Update im Verlauf", self.cli("--errors")[1])
 
     def test_installations_and_use(self):
         other = make_wow(self.tmp / "zweite")
@@ -134,6 +135,25 @@ class CliExtraCase(OfflineCase):
         code, out, err = self.cli("--use", "gibtsnicht", addons=False)
         self.assertEqual(code, 1)
         self.assertIn("Zweite", out)
+
+    def test_use_with_addons_dir_rejected(self):
+        code, out, err = self.cli("--use", "x")
+        self.assertEqual(code, 1)
+        self.assertIn("--addons-dir", err)
+
+    def test_use_ambiguous_name(self):
+        o1, o2 = make_wow(self.tmp / "z1"), make_wow(self.tmp / "z2")
+        mgr = core.Manager(addons_dir=self.addons)
+        mgr.add_installation(str(o1), "Gleich")
+        mgr.add_installation(str(o2), "Gleich")
+        before = core.Manager().install_id()
+        code, out, err = self.cli("--use", "gleich", addons=False)
+        self.assertEqual(code, 1)
+        self.assertIn(str(o1), out)
+        self.assertIn(str(o2), out)
+        self.assertEqual(core.Manager().install_id(), before)
+        code, out, err = self.cli("--use", str(o2), addons=False)
+        self.assertEqual(code, 0, err)
 
     def test_menu_installation_switch(self):
         other = make_wow(self.tmp / "zweite")

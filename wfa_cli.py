@@ -12,7 +12,7 @@ from pathlib import Path
 
 import wfa_core as core
 from wfa_core import ApiError, InstallPlan, Manager
-from wfa_i18n import N_, _
+from wfa_i18n import N_, _, ngettext
 
 USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 COLORS = {"red": "31", "green": "32", "yellow": "33", "cyan": "36", "grey": "90", "bold": "1"}
@@ -789,7 +789,8 @@ def sets_cmd(mgr):
     if not names:
         print(_("Keine Sets vorhanden."))
     for n in names:
-        print(_("{name}  {n} Addons").format(name=n, n=len(wfa_sets.get_set(mgr.cfg, n) or [])))
+        k = len(wfa_sets.get_set(mgr.cfg, n) or [])
+        print(ngettext("{name}  1 Addon", "{name}  {n} Addons", k).format(name=n, n=k))
     return 0
 
 
@@ -866,15 +867,23 @@ def errors_cmd(mgr, addon):
                   or any(low in f.lower() for f in g.folders)]
         if not groups:
             print(paint(_("Keine Fehler für „{addon}“ gefunden.").format(addon=addon), "yellow"))
-            return 1
+            return 0
     if not groups:
         print(_("Keine Fehler aufgezeichnet."))
         return 0
-    print(_("{n} Fehler in {m} Addons").format(n=sum(g.count for g in groups), m=len(groups)))
+    print(ngettext("{n} Fehler in 1 Addon", "{n} Fehler in {m} Addons", len(groups)).format(
+        n=sum(g.count for g in groups), m=len(groups)))
+    known = {f.lower() for f in f2a}
     for g in groups:
-        line = _("{name:<28} {count:>4}  seit Update {since:>3}  davor {before:>3}").format(
-            name=g.name[:28], count=g.count, since=g.since_update, before=g.before_update)
+        name = g.name
+        if g.key.startswith("folder:") and g.folders and g.folders[0].lower() not in known:
+            name = _("{name} (nicht verwaltet)").format(name=name)
         lu = g.last_update
+        if lu:
+            line = _("{name:<28} {count:>4}  seit Update {since:>3}  davor {before:>3}").format(
+                name=name[:28], count=g.count, since=g.since_update, before=g.before_update)
+        else:
+            line = "{:<28} {:>4}  ".format(name[:28], g.count) + _("kein Update im Verlauf")
         if lu:
             line += "  " + _("{old} → {new} ({date})").format(old=lu.get("old") or "?", new=lu.get("new") or "?",
                                                               date=str(lu.get("ts") or "")[:10])
@@ -884,7 +893,7 @@ def errors_cmd(mgr, addon):
         if addon:
             for smp in g.samples:
                 print("    " + smp.replace("\n", "\n    "))
-                print()
+                print("    ----")
     return 0
 
 
@@ -904,21 +913,33 @@ def installations_cmd(mgr):
     return 0
 
 
-def find_installation(mgr, key):
+def find_installations(mgr, key):
+    """Alle Installationen, deren Name (ohne Gross/Klein) oder Pfad zu key passt; Pfad hat Vorrang."""
     insts = mgr.installations()
-    low = key.lower()
-    for i in insts:
-        if i["name"].lower() == low:
-            return i
     try:
         q = str(core.normalize_addons_dir(key))
     except Exception:  # noqa: BLE001
         q = key
-    return next((i for i in insts if i["path"] == q or i["path"] == key), None)
+    by_path = [i for i in insts if i["path"] == q or i["path"] == key]
+    if by_path:
+        return by_path
+    return [i for i in insts if i["name"].lower() == key.lower()]
+
+
+def find_installation(mgr, key):
+    """Genau ein Treffer oder None (bei mehreren: None)."""
+    hits = find_installations(mgr, key)
+    return hits[0] if len(hits) == 1 else None
 
 
 def use_cmd(mgr, key):
-    inst = find_installation(mgr, key)
+    hits = find_installations(mgr, key)
+    if len(hits) > 1:
+        print(paint(_("Der Name „{name}“ ist nicht eindeutig. Bitte den Pfad angeben:").format(name=key), "red"),
+              file=sys.stderr)
+        _installations_text(hits)
+        return 1
+    inst = hits[0] if hits else None
     if inst is None:
         print(paint(_("Installation nicht gefunden: {name}").format(name=key), "red"), file=sys.stderr)
         _installations_text(mgr.installations())
@@ -999,8 +1020,8 @@ def run(mgr):
         multi = len(mgr.installations()) >= 2
         print("\n" + _("[u] Updates  [n] Neu installieren  [z] Zuordnen  [b] Browser-Download  [k] CF-Key  "
                       "[e] Beta: {beta}  [v] Version/Kanal  [r] Neu prüfen  [d] Deinstallieren  [w] Wiederherstellen  "
-                      "[h] Verlauf  [q] Ende").format(beta=_("an") if mgr.cfg["include_beta"] else _("aus"))
-              + ("  " + _("[i] Installation") if multi else ""))
+                      "[h] Verlauf").format(beta=_("an") if mgr.cfg["include_beta"] else _("aus"))
+              + ("  " + _("[i] Installation") if multi else "") + "  " + _("[q] Ende"))
         c = ask("> ").lower()
         if c == "q":
             return
@@ -1067,7 +1088,7 @@ def main(argv=None):
     ap.add_argument("--set", metavar="NAME", help=_("Addon-Set anwenden (alle Charaktere oder --char)"))
     ap.add_argument("--char", action="append", metavar="NAME-REALM",
                     help=_("mit --set: nur dieser Charakter (mehrfach erlaubt)"))
-    ap.add_argument("--errors", nargs="?", const="", metavar="ADDON", help=_("Fehleranalyse aus !BugGrabber"))
+    ap.add_argument("--errors", nargs="?", const="", metavar="ADDON", help=_("Fehleranalyse aus !BugGrabber; Exit-Code 0 Analyse lief (auch ohne Treffer), 1 nicht möglich"))
     ap.add_argument("--installations", action="store_true", help=_("bekannte Installationen auflisten"))
     ap.add_argument("--use", metavar=_("NAME|PFAD"), help=_("Installation dauerhaft wechseln"))
     ap.add_argument("--version", action="version", version=f"%(prog)s {core.__version__}")
@@ -1082,6 +1103,10 @@ def main(argv=None):
         ap.error(_("--run braucht einen Befehl"))
     if args.quiet and not (args.update or args.run):
         ap.error(_("--quiet gehört zu --update"))
+    if args.use and args.addons_dir:
+        print(paint(_("--use und --addons-dir passen nicht zusammen: --addons-dir gilt nur für diesen Lauf und wird nicht gespeichert."),
+                    "red"), file=sys.stderr)
+        return 1
     try:
         quiet = args.quiet and bool(args.update or args.run)
         mgr = Manager(addons_dir=args.addons_dir, log=(lambda _s: None) if quiet else print)

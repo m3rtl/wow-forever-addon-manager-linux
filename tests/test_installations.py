@@ -173,6 +173,16 @@ class PerInstallationRecords(InstCase):
         m.add_history("Update", "k", "N", "1", "2", "CF", None)
         self.assertEqual(m.read_history(1)[0]["install"], str(self.a))
 
+    def test_history_filtered_by_install(self):
+        m = self.setup_two()
+        m.add_history("Update", "k", "A", "1", "2", "CF", None)
+        m.switch_installation(self.b)
+        m.add_history("Update", "k", "B", "1", "2", "CF", None)
+        self.assertEqual([h["name"] for h in m.read_history()], ["B"])
+        self.assertEqual([h["name"] for h in m.read_history(all_installs=True)], ["B", "A"])
+        m.switch_installation(self.a)
+        self.assertEqual([h["name"] for h in m.read_history()], ["A"])
+
     def test_trash_scoped(self):
         root = self.tmp / "trash"
         write(self.a / "J" / "a.txt", "x")

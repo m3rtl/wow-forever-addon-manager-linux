@@ -186,8 +186,11 @@ class SavedVarsMixin:
         except OSError:
             return []
 
-    def read_history(self, limit=None):
-        """Eintraege, neueste zuerst."""
+    def read_history(self, limit=None, all_installs=False):
+        """Eintraege, neueste zuerst. Standard: nur die aktive Installation (Eintraege ohne Kennung gehoeren zur
+        Legacy-Installation); all_installs=True liefert alle."""
+        cur = None if all_installs else self.install_id()
+        legacy = self.legacy_install() if cur else None
         out = []
         for l in reversed(self._hist_lines()):
             try:
@@ -195,6 +198,8 @@ class SavedVarsMixin:
             except ValueError:
                 continue
             if isinstance(e, dict):
+                if cur and (e.get("install") or legacy) != cur:
+                    continue
                 out.append(e)
                 if limit and len(out) >= limit:
                     break

@@ -14,8 +14,8 @@ from wfa_i18n import _
 
 TIME_FMT = "%Y/%m/%d %H:%M:%S"
 MAX_DEPTH = 80
-SAMPLE_MAX = 3
-SAMPLE_LEN = 300
+SAMPLE_MAX = 5
+SAMPLE_LEN = 2000   # je Nachricht und je Stack
 
 
 # ---------------------------------------------------------------- Lua-Literal-Parser
@@ -400,9 +400,15 @@ def _is_update(e: dict) -> bool:
     return bool(isinstance(e, dict) and e.get("key") and e.get("new"))
 
 
-def _short(msg: str) -> str:
-    line = (msg or "").strip().splitlines()[0] if (msg or "").strip() else ""
-    return line if len(line) <= SAMPLE_LEN else line[:SAMPLE_LEN - 1] + "…"
+def _clip(text: str) -> str:
+    text = (text or "").strip()
+    return text if len(text) <= SAMPLE_LEN else text[:SAMPLE_LEN - 1] + "…"
+
+
+def _sample(e) -> str:
+    """Vollstaendige Nachricht, Leerzeile, Stack (ohne locals), je auf SAMPLE_LEN begrenzt."""
+    msg, stack = _clip(e.message), _clip(e.stack)
+    return msg + ("\n\n" + stack if stack else "") if msg else stack
 
 
 def group_errors(errors, folder_to_addon: dict, history: list) -> list[ErrorGroup]:
@@ -446,7 +452,7 @@ def group_errors(errors, folder_to_addon: dict, history: list) -> list[ErrorGrou
                         before += e.count
         samples = []
         for e in errs:
-            s = _short(e.message)
+            s = _sample(e)
             if s and s not in samples:
                 samples.append(s)
                 if len(samples) >= SAMPLE_MAX:

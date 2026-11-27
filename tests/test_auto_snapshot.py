@@ -149,7 +149,11 @@ class ApiTests(AutoCase):
     def test_failure_goes_to_notes(self):
         with mock.patch("wfa_snapshot.create", side_effect=OSError("voll")):
             self.assertIsNone(self.mgr.auto_snapshot("x"))
-        self.assertTrue(any("voll" in n for n in self.mgr.notes))
+        self.assertTrue(any("voll" in n for n in self.mgr.snapshot_notes))
+        self.mgr.check([])   # check() leert notes, nicht snapshot_notes
+        self.assertTrue(any("voll" in n for n in self.mgr.snapshot_notes))
+        self.mgr.auto_snapshot("y")   # Erfolg raeumt die Notiz ab
+        self.assertEqual(self.mgr.snapshot_notes, [])
 
     def test_set_addons_dir_adds_and_activates(self):
         other = make_wow(self.tmp / "o")
