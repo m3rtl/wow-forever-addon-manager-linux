@@ -1286,8 +1286,9 @@ def find_forever_installs():
 
 def normalize_addons_dir(p):
     p = _expand(str(p))
-    if p.name.lower() not in ("_forever_", "interface", "addons") and not (p / "Interface").is_dir():
-        sub = Manager._ci_child(p, "_forever_")   # z. B. "World of Warcraft" gewaehlt
+    if p.name.lower() not in ("_forever_", "interface", "addons"):
+        # z. B. "World of Warcraft" gewaehlt; ein zusaetzliches Interface daneben (alter Client) aendert nichts
+        sub = Manager._ci_child(p, "_forever_")
         if sub is not None:
             return sub / "Interface" / "AddOns"
     if p.name.lower() == "_forever_":
