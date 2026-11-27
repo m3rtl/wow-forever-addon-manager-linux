@@ -178,6 +178,11 @@ class Background:
             self._refresh()
             self._log(f"Update fehlgeschlagen: {e}")
 
+    def _tray_update(self):
+        """Klick im Tray: still im Hintergrund (wartet ggf., bis WoW beendet ist). Ist nicht erkennbar, ob WoW
+        laeuft (Flatpak ohne Host-Zugriff), wuerde das nie installieren -> dann der Weg mit Bestaetigung."""
+        self._update_now(background=self.mgr.wow_running() is not None)
+
     def _update_done(self, res):
         self._updating = False
         self._refresh()
@@ -251,7 +256,7 @@ class Background:
             first = dict(label="Aktualisiere …", callback=None, enabled=False, bold=True)
         elif n:
             first = dict(label=f"{n} Addon{'s' if n != 1 else ''} aktualisieren",
-                         callback=lambda: self._update_now(True), bold=True)
+                         callback=self._tray_update, bold=True)
         else:
             first = dict(label="Keine Updates", callback=None, enabled=False, bold=True)
         items = [first]

@@ -1307,7 +1307,11 @@ def validate_addons_dir(p):
         if "_forever_" not in [x.lower() for x in q.parts]:
             return True, "Warnung: Im Pfad kommt kein Ordner „_forever_“ vor – ist das wirklich WoW: Forever?"
         return True, ""
-    if raw.is_dir() and (raw.name.lower() in ("_forever_", "interface") or q.parent.parent.name.lower() == "_forever_"):
+    # AddOns (bzw. Interface/AddOns) fehlt noch: ok, wenn Interface oder _forever_ existiert. Gilt auch fuer den
+    # schon normalisierten Pfad, den der Dialog beim Uebernehmen erneut prueft.
+    iface = q.parent
+    if q.name.lower() == "addons" and iface.name.lower() == "interface" and (
+            iface.is_dir() or (iface.parent.is_dir() and iface.parent.name.lower() == "_forever_")):
         return True, "Der Ordner Interface/AddOns wird angelegt."
     return False, "Ordner existiert nicht."
 
