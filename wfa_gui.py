@@ -1329,8 +1329,11 @@ class App:
                 self.rescan()
                 return
             lines = []
-            if self.mgr.wow_running():
+            running = self.mgr.wow_running()
+            if running:
                 lines.append("ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden.\n")
+            elif running is None:
+                lines.append("Hinweis: Im Flatpak ist nicht erkennbar, ob WoW läuft. Bitte vorher beenden.\n")
             for p in plans:
                 lines.append(f"• {p.name}\n    Ordner: " + ", ".join(p.folders))
                 lines += [f"    ! {w}" for w in p.warnings]
@@ -1524,8 +1527,11 @@ class App:
             if p.skipped_folders:
                 lines.append("    Übersprungen (werden von WoW: Forever nicht geladen): " + ", ".join(p.skipped_folders))
             lines += [f"    ! {w}" for w in p.warnings]
-        if self.mgr.wow_running():
+        running = self.mgr.wow_running()
+        if running:
             lines.insert(0, "ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden, sonst können Dateien gesperrt sein.\n")
+        elif running is None:
+            lines.insert(0, "Hinweis: Im Flatpak ist nicht erkennbar, ob WoW läuft. Bitte vorher beenden, sonst können Dateien gesperrt sein.\n")
         d = make_dialog("Installation bestätigen", self.win, 640, 420)
         d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
         add_button(d, "Installieren", Gtk.ResponseType.OK, suggested=True)
