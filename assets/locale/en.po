@@ -874,3 +874,2127 @@ msgstr "Version {version} is installed."
 #: wfa_background.py
 msgid "Neu starten"
 msgstr "Restart"
+
+#: wfa_gui.py
+msgid "Addon-Manager für Linux"
+msgstr "Addon manager for Linux"
+
+#: wfa_gui.py
+msgid "Standard (wie Einstellung)"
+msgstr "Default (as in settings)"
+
+#: wfa_gui.py
+msgid "Nur Release"
+msgstr "Release only"
+
+#: wfa_gui.py
+msgid "Beta"
+msgstr "Beta"
+
+#: wfa_gui.py
+msgid "Alpha"
+msgstr "Alpha"
+
+#: wfa_gui.py
+msgid "⚠ veraltet"
+msgstr "⚠ outdated"
+
+#: wfa_gui.py
+msgid "%d.%m.%Y %H:%M:%S"
+msgstr "%Y-%m-%d %H:%M:%S"
+
+#: wfa_gui.py
+msgid "OK    "
+msgstr "OK    "
+
+#: wfa_gui.py
+msgid "FEHLER"
+msgstr "ERROR "
+
+#: wfa_gui.py
+msgid "Unerwarteter Fehler: {error}"
+msgstr "Unexpected error: {error}"
+
+#: wfa_gui.py
+msgid "Ordner wählen"
+msgstr "Choose folder"
+
+#: wfa_gui.py
+msgid "Auswählen"
+msgstr "Select"
+
+#: wfa_gui.py
+msgid "AddOns-Ordner wählen"
+msgstr "Choose AddOns folder"
+
+#: wfa_gui.py
+msgid "Übernehmen"
+msgstr "Apply"
+
+#: wfa_gui.py
+msgid "Wähle den AddOns-Ordner deiner WoW: Forever-Installation (…/_forever_/Interface/AddOns)."
+msgstr "Choose the AddOns folder of your WoW: Forever installation (…/_forever_/Interface/AddOns)."
+
+#: wfa_gui.py
+msgid "Flatpak: Freigegeben sind die üblichen Orte von Steam, Lutris, Bottles, Heroic, Wine und ~/Games. Liegt WoW woanders, wähle mit „Anderen Ordner wählen …“ den Ordner „World of Warcraft“; er wird dann dauerhaft freigegeben."
+msgstr "Flatpak: the usual locations of Steam, Lutris, Bottles, Heroic, Wine and ~/Games are shared. If WoW is elsewhere, use “Choose another folder …” to pick the “World of Warcraft” folder; it is then shared permanently."
+
+#: wfa_gui.py
+msgid "\n\nNicht freigegebene Steam-Bibliotheken: {libraries}\nFreigeben (danach neu starten): {commands}"
+msgstr "\n\nSteam libraries not shared: {libraries}\nShare them (then restart): {commands}"
+
+#: wfa_gui.py
+msgid "Keine Installation automatisch gefunden."
+msgstr "No installation found automatically."
+
+#: wfa_gui.py
+msgid "Anderen Ordner wählen …"
+msgstr "Choose another folder …"
+
+#: wfa_gui.py
+msgid "Ordner „World of Warcraft“ oder AddOns-Ordner wählen"
+msgstr "Choose the “World of Warcraft” folder or the AddOns folder"
+
+#: wfa_gui.py
+msgid "Bitte einen Ordner wählen."
+msgstr "Please choose a folder."
+
+#: wfa_gui.py
+msgid "Auf Updates prüfen (F5)"
+msgstr "Check for updates (F5)"
+
+#: wfa_gui.py
+msgid "Backups …"
+msgstr "Backups …"
+
+#: wfa_gui.py
+msgid "Verlauf …"
+msgstr "History …"
+
+#: wfa_gui.py
+msgid "Addon-Liste exportieren …"
+msgstr "Export addon list …"
+
+#: wfa_gui.py
+msgid "Addon-Liste importieren …"
+msgstr "Import addon list …"
+
+#: wfa_gui.py
+msgid "Startmenü-Eintrag anlegen"
+msgstr "Create start menu entry"
+
+#: wfa_gui.py
+msgid "Nach Programm-Updates suchen …"
+msgstr "Check for program updates …"
+
+#: wfa_gui.py
+msgid "Über"
+msgstr "About"
+
+#: wfa_gui.py
+msgid "Addons je Charakter …"
+msgstr "Addons per character …"
+
+#: wfa_gui.py
+msgid "Aufräumen …"
+msgstr "Clean up …"
+
+#: wfa_gui.py
+msgid "Gesamtstände …"
+msgstr "Full snapshots …"
+
+#: wfa_gui.py
+msgid "Erweitert"
+msgstr "Advanced"
+
+#: wfa_gui.py
+msgid "Key eintragen …"
+msgstr "Enter key …"
+
+#: wfa_gui.py
+msgid "Installiert"
+msgstr "Installed"
+
+#: wfa_gui.py
+msgid "Verfügbar"
+msgstr "Available"
+
+#: wfa_gui.py
+msgid "Quelle"
+msgstr "Source"
+
+#: wfa_gui.py
+msgid "Status"
+msgstr "Status"
+
+#: wfa_gui.py
+msgid "Alle Updates markieren"
+msgstr "Select all updates"
+
+#: wfa_gui.py
+msgid "Deinstallieren …"
+msgstr "Uninstall …"
+
+#: wfa_gui.py
+msgid "Im Browser laden …"
+msgstr "Download in browser …"
+
+#: wfa_gui.py
+msgid "Neues Addon …"
+msgstr "New addon …"
+
+#: wfa_gui.py
+msgid "Bricht die laufenden Downloads ab"
+msgstr "Cancels the running downloads"
+
+#: wfa_gui.py
+msgid "Protokoll"
+msgstr "Log"
+
+#: wfa_gui.py
+msgid "Kopieren"
+msgstr "Copy"
+
+#: wfa_gui.py
+msgid "Schließen"
+msgstr "Close"
+
+#: wfa_gui.py
+msgid "Client {version} (Interface {interface})"
+msgstr "Client {version} (interface {interface})"
+
+#: wfa_gui.py
+msgid "Client-Interface {interface} (aus den Addons geschätzt)"
+msgstr "Client interface {interface} (estimated from the addons)"
+
+#: wfa_gui.py
+msgid "CurseForge: kein API-Key – kostenlos unter {url} erzeugen."
+msgstr "CurseForge: no API key – create one for free at {url}."
+
+#: wfa_gui.py
+msgid "CurseForge: Key ungültig oder abgelehnt."
+msgstr "CurseForge: key is invalid or was rejected."
+
+#: wfa_gui.py
+msgid "CurseForge: Key {state}"
+msgstr "CurseForge: key {state}"
+
+#: wfa_gui.py
+msgid "1 Update"
+msgid_plural "{n} Updates"
+msgstr[0] "1 update"
+msgstr[1] "{n} updates"
+
+#: wfa_gui.py
+msgid "{n} ignoriert"
+msgstr "{n} ignored"
+
+#: wfa_gui.py
+msgid "Prüfe …"
+msgstr "Checking …"
+
+#: wfa_gui.py
+msgid "1 aktualisieren"
+msgid_plural "{n} aktualisieren"
+msgstr[0] "Update 1"
+msgstr[1] "Update {n}"
+
+#: wfa_gui.py
+msgid "Vorgang läuft"
+msgstr "Operation in progress"
+
+#: wfa_gui.py
+msgid "Vorgang läuft – trotzdem beenden?"
+msgstr "An operation is in progress – quit anyway?"
+
+#: wfa_gui.py
+msgid "Download"
+msgstr "Download"
+
+#: wfa_gui.py
+msgid "Versuch {attempt}/{total}"
+msgstr "attempt {attempt}/{total}"
+
+#: wfa_gui.py
+msgid "keine Daten seit {seconds} s"
+msgstr "no data for {seconds} s"
+
+#: wfa_gui.py
+msgid "{head} · prüfe Zip-Datei …"
+msgstr "{head} · checking zip file …"
+
+#: wfa_gui.py
+msgid "{head} · {way}: {error} – neuer Versuch {attempt}/{total} in {seconds} s"
+msgstr "{head} · {way}: {error} – retrying ({attempt}/{total}) in {seconds} s"
+
+#: wfa_gui.py
+msgid "{head} · {way}: {error} – wechsle zu {next}"
+msgstr "{head} · {way}: {error} – switching to {next}"
+
+#: wfa_gui.py
+msgid "Breche ab …"
+msgstr "Cancelling …"
+
+#: wfa_gui.py
+msgid "Downloads werden abgebrochen …"
+msgstr "Cancelling downloads …"
+
+#: wfa_gui.py
+msgid "FEHLER {name}: {message}"
+msgstr "ERROR {name}: {message}"
+
+#: wfa_gui.py
+msgid "Fertig: 1 Addon installiert ({names})"
+msgid_plural "Fertig: {n} Addons installiert ({names})"
+msgstr[0] "Done: 1 addon installed ({names})"
+msgstr[1] "Done: {n} addons installed ({names})"
+
+#: wfa_gui.py
+msgid "Fertig: 1 Addon aktualisiert ({names})"
+msgid_plural "Fertig: {n} Addons aktualisiert ({names})"
+msgstr[0] "Done: 1 addon updated ({names})"
+msgstr[1] "Done: {n} addons updated ({names})"
+
+#: wfa_gui.py
+msgid "Fertig: nichts installiert"
+msgstr "Done: nothing installed"
+
+#: wfa_gui.py
+msgid "Arbeite …"
+msgstr "Working …"
+
+#: wfa_gui.py
+msgid "Fehler: {error}"
+msgstr "Error: {error}"
+
+#: wfa_gui.py
+msgid "ignoriert"
+msgstr "ignored"
+
+#: wfa_gui.py
+msgid "▲ Update"
+msgstr "▲ Update"
+
+#: wfa_gui.py
+msgid "✓ aktuell"
+msgstr "✓ up to date"
+
+#: wfa_gui.py
+msgid "Keine Addons gefunden"
+msgstr "No addons found"
+
+#: wfa_gui.py
+msgid "Im AddOns-Ordner liegen keine Addons."
+msgstr "The AddOns folder contains no addons."
+
+#: wfa_gui.py
+msgid "Über „Neues Addon …“ lassen sich Addons installieren."
+msgstr "Use “New addon …” to install addons."
+
+#: wfa_gui.py
+msgid "Kein AddOns-Ordner gewählt"
+msgstr "No AddOns folder chosen"
+
+#: wfa_gui.py
+msgid "Programm ist beschäftigt"
+msgstr "The program is busy"
+
+#: wfa_gui.py
+msgid "Prüfe … {done}/{total} {name}"
+msgstr "Checking … {done}/{total} {name}"
+
+#: wfa_gui.py
+msgid "Lese AddOns-Ordner und prüfe Versionen … (der erste Lauf dauert etwas länger)"
+msgstr "Reading AddOns folder and checking versions … (the first run takes a little longer)"
+
+#: wfa_gui.py
+msgid "Zuordnen …"
+msgstr "Match …"
+
+#: wfa_gui.py
+msgid "Changelog …"
+msgstr "Changelog …"
+
+#: wfa_gui.py
+msgid "Andere Version …"
+msgstr "Other version …"
+
+#: wfa_gui.py
+msgid "Festhalten aufheben"
+msgstr "Release pin"
+
+#: wfa_gui.py
+msgid "Auslassen aufheben"
+msgstr "Release skip"
+
+#: wfa_gui.py
+msgid "Updates nicht mehr ignorieren"
+msgstr "Stop ignoring updates"
+
+#: wfa_gui.py
+msgid "Updates ignorieren"
+msgstr "Ignore updates"
+
+#: wfa_gui.py
+msgid "Seite öffnen"
+msgstr "Open page"
+
+#: wfa_gui.py
+msgid "Ordner öffnen"
+msgstr "Open folder"
+
+#: wfa_gui.py
+msgid "{name} zuordnen"
+msgstr "Match {name}"
+
+#: wfa_gui.py
+msgid "Zuordnen"
+msgstr "Match"
+
+#: wfa_gui.py
+msgid "Keine Auswahl (Eingabe unten verwenden)"
+msgstr "No selection (use the input below)"
+
+#: wfa_gui.py
+msgid "  – eindeutig"
+msgstr "  – unambiguous"
+
+#: wfa_gui.py
+msgid "Keine Vorschläge gefunden."
+msgstr "No suggestions found."
+
+#: wfa_gui.py
+msgid "Vorschläge nicht ermittelbar: {error}"
+msgstr "Could not determine suggestions: {error}"
+
+#: wfa_gui.py
+msgid "Oder Projekt-ID, CurseForge-/GitHub-Adresse, gh:owner/repo:"
+msgstr "Or project ID, CurseForge/GitHub address, gh:owner/repo:"
+
+#: wfa_gui.py
+msgid "Zuordnung nicht möglich"
+msgstr "Matching not possible"
+
+#: wfa_gui.py
+msgid "Prüfe Eingabe …"
+msgstr "Checking input …"
+
+#: wfa_gui.py
+msgid "Suche Zuordnungen …"
+msgstr "Searching for matches …"
+
+#: wfa_gui.py
+msgid "Zugeordnet: {folders} → {name} ({source} {ident})"
+msgstr "Matched: {folders} → {name} ({source} {ident})"
+
+#: wfa_gui.py
+msgid "Kanal"
+msgstr "Channel"
+
+#: wfa_gui.py
+msgid "Prüfung fehlgeschlagen: {error}"
+msgstr "Check failed: {error}"
+
+#: wfa_gui.py
+msgid "{name}: Kanal {channel}"
+msgstr "{name}: channel {channel}"
+
+#: wfa_gui.py
+msgid "{name}: Festhalten aufgehoben"
+msgstr "{name}: pin released"
+
+#: wfa_gui.py
+msgid "{name}: Auslassen aufgehoben"
+msgstr "{name}: skip released"
+
+#: wfa_gui.py
+msgid "Lade Versionsliste …"
+msgstr "Loading version list …"
+
+#: wfa_gui.py
+msgid "Versionsliste nicht verfügbar"
+msgstr "Version list not available"
+
+#: wfa_gui.py
+msgid "Keine Versionen"
+msgstr "No versions"
+
+#: wfa_gui.py
+msgid "Es wurden keine Forever-Versionen gefunden."
+msgstr "No Forever versions were found."
+
+#: wfa_gui.py
+msgid "Andere Version – {name}"
+msgstr "Other version – {name}"
+
+#: wfa_gui.py
+msgid "✓ installiert"
+msgstr "✓ installed"
+
+#: wfa_gui.py
+msgid "Version"
+msgstr "Version"
+
+#: wfa_gui.py
+msgid "Datum"
+msgstr "Date"
+
+#: wfa_gui.py
+msgid "Typ"
+msgstr "Type"
+
+#: wfa_gui.py
+msgid "Mehr laden"
+msgstr "Load more"
+
+#: wfa_gui.py
+msgid "Auf dieser Version festhalten, bis ich es aufhebe"
+msgstr "Pin to this version until I release it"
+
+#: wfa_gui.py
+msgid "Nur die jetzt neueren Versionen auslassen (Updates wieder ab einer noch neueren Version)"
+msgstr "Skip only the versions that are newer now (updates resume from an even newer version)"
+
+#: wfa_gui.py
+msgid "Danach gilt:"
+msgstr "Afterwards:"
+
+#: wfa_gui.py
+msgid "Das ist die neueste Version – normales Update, ohne Festhalten."
+msgstr "This is the newest version – a normal update, no pinning."
+
+#: wfa_gui.py
+msgid "Laden fehlgeschlagen"
+msgstr "Loading failed"
+
+#: wfa_gui.py
+msgid "Öffnen fehlgeschlagen"
+msgstr "Could not open"
+
+#: wfa_gui.py
+msgid "Fehlt: {names} (Abhängigkeit laut TOC)"
+msgstr "Missing: {names} (dependency per TOC)"
+
+#: wfa_gui.py
+msgid "Changelog wird geladen …"
+msgstr "Loading changelog …"
+
+#: wfa_gui.py
+msgid "Kein Changelog verfügbar."
+msgstr "No changelog available."
+
+#: wfa_gui.py
+msgid "Neueste Version: {version}"
+msgstr "Newest version: {version}"
+
+#: wfa_gui.py
+msgid "Kanal: {channel}"
+msgstr "Channel: {channel}"
+
+#: wfa_gui.py
+msgid "Changelog – {name}"
+msgstr "Changelog – {name}"
+
+#: wfa_gui.py
+msgid "Lade Changelog …"
+msgstr "Loading changelog …"
+
+#: wfa_gui.py
+msgid "Nichts ausgewählt"
+msgstr "Nothing selected"
+
+#: wfa_gui.py
+msgid "Markiere Addons mit einem Häkchen."
+msgstr "Tick addons with a checkmark."
+
+#: wfa_gui.py
+msgid "Ohne Update übersprungen"
+msgstr "Skipped (no update)"
+
+#: wfa_gui.py
+msgid "Markiere die Addons mit einem Häkchen."
+msgstr "Tick the addons with a checkmark."
+
+#: wfa_gui.py
+msgid "Deinstallation nicht möglich"
+msgstr "Uninstall not possible"
+
+#: wfa_gui.py
+msgid "Nichts zu deinstallieren"
+msgstr "Nothing to uninstall"
+
+#: wfa_gui.py
+msgid "Die Ordner existieren nicht mehr."
+msgstr "The folders no longer exist."
+
+#: wfa_gui.py
+msgid "ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden.\n"
+msgstr "WARNING: WoW seems to be running (detected heuristically). Please close it first.\n"
+
+#: wfa_gui.py
+msgid "Hinweis: Im Flatpak ist nicht erkennbar, ob WoW läuft. Bitte vorher beenden.\n"
+msgstr "Note: in Flatpak it cannot be detected whether WoW is running. Please close it first.\n"
+
+#: wfa_gui.py
+msgid "Ordner: {names}"
+msgstr "Folders: {names}"
+
+#: wfa_gui.py
+msgid "\nDie Ordner werden in ein Backup verschoben und lassen sich unter ☰ → Backups wiederherstellen. Einstellungen (SavedVariables/WTF) bleiben erhalten."
+msgstr "\nThe folders are moved to a backup and can be restored under ☰ → Backups. Settings (SavedVariables/WTF) are kept."
+
+#: wfa_gui.py
+msgid "Deinstallation bestätigen"
+msgstr "Confirm uninstall"
+
+#: wfa_gui.py
+msgid "Deinstallieren"
+msgstr "Uninstall"
+
+#: wfa_gui.py
+msgid "Deinstallation fehlgeschlagen"
+msgstr "Uninstall failed"
+
+#: wfa_gui.py
+msgid "Deinstallation abgeschlossen"
+msgstr "Uninstall complete"
+
+#: wfa_gui.py
+msgid "Deinstalliere …"
+msgstr "Uninstalling …"
+
+#: wfa_gui.py
+msgid "Prüfe Abhängigkeiten …"
+msgstr "Checking dependencies …"
+
+#: wfa_gui.py
+msgid "Abgebrochen: {names}"
+msgstr "Cancelled: {names}"
+
+#: wfa_gui.py
+msgid "Datei stattdessen im Browser herunterladen?"
+msgid_plural "Die {n} Dateien nacheinander im Browser herunterladen?"
+msgstr[0] "Download the file in the browser instead?"
+msgstr[1] "Download the {n} files in the browser one after another?"
+
+#: wfa_gui.py
+msgid "Download fehlgeschlagen"
+msgstr "Download failed"
+
+#: wfa_gui.py
+msgid "Im Browser laden"
+msgstr "Download in browser"
+
+#: wfa_gui.py
+msgid "Nicht alles konnte vorbereitet werden"
+msgstr "Not everything could be prepared"
+
+#: wfa_gui.py
+msgid "Lade und prüfe Pakete …"
+msgstr "Downloading and checking packages …"
+
+#: wfa_gui.py
+msgid "Installiere Updates …"
+msgstr "Installing updates …"
+
+#: wfa_gui.py
+msgid "Lade Updates …"
+msgstr "Downloading updates …"
+
+#: wfa_gui.py
+msgid "Abhängigkeiten nicht prüfbar: {error}"
+msgstr "Could not check dependencies: {error}"
+
+#: wfa_gui.py
+msgid "Abhängigkeit fehlt: {name} ({reason}) – {note}"
+msgstr "Missing dependency: {name} ({reason}) – {note}"
+
+#: wfa_gui.py
+msgid "nicht automatisch installierbar"
+msgstr "cannot be installed automatically"
+
+#: wfa_gui.py
+msgid "Abhängigkeit {name}: {error}"
+msgstr "Dependency {name}: {error}"
+
+#: wfa_gui.py
+msgid "Abhängigkeiten werden mitinstalliert: {names}"
+msgstr "Installing dependencies as well: {names}"
+
+#: wfa_gui.py
+msgid "Übersprungen (werden von WoW: Forever nicht geladen): {names}"
+msgstr "Skipped (not loaded by WoW: Forever): {names}"
+
+#: wfa_gui.py
+msgid "ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden, sonst können Dateien gesperrt sein.\n"
+msgstr "WARNING: WoW seems to be running (detected heuristically). Please close it first, otherwise files may be locked.\n"
+
+#: wfa_gui.py
+msgid "Hinweis: Im Flatpak ist nicht erkennbar, ob WoW läuft. Bitte vorher beenden, sonst können Dateien gesperrt sein.\n"
+msgstr "Note: in Flatpak it cannot be detected whether WoW is running. Please close it first, otherwise files may be locked.\n"
+
+#: wfa_gui.py
+msgid "Installation bestätigen"
+msgstr "Confirm installation"
+
+#: wfa_gui.py
+msgid "Benötigt: {name} (wird mitinstalliert)"
+msgstr "Required: {name} (will be installed as well)"
+
+#: wfa_gui.py
+msgid "Benötigt: {name} – {note} ({reason})"
+msgstr "Required: {name} – {note} ({reason})"
+
+#: wfa_gui.py
+msgid "Abhängigkeiten nicht vollständig"
+msgstr "Dependencies incomplete"
+
+#: wfa_gui.py
+msgid "Lade Abhängigkeiten …"
+msgstr "Downloading dependencies …"
+
+#: wfa_gui.py
+msgid "{name}: nicht für WoW: Forever gedacht"
+msgstr "{name}: not meant for WoW: Forever"
+
+#: wfa_gui.py
+msgid "Das Hauptpaket enthält keine kompatible Forever-Datei (Interface 16xxx). Es wird möglicherweise nicht geladen oder verursacht Fehler."
+msgstr "The main package has no compatible Forever file (interface 16xxx). It may not load or may cause errors."
+
+#: wfa_gui.py
+msgid "Trotzdem installieren"
+msgstr "Install anyway"
+
+#: wfa_gui.py
+msgid "Installation fehlgeschlagen"
+msgstr "Installation failed"
+
+#: wfa_gui.py
+msgid "\nBackup-Satz: {names}"
+msgstr "\nBackup set: {names}"
+
+#: wfa_gui.py
+msgid "Ergebnis"
+msgstr "Result"
+
+#: wfa_gui.py
+msgid "Installiere …"
+msgstr "Installing …"
+
+#: wfa_gui.py
+msgid "Kein Addon gewählt"
+msgstr "No addon selected"
+
+#: wfa_gui.py
+msgid "Wähle eine Zeile in der Liste."
+msgstr "Select a row in the list."
+
+#: wfa_gui.py
+msgid "Übersprungen"
+msgstr "Skipped"
+
+#: wfa_gui.py
+msgid "Fehler"
+msgstr "Errors"
+
+#: wfa_gui.py
+msgid "Gesamtergebnis"
+msgstr "Overall result"
+
+#: wfa_gui.py
+msgid "Nichts zu tun."
+msgstr "Nothing to do."
+
+#: wfa_gui.py
+msgid "Browser-Download"
+msgstr "Browser download"
+
+#: wfa_gui.py
+msgid "Überspringen"
+msgstr "Skip"
+
+#: wfa_gui.py
+msgid "Alle abbrechen"
+msgstr "Cancel all"
+
+#: wfa_gui.py
+msgid "Browser-Download {i} von {n}: {name}"
+msgstr "Browser download {i} of {n}: {name}"
+
+#: wfa_gui.py
+msgid "Browser-Download: {name}"
+msgstr "Browser download: {name}"
+
+#: wfa_gui.py
+msgid "Lade die Datei für WoW: Forever herunter …\nFalls nicht vorgefiltert: Filter „Game Version/Flavor“ → „Forever“ wählen.\n\nÜberwachte Ordner: {folders}"
+msgstr "Download the file for WoW: Forever …\nIf not pre-filtered: set the filter “Game Version/Flavor” → “Forever”.\n\nWatched folders: {folders}"
+
+#: wfa_gui.py
+msgid "(keiner gefunden)"
+msgstr "(none found)"
+
+#: wfa_gui.py
+msgid "Browser fragt nach Speicherort – bitte in einen dieser Ordner speichern."
+msgstr "The browser asks where to save – please save into one of these folders."
+
+#: wfa_gui.py
+msgid "Fehler beim Warten"
+msgstr "Error while waiting"
+
+#: wfa_gui.py
+msgid "Keine Datei erkannt"
+msgstr "No file detected"
+
+#: wfa_gui.py
+msgid "Es wurde keine neue Zip-Datei gefunden (Zeitlimit)."
+msgstr "No new zip file was found (timeout)."
+
+#: wfa_gui.py
+msgid "Zeitlimit: keine neue Zip gefunden"
+msgstr "Timeout: no new zip found"
+
+#: wfa_gui.py
+msgid "Prüfe Zip …"
+msgstr "Checking zip …"
+
+#: wfa_gui.py
+msgid "Dialog nicht verfügbar"
+msgstr "Dialog not available"
+
+#: wfa_gui.py
+msgid "wfa_newaddon fehlt: {error}"
+msgstr "wfa_newaddon is missing: {error}"
+
+#: wfa_gui.py
+msgid "{error}\n\nDatei stattdessen im Browser herunterladen?"
+msgstr "{error}\n\nDownload the file in the browser instead?"
+
+#: wfa_gui.py
+msgid "Eingabe nicht verarbeitbar"
+msgstr "Input could not be processed"
+
+#: wfa_gui.py
+msgid "Nichts Eindeutiges gefunden"
+msgstr "Nothing unambiguous found"
+
+#: wfa_gui.py
+msgid "Für Suchbegriffe bitte den Tab „Suchen“ verwenden."
+msgstr "For search terms, please use the “Search” tab."
+
+#: wfa_gui.py
+msgid "wfa_expert fehlt: {error}"
+msgstr "wfa_expert is missing: {error}"
+
+#: wfa_gui.py
+msgid "Einstellungen (SavedVariables) vom {date} – 1 Addon"
+msgid_plural "Einstellungen (SavedVariables) vom {date} – {n} Addons"
+msgstr[0] "Settings (SavedVariables) from {date} – 1 addon"
+msgstr[1] "Settings (SavedVariables) from {date} – {n} addons"
+
+#: wfa_gui.py
+msgid "Backups"
+msgstr "Backups"
+
+#: wfa_gui.py
+msgid "Wiederherstellen"
+msgstr "Restore"
+
+#: wfa_gui.py
+msgid "Ordner"
+msgstr "Folders"
+
+#: wfa_gui.py
+msgid "Noch keine Backups vorhanden."
+msgstr "No backups yet."
+
+#: wfa_gui.py
+msgid "Die aktuellen Ordner werden vorher selbst gesichert.\n{names}"
+msgstr "The current folders are backed up first.\n{names}"
+
+#: wfa_gui.py
+msgid "Hinweis: WoW scheint zu laufen (heuristisch erkannt). Besser vorher beenden."
+msgstr "Note: WoW seems to be running (detected heuristically). Better close it first."
+
+#: wfa_gui.py
+msgid "Backup wiederherstellen?"
+msgstr "Restore backup?"
+
+#: wfa_gui.py
+msgid "Wiederherstellung fehlgeschlagen"
+msgstr "Restore failed"
+
+#: wfa_gui.py
+msgid "Wiederherstellung abgeschlossen"
+msgstr "Restore complete"
+
+#: wfa_gui.py
+msgid "Stelle wieder her …"
+msgstr "Restoring …"
+
+#: wfa_gui.py
+msgid "WoW läuft"
+msgstr "WoW is running"
+
+#: wfa_gui.py
+msgid "Einstellungen lassen sich nur wiederherstellen, solange WoW beendet ist – sonst überschreibt WoW sie beim Beenden wieder."
+msgstr "Settings can only be restored while WoW is closed – otherwise WoW overwrites them again when it exits."
+
+#: wfa_gui.py
+msgid "Ist WoW beendet?"
+msgstr "Is WoW closed?"
+
+#: wfa_gui.py
+msgid "Im Flatpak kann der Manager nicht sehen, ob WoW läuft. Läuft es noch, überschreibt es die wiederhergestellten Einstellungen beim Beenden wieder."
+msgstr "In Flatpak the manager cannot see whether WoW is running. If it is, it will overwrite the restored settings again when it exits."
+
+#: wfa_gui.py
+msgid "WoW ist beendet"
+msgstr "WoW is closed"
+
+#: wfa_gui.py
+msgid "Einstellungen wiederherstellen"
+msgstr "Restore settings"
+
+#: wfa_gui.py
+msgid "Einstellungen vom {date}. Der aktuelle Stand wird vorher selbst gesichert. Nur angehakte Addons werden zurückgeschrieben."
+msgstr "Settings from {date}. The current state is backed up first. Only ticked addons are written back."
+
+#: wfa_gui.py
+msgid "Es ist kein Addon angehakt."
+msgstr "No addon is ticked."
+
+#: wfa_gui.py
+msgid "Einstellungen: {message}"
+msgstr "Settings: {message}"
+
+#: wfa_gui.py
+msgid "Einstellungen wiederhergestellt"
+msgstr "Settings restored"
+
+#: wfa_gui.py
+msgid "Stelle Einstellungen wieder her …"
+msgstr "Restoring settings …"
+
+#: wfa_gui.py
+msgid "Verlauf"
+msgstr "History"
+
+#: wfa_gui.py
+msgid "Einstellungen zurücksetzen"
+msgstr "Roll back settings"
+
+#: wfa_gui.py
+msgid "Zurücksetzen"
+msgstr "Roll back"
+
+#: wfa_gui.py
+msgid "Nach Addon filtern …"
+msgstr "Filter by addon …"
+
+#: wfa_gui.py
+msgid "Zeitpunkt"
+msgstr "Time"
+
+#: wfa_gui.py
+msgid "Aktion"
+msgstr "Action"
+
+#: wfa_gui.py
+msgid "Noch keine Änderungen protokolliert."
+msgstr "No changes logged yet."
+
+#: wfa_gui.py
+msgid "1 Addon in der Liste."
+msgid_plural "{n} Addons in der Liste."
+msgstr[0] "1 addon in the list."
+msgstr[1] "{n} addons in the list."
+
+#: wfa_gui.py
+msgid "Hinweis: Ohne CurseForge-Key sind Namen und Zuordnungen evtl. unvollständig."
+msgstr "Note: without a CurseForge key, names and matches may be incomplete."
+
+#: wfa_gui.py
+msgid "Keine übertragbaren Addons (CurseForge-/GitHub-Zuordnung fehlt)."
+msgstr "No transferable addons (CurseForge/GitHub match missing)."
+
+#: wfa_gui.py
+msgid "Nicht übertragbar (keine CurseForge-/GitHub-Quelle): {names}"
+msgstr "Not transferable (no CurseForge/GitHub source): {names}"
+
+#: wfa_gui.py
+msgid "Addon-Liste exportieren"
+msgstr "Export addon list"
+
+#: wfa_gui.py
+msgid "Als Text kopieren"
+msgstr "Copy as text"
+
+#: wfa_gui.py
+msgid "Als Datei speichern …"
+msgstr "Save as file …"
+
+#: wfa_gui.py
+msgid "Als Text in die Zwischenablage kopiert."
+msgstr "Copied to the clipboard as text."
+
+#: wfa_gui.py
+msgid "Addon-Liste ({n}) als Text kopiert"
+msgstr "Addon list ({n}) copied as text"
+
+#: wfa_gui.py
+msgid "Addon-Liste speichern"
+msgstr "Save addon list"
+
+#: wfa_gui.py
+msgid "Speichern"
+msgstr "Save"
+
+#: wfa_gui.py
+msgid "Gespeichert: {path}"
+msgstr "Saved: {path}"
+
+#: wfa_gui.py
+msgid "Addon-Liste ({n}) gespeichert: {path}"
+msgstr "Addon list ({n}) saved: {path}"
+
+#: wfa_gui.py
+msgid "Speichern fehlgeschlagen"
+msgstr "Saving failed"
+
+#: wfa_gui.py
+msgid "Addon-Liste importieren"
+msgstr "Import addon list"
+
+#: wfa_gui.py
+msgid "Weiter"
+msgstr "Next"
+
+#: wfa_gui.py
+msgid "Liste einfügen (Text oder JSON) oder eine Datei laden:"
+msgstr "Paste a list (text or JSON) or load a file:"
+
+#: wfa_gui.py
+msgid "Datei laden …"
+msgstr "Load file …"
+
+#: wfa_gui.py
+msgid "Addon-Liste wählen"
+msgstr "Choose addon list"
+
+#: wfa_gui.py
+msgid "Datei nicht lesbar"
+msgstr "File not readable"
+
+#: wfa_gui.py
+msgid "Liste nicht lesbar"
+msgstr "List not readable"
+
+#: wfa_gui.py
+msgid "Prüfe Liste …"
+msgstr "Checking list …"
+
+#: wfa_gui.py
+msgid "Liste nicht prüfbar"
+msgstr "List could not be checked"
+
+#: wfa_gui.py
+msgid "Die Liste enthält keine Addons."
+msgstr "The list contains no addons."
+
+#: wfa_gui.py
+msgid "Diese Addons installieren:"
+msgstr "Install these addons:"
+
+#: wfa_gui.py
+msgid "  – schon installiert"
+msgstr "  – already installed"
+
+#: wfa_gui.py
+msgid "Einstellungen"
+msgstr "Settings"
+
+#: wfa_gui.py
+msgid "CurseForge-API-Key"
+msgstr "CurseForge API key"
+
+#: wfa_gui.py
+msgid "Key einfügen …"
+msgstr "Paste key …"
+
+#: wfa_gui.py
+msgid "Kostenlosen Key erzeugen (console.curseforge.com)"
+msgstr "Create a free key (console.curseforge.com)"
+
+#: wfa_gui.py
+msgid "Gespeicherten Key löschen"
+msgstr "Delete saved key"
+
+#: wfa_gui.py
+msgid "Anzeige und Download"
+msgstr "Display and download"
+
+#: wfa_gui.py
+msgid "Beta-Versionen anzeigen"
+msgstr "Show beta versions"
+
+#: wfa_gui.py
+msgid "Klassisches Theme (dunkel, Gold-Akzente)"
+msgstr "Classic theme (dark, gold accents)"
+
+#: wfa_gui.py
+msgid "Direkt-Download für Addons ohne API-Freigabe"
+msgstr "Direct download for addons without API permission"
+
+#: wfa_gui.py
+msgid "Vor Updates die Addon-Einstellungen (SavedVariables) sichern"
+msgstr "Back up addon settings (SavedVariables) before updates"
+
+#: wfa_gui.py
+msgid "Sprache"
+msgstr "Language"
+
+#: wfa_gui.py
+msgid "Automatisch"
+msgstr "Automatic"
+
+#: wfa_gui.py
+msgid "Wirkt nach einem Neustart"
+msgstr "Takes effect after a restart"
+
+#: wfa_gui.py
+msgid "AddOns-Ordner"
+msgstr "AddOns folder"
+
+#: wfa_gui.py
+msgid "Ändern / automatisch suchen …"
+msgstr "Change / search automatically …"
+
+#: wfa_gui.py
+msgid "Download-Ordner"
+msgstr "Download folder"
+
+#: wfa_gui.py
+msgid "Download-Ordner wählen"
+msgstr "Choose download folder"
+
+#: wfa_gui.py
+msgid "Ordner wählen …"
+msgstr "Choose folder …"
+
+#: wfa_gui.py
+msgid "Automatisch (aus Browser)"
+msgstr "Automatic (from browser)"
+
+#: wfa_gui.py
+msgid "Hintergrund"
+msgstr "Background"
+
+#: wfa_gui.py
+msgid "Kein Tray verfügbar (kein StatusNotifier-Host gefunden). Das Schließen des Fensters beendet dann das Programm."
+msgstr "No tray available (no StatusNotifier host found). Closing the window will then quit the program."
+
+#: wfa_gui.py
+msgid "Beim Systemstart im Tray starten"
+msgstr "Start in the tray at system startup"
+
+#: wfa_gui.py
+msgid "Fenster schließen minimiert in den Tray"
+msgstr "Closing the window minimizes to the tray"
+
+#: wfa_gui.py
+msgid "Prüfintervall (Minuten)"
+msgstr "Check interval (minutes)"
+
+#: wfa_gui.py
+msgid "Updates automatisch installieren (nur wenn WoW nicht läuft)"
+msgstr "Install updates automatically (only when WoW is not running)"
+
+#: wfa_gui.py
+msgid "Im Flatpak ist nicht erkennbar, ob WoW läuft; Updates werden deshalb nur gemeldet, nicht still installiert. Erkennung freigeben (erlaubt dem Programm, Befehle außerhalb der Sandbox zu starten):\n{command}"
+msgstr "In Flatpak it cannot be detected whether WoW is running, so updates are only reported, not installed silently. Allow detection (lets the program run commands outside the sandbox):\n{command}"
+
+#: wfa_gui.py
+msgid "Programm-Updates"
+msgstr "Program updates"
+
+#: wfa_gui.py
+msgid "Beim Start nach Programm-Updates suchen"
+msgstr "Check for program updates at startup"
+
+#: wfa_gui.py
+msgid "Programm-Updates automatisch installieren"
+msgstr "Install program updates automatically"
+
+#: wfa_gui.py
+msgid "Programm-Updates kommen über {channel}."
+msgstr "Program updates come through {channel}."
+
+#: wfa_gui.py
+msgid "Erweiterte Funktionen anzeigen"
+msgstr "Show advanced features"
+
+#: wfa_gui.py
+msgid "Blendet im Menü „Erweitert“ ein: Addons je Charakter, Aufräumen und Gesamtstände."
+msgstr "Shows in the “Advanced” menu: addons per character, clean up and full snapshots."
+
+#: wfa_gui.py
+msgid "Autostart fehlgeschlagen"
+msgstr "Autostart failed"
+
+#: wfa_gui.py
+msgid "Autostart eingerichtet."
+msgstr "Autostart set up."
+
+#: wfa_gui.py
+msgid "Autostart entfernt."
+msgstr "Autostart removed."
+
+#: wfa_gui.py
+msgid "Autostart: {text}"
+msgstr "Autostart: {text}"
+
+#: wfa_gui.py
+msgid "Startmenü-Eintrag fehlgeschlagen"
+msgstr "Start menu entry failed"
+
+#: wfa_gui.py
+msgid "Startmenü-Eintrag angelegt"
+msgstr "Start menu entry created"
+
+#: wfa_gui.py
+msgid "Inoffizieller Addon-Manager für WoW: Forever unter Linux.\nNicht mit Blizzard oder CurseForge verbunden."
+msgstr "Unofficial addon manager for WoW: Forever on Linux.\nNot affiliated with Blizzard or CurseForge."
+
+#: wfa_gui.py
+msgid "Nicht verfügbar"
+msgstr "Not available"
+
+#: wfa_gui.py
+msgid "Die Programm-Updates sind in dieser Version nicht enthalten."
+msgstr "Program updates are not included in this version."
+
+#: wfa_gui.py
+msgid "Programm-Update-Prüfung fehlgeschlagen: {error}"
+msgstr "Program update check failed: {error}"
+
+#: wfa_gui.py
+msgid "Prüfung fehlgeschlagen"
+msgstr "Check failed"
+
+#: wfa_gui.py
+msgid "Kein Update"
+msgstr "No update"
+
+#: wfa_gui.py
+msgid "Du nutzt die aktuelle Version ({version})."
+msgstr "You are using the latest version ({version})."
+
+#: wfa_gui.py
+msgid "Version {version} des Addon-Managers ist verfügbar."
+msgstr "Version {version} of the addon manager is available."
+
+#: wfa_gui.py
+msgid "Programm-Update {version}"
+msgstr "Program update {version}"
+
+#: wfa_gui.py
+msgid "Jetzt aktualisieren"
+msgstr "Update now"
+
+#: wfa_gui.py
+msgid "Release-Seite öffnen"
+msgstr "Open release page"
+
+#: wfa_gui.py
+msgid "Version {version}"
+msgstr "Version {version}"
+
+#: wfa_gui.py
+msgid " (installiert: {version})"
+msgstr " (installed: {version})"
+
+#: wfa_gui.py
+msgid "Dieses Programm läuft nicht als einzelne ausführbare Datei und kann sich nicht selbst ersetzen. Die Release-Seite wird im Browser geöffnet."
+msgstr "This program is not running as a single executable and cannot replace itself. The release page will open in the browser."
+
+#: wfa_gui.py
+msgid "(Keine Release-Notes vorhanden.)"
+msgstr "(No release notes available.)"
+
+#: wfa_gui.py
+msgid "Programm-Update"
+msgstr "Program update"
+
+#: wfa_gui.py
+msgid "Lade Version {version} …"
+msgstr "Downloading version {version} …"
+
+#: wfa_gui.py
+msgid "Programm-Update fehlgeschlagen"
+msgstr "Program update failed"
+
+#: wfa_gui.py
+msgid "Programm-Update {version} installiert."
+msgstr "Program update {version} installed."
+
+#: wfa_gui.py
+msgid "Version {version} installiert – Neustart nötig."
+msgstr "Version {version} installed – restart required."
+
+#: wfa_gui.py
+msgid "Update installiert"
+msgstr "Update installed"
+
+#: wfa_gui.py
+msgid "Jetzt neu starten?"
+msgstr "Restart now?"
+
+#: wfa_gui.py
+msgid "Neustart fehlgeschlagen"
+msgstr "Restart failed"
+
+#: wfa_apply.py
+msgid "Installation"
+msgstr "Installation"
+
+#: wfa_apply.py
+msgid "Versionswechsel"
+msgstr "Version change"
+
+#: wfa_apply.py
+msgid "Update"
+msgstr "Update"
+
+#: wfa_apply.py
+msgid "Deinstallation"
+msgstr "Uninstall"
+
+#: wfa_apply.py
+msgid "Wiederherstellung"
+msgstr "Restore"
+
+#: wfa_base.py
+msgid "aktuell"
+msgstr "up to date"
+
+#: wfa_base.py
+msgid "lokal neuer"
+msgstr "local newer"
+
+#: wfa_base.py
+msgid "kein Key"
+msgstr "no key"
+
+#: wfa_base.py
+msgid "nicht zugeordnet"
+msgstr "unmatched"
+
+#: wfa_base.py
+msgid "festgehalten"
+msgstr "pinned"
+
+#: wfa_base.py
+msgid "ausgelassen"
+msgstr "skipped"
+
+#: wfa_base.py
+msgid "nicht geprüft"
+msgstr "not checked"
+
+#: wfa_cli.py
+msgid "[j/N]"
+msgstr "[y/N]"
+
+#: wfa_cli.py
+msgid "Kein AddOns-Ordner von WoW: Forever eingerichtet."
+msgstr "No WoW: Forever AddOns folder set up."
+
+#: wfa_cli.py
+msgid "Gefundene Installationen:"
+msgstr "Installations found:"
+
+#: wfa_cli.py
+msgid "Nummer wählen, m = Pfad manuell eingeben, Enter = abbrechen: "
+msgstr "Choose a number, m = enter a path manually, Enter = cancel: "
+
+#: wfa_cli.py
+msgid "Pfad (…/_forever_ oder …/Interface/AddOns): "
+msgstr "Path (…/_forever_ or …/Interface/AddOns): "
+
+#: wfa_cli.py
+msgid "Ungültige Eingabe."
+msgstr "Invalid input."
+
+#: wfa_cli.py
+msgid "Trotzdem verwenden?"
+msgstr "Use it anyway?"
+
+#: wfa_cli.py
+msgid "AddOns-Ordner gespeichert: {path}"
+msgstr "AddOns folder saved: {path}"
+
+#: wfa_cli.py
+msgid "== WoW: Forever Addon-Manager {version} =="
+msgstr "== WoW: Forever Addon Manager {version} =="
+
+#: wfa_cli.py
+msgid "AddOns:     {path}"
+msgstr "AddOns:     {path}"
+
+#: wfa_cli.py
+msgid "(Client {version})"
+msgstr "(client {version})"
+
+#: wfa_cli.py
+msgid "(aus den Addons geschätzt)"
+msgstr "(estimated from the addons)"
+
+#: wfa_cli.py
+msgid "Interface:  {interface} {client}"
+msgstr "Interface:  {interface} {client}"
+
+#: wfa_cli.py
+msgid "Download-Ordner: {summary}"
+msgstr "Download folder: {summary}"
+
+#: wfa_cli.py
+msgid "CurseForge: kein API-Key – kostenlos unter {url} erzeugen, dann Taste k."
+msgstr "CurseForge: no API key – create one for free at {url}, then press k."
+
+#: wfa_cli.py
+msgid "CurseForge: Key ungültig oder abgelehnt (Taste k)."
+msgstr "CurseForge: key invalid or rejected (press k)."
+
+#: wfa_cli.py
+msgid "CurseForge: Key {state}: {key}"
+msgstr "CurseForge: key {state}: {key}"
+
+#: wfa_cli.py
+msgid "Nr"
+msgstr "No."
+
+#: wfa_cli.py
+msgid "Forever"
+msgstr "Forever"
+
+#: wfa_cli.py
+msgid "Prüfe Versionen ..."
+msgstr "Checking versions ..."
+
+#: wfa_cli.py
+msgid "(neu)"
+msgstr "(new)"
+
+#: wfa_cli.py
+msgid "  Ordner: {folders}"
+msgstr "  Folders: {folders}"
+
+#: wfa_cli.py
+msgid "  Trotzdem installieren? Zum Bestätigen 'ja' eingeben: "
+msgstr "  Install anyway? Type 'yes' to confirm: "
+
+#: wfa_cli.py
+msgid "  Übersprungen."
+msgstr "  Skipped."
+
+#: wfa_cli.py
+msgid "  Benötigt: {name} – {note} ({reason})"
+msgstr "  Requires: {name} – {note} ({reason})"
+
+#: wfa_cli.py
+msgid "  Benötigt: {name} ({reason}) – mitinstallieren?"
+msgstr "  Requires: {name} ({reason}) – install it too?"
+
+#: wfa_cli.py
+msgid "WoW scheint zu laufen! Trotzdem fortfahren?"
+msgstr "WoW seems to be running! Continue anyway?"
+
+#: wfa_cli.py
+msgid "{n} Paket(e) installieren?"
+msgstr "Install {n} package(s)?"
+
+#: wfa_cli.py
+msgid "  (Sicherung: {name})"
+msgstr "  (backup: {name})"
+
+#: wfa_cli.py
+msgid "Öffne {url}"
+msgstr "Opening {url}"
+
+#: wfa_cli.py
+msgid "Lade die Datei für WoW: Forever herunter."
+msgstr "Download the file for WoW: Forever."
+
+#: wfa_cli.py
+msgid "Falls nicht vorgefiltert: Filter 'Game Version/Flavor' → 'Forever' wählen."
+msgstr "If not pre-filtered: set the 'Game Version/Flavor' filter to 'Forever'."
+
+#: wfa_cli.py
+msgid "Überwachte Ordner: {folders}"
+msgstr "Watched folders: {folders}"
+
+#: wfa_cli.py
+msgid "Warte auf neue .zip (Strg+C bricht ab, max. 10 Minuten) ..."
+msgstr "Waiting for a new .zip (Ctrl+C cancels, 10 minutes max) ..."
+
+#: wfa_cli.py
+msgid "s = überspringen, q = alle abbrechen [s/q]: "
+msgstr "s = skip, q = cancel all [s/q]: "
+
+#: wfa_cli.py
+msgid "Keine neue Zip gefunden."
+msgstr "No new zip found."
+
+#: wfa_cli.py
+msgid "Gefunden: {name}"
+msgstr "Found: {name}"
+
+#: wfa_cli.py
+msgid "Nummern (z. B. 1 3 5-7), 'a' = alle Updates, Enter = zurück: "
+msgstr "Numbers (e.g. 1 3 5-7), 'a' = all updates, Enter = back: "
+
+#: wfa_cli.py
+msgid "Nichts auszuwählen."
+msgstr "Nothing to select."
+
+#: wfa_cli.py
+msgid "{n} Datei(en) nacheinander im Browser laden?"
+msgstr "Download {n} file(s) in the browser one after another?"
+
+#: wfa_cli.py
+msgid "Addon-Nummer (Enter = zurück): "
+msgstr "Addon number (Enter = back): "
+
+#: wfa_cli.py
+msgid "Erst zuordnen (Taste z)."
+msgstr "Match it first (press z)."
+
+#: wfa_cli.py
+msgid "Standard"
+msgstr "Default"
+
+#: wfa_cli.py
+msgid "[1] Bestimmte Version installieren  [2] Kanal setzen"
+msgstr "[1] Install a specific version  [2] Set channel"
+
+#: wfa_cli.py
+msgid "[3] Festhalten/Auslassen aufheben"
+msgstr "[3] Remove pin/skip"
+
+#: wfa_cli.py
+msgid "Auswahl (Enter = zurück): "
+msgstr "Choice (Enter = back): "
+
+#: wfa_cli.py
+msgid "[0] Standard (wie Einstellung)  [1] Nur Release  [2] Beta  [3] Alpha"
+msgstr "[0] Default (as in settings)  [1] Release only  [2] Beta  [3] Alpha"
+
+#: wfa_cli.py
+msgid "Kanal (Enter = zurück): "
+msgstr "Channel (Enter = back): "
+
+#: wfa_cli.py
+msgid "Keine Versionen gefunden."
+msgstr "No versions found."
+
+#: wfa_cli.py
+msgid "[installiert]"
+msgstr "[installed]"
+
+#: wfa_cli.py
+msgid "Nummer, 'm' = mehr laden (Enter = zurück): "
+msgstr "Number, 'm' = load more (Enter = back): "
+
+#: wfa_cli.py
+msgid "Nummer (Enter = zurück): "
+msgstr "Number (Enter = back): "
+
+#: wfa_cli.py
+msgid "Danach: [1] nur neuere Versionen auslassen  [2] auf dieser Version festhalten (Enter = 1): "
+msgstr "Afterwards: [1] skip newer versions only  [2] pin to this version (Enter = 1): "
+
+#: wfa_cli.py
+msgid "Keine Treffer."
+msgstr "No results."
+
+#: wfa_cli.py
+msgid "ja"
+msgstr "yes"
+
+#: wfa_cli.py
+msgid "nein"
+msgstr "no"
+
+#: wfa_cli.py
+msgid "{n} Downloads"
+msgstr "{n} downloads"
+
+#: wfa_cli.py
+msgid "Forever-Datei: {state}"
+msgstr "Forever file: {state}"
+
+#: wfa_cli.py
+msgid "Im Browser herunterladen?"
+msgstr "Download in the browser?"
+
+#: wfa_cli.py
+msgid "Suche ist für diesen API-Key nicht freigeschaltet."
+msgstr "Search is not enabled for this API key."
+
+#: wfa_cli.py
+msgid "Alternativen: [1] Beliebte Forever-Addons  [2] CurseForge-Projekt-ID eingeben  [3] Im Browser suchen"
+msgstr "Alternatives: [1] Popular Forever addons  [2] Enter a CurseForge project ID  [3] Search in the browser"
+
+#: wfa_cli.py
+msgid "Projekt-ID: "
+msgstr "Project ID: "
+
+#: wfa_cli.py
+msgid "Ungültige ID."
+msgstr "Invalid ID."
+
+#: wfa_cli.py
+msgid "Suchbegriff, CF-Projekt-ID, gh:owner/repo, URL, Zip-Pfad, 'p' = beliebte Addons (Enter = zurück): "
+msgstr "Search term, CF project ID, gh:owner/repo, URL, zip path, 'p' = popular addons (Enter = back): "
+
+#: wfa_cli.py
+msgid "Keine nicht zugeordneten Ordner."
+msgstr "No unmatched folders."
+
+#: wfa_cli.py
+msgid "Ordner (z. B. 1 3; Enter = zurück): "
+msgstr "Folders (e.g. 1 3; Enter = back): "
+
+#: wfa_cli.py
+msgid "Vorschlag (v1 …), CF-Projekt-ID, gh:owner/repo oder CF-Suchbegriff [{title}]: "
+msgstr "Suggestion (v1 …), CF project ID, gh:owner/repo or CF search term [{title}]: "
+
+#: wfa_cli.py
+msgid "CF-Projekt-ID, gh:owner/repo oder CF-Suchbegriff [{title}]: "
+msgstr "CF project ID, gh:owner/repo or CF search term [{title}]: "
+
+#: wfa_cli.py
+msgid "Suche ist für diesen API-Key nicht freigeschaltet. Gib die CF-Projekt-ID oder gh:owner/repo direkt ein."
+msgstr "Search is not enabled for this API key. Enter the CF project ID or gh:owner/repo directly."
+
+#: wfa_cli.py
+msgid "Zugeordnet: {folders}"
+msgstr "Matched: {folders}"
+
+#: wfa_cli.py
+msgid "Export nicht gespeichert: {error}"
+msgstr "Export not saved: {error}"
+
+#: wfa_cli.py
+msgid "{n} Addons exportiert nach {target}"
+msgstr "{n} addons exported to {target}"
+
+#: wfa_cli.py
+msgid "Hinweis: Ohne CurseForge-Key werden CF-Addons evtl. nicht erkannt und fehlen dann in der Liste."
+msgstr "Note: without a CurseForge key, CF addons may not be recognized and will be missing from the list."
+
+#: wfa_cli.py
+msgid "Hinweis: Keine übertragbaren Addons (CurseForge-/GitHub-Zuordnung fehlt)."
+msgstr "Note: no transferable addons (CurseForge/GitHub match missing)."
+
+#: wfa_cli.py
+msgid "Nicht übertragbar: {names}"
+msgstr "Not transferable: {names}"
+
+#: wfa_cli.py
+msgid "Datei nicht lesbar: {error}"
+msgstr "Could not read file: {error}"
+
+#: wfa_cli.py
+msgid "schon installiert"
+msgstr "already installed"
+
+#: wfa_cli.py
+msgid "{n} Addon(s) installieren?"
+msgstr "Install {n} addon(s)?"
+
+#: wfa_cli.py
+msgid "{bad} von {n} Addon(s) nicht installiert."
+msgstr "{bad} of {n} addon(s) not installed."
+
+#: wfa_cli.py
+msgid "Nummer des Pakets (Enter = zurück): "
+msgstr "Package number (Enter = back): "
+
+#: wfa_cli.py
+msgid "Key-Status: {state}"
+msgstr "Key status: {state}"
+
+#: wfa_cli.py
+msgid "Neuer Key, '-' zum Löschen, Enter = unverändert: "
+msgstr "New key, '-' to delete, Enter = unchanged: "
+
+#: wfa_cli.py
+msgid "Keine Sicherungen vorhanden."
+msgstr "No backups available."
+
+#: wfa_cli.py
+msgid "  {i}) {name}: Einstellungen (SavedVariables), {n} Addons"
+msgstr "  {i}) {name}: settings (SavedVariables), {n} addons"
+
+#: wfa_cli.py
+msgid "Sicherung wählen (Enter = zurück): "
+msgstr "Choose a backup (Enter = back): "
+
+#: wfa_cli.py
+msgid "{n} Ordner wiederherstellen (aktuelle Versionen werden vorher gesichert)?"
+msgstr "Restore {n} folder(s) (current versions are backed up first)?"
+
+#: wfa_cli.py
+msgid "WoW läuft – Einstellungen lassen sich nur bei beendetem WoW wiederherstellen."
+msgstr "WoW is running – settings can only be restored while WoW is closed."
+
+#: wfa_cli.py
+msgid "Ob WoW läuft, ist im Flatpak nicht erkennbar. Ist WoW beendet?"
+msgstr "Flatpak cannot tell whether WoW is running. Is WoW closed?"
+
+#: wfa_cli.py
+msgid "Addons: {names}"
+msgstr "Addons: {names}"
+
+#: wfa_cli.py
+msgid "Nur bestimmte Addons (Namen, durch Leerzeichen getrennt)? Enter = alle: "
+msgstr "Only certain addons (names separated by spaces)? Enter = all: "
+
+#: wfa_cli.py
+msgid "Einstellungen wiederherstellen (aktueller Stand wird vorher gesichert)?"
+msgstr "Restore settings (the current state is backed up first)?"
+
+#: wfa_cli.py
+msgid "  [Sicherung {name}]"
+msgstr "  [backup {name}]"
+
+#: wfa_cli.py
+msgid "  [Einstellungen {name}]"
+msgstr "  [settings {name}]"
+
+#: wfa_cli.py
+msgid "Nummern der zu deinstallierenden Pakete (z. B. 1 3 5-7, Enter = zurück): "
+msgstr "Numbers of the packages to uninstall (e.g. 1 3 5-7, Enter = back): "
+
+#: wfa_cli.py
+msgid "(keine)"
+msgstr "(none)"
+
+#: wfa_cli.py
+msgid "Die Ordner werden in ein Backup verschoben (Menü w: Wiederherstellen). Einstellungen (SavedVariables/WTF) bleiben erhalten."
+msgstr "The folders are moved to a backup (menu w: restore). Settings (SavedVariables/WTF) are kept."
+
+#: wfa_cli.py
+msgid "{n} Paket(e) deinstallieren?"
+msgstr "Uninstall {n} package(s)?"
+
+#: wfa_cli.py
+msgid "Einstellungen ohne Addon"
+msgstr "Settings without addon"
+
+#: wfa_cli.py
+msgid "Verschachtelter Ordner"
+msgstr "Nested folder"
+
+#: wfa_cli.py
+msgid "Ordner ohne TOC"
+msgstr "Folder without TOC"
+
+#: wfa_cli.py
+msgid "WoW läuft. Bitte zuerst beenden."
+msgstr "WoW is running. Please close it first."
+
+#: wfa_cli.py
+msgid "Ob WoW läuft, ist hier nicht feststellbar. Zur Sicherheit wird nichts geändert."
+msgstr "Cannot tell whether WoW is running. Nothing is changed, to be safe."
+
+#: wfa_cli.py
+msgid "Gesamtstand {id} angelegt ({size})."
+msgstr "Full snapshot {id} created ({size})."
+
+#: wfa_cli.py
+msgid "Keine Gesamtstände vorhanden."
+msgstr "No full snapshots available."
+
+#: wfa_cli.py
+msgid "{id}  {created}  {n:>3} Addons  {size:>9}  {label}"
+msgstr "{id}  {created}  {n:>3} addons  {size:>9}  {label}"
+
+#: wfa_cli.py
+msgid "Gesamtstand {id} nicht gefunden (siehe --snapshots)."
+msgstr "Full snapshot {id} not found (see --snapshots)."
+
+#: wfa_cli.py
+msgid "Gesamtstand {id} wiederhergestellt. Vorheriger Stand gesichert als {safe}."
+msgstr "Full snapshot {id} restored. Previous state saved as {safe}."
+
+#: wfa_cli.py
+msgid "Nichts zum Aufräumen gefunden."
+msgstr "Nothing to clean up."
+
+#: wfa_cli.py
+msgid "Nur aufgelistet. Mit --cleanup --apply in den Papierkorb verschieben."
+msgstr "Listed only. Use --cleanup --apply to move them to the trash."
+
+#: wfa_cli.py
+msgid "[u] Updates  [n] Neu installieren  [z] Zuordnen  [b] Browser-Download  [k] CF-Key  [e] Beta: {beta}  [v] Version/Kanal  [r] Neu prüfen  [d] Deinstallieren  [w] Wiederherstellen  [h] Verlauf  [q] Ende"
+msgstr "[u] Updates  [n] Install new  [z] Match  [b] Browser download  [k] CF key  [e] Beta: {beta}  [v] Version/channel  [r] Check again  [d] Uninstall  [w] Restore  [h] History  [q] Quit"
+
+#: wfa_cli.py
+msgid "an"
+msgstr "on"
+
+#: wfa_cli.py
+msgid "aus"
+msgstr "off"
+
+#: wfa_cli.py
+msgid "Unbekannte Eingabe."
+msgstr "Unknown input."
+
+#: wfa_cli.py
+msgid "Dateifehler: {error}"
+msgstr "File error: {error}"
+
+#: wfa_cli.py
+msgid "Addon-Manager für WoW: Forever (CurseForge/GitHub, mit Sicherungen)."
+msgstr "Addon manager for WoW: Forever (CurseForge/GitHub, with backups)."
+
+#: wfa_cli.py
+msgid "Kommandozeile erzwingen (statt GUI)"
+msgstr "force the command line (instead of the GUI)"
+
+#: wfa_cli.py
+msgid "nur Tabelle ausgeben, nicht interaktiv"
+msgstr "print the table only, non-interactive"
+
+#: wfa_cli.py
+msgid "PFAD"
+msgstr "PATH"
+
+#: wfa_cli.py
+msgid "AddOns-Ordner (nur für diesen Lauf, wird nicht gespeichert)"
+msgstr "AddOns folder (this run only, not saved)"
+
+#: wfa_cli.py
+msgid "Addon-Liste als JSON (oder Kurztext bei .txt) schreiben, „-“ = stdout"
+msgstr "write the addon list as JSON (or short text for .txt), \"-\" = stdout"
+
+#: wfa_cli.py
+msgid "PFAD|TEXT"
+msgstr "PATH|TEXT"
+
+#: wfa_cli.py
+msgid "Addon-Liste aus Datei oder Kurztext (WFA1 cf:… gh:…) installieren"
+msgstr "install an addon list from a file or short text (WFA1 cf:… gh:…)"
+
+#: wfa_cli.py
+msgid "BEZEICHNUNG"
+msgstr "LABEL"
+
+#: wfa_cli.py
+msgid "Gesamtstand (AddOns und WTF) sichern, Bezeichnung optional"
+msgstr "back up a full snapshot (AddOns and WTF), label optional"
+
+#: wfa_cli.py
+msgid "Gesamtstände auflisten"
+msgstr "list full snapshots"
+
+#: wfa_cli.py
+msgid "Gesamtstand wiederherstellen (ID aus --snapshots)"
+msgstr "restore a full snapshot (ID from --snapshots)"
+
+#: wfa_cli.py
+msgid "Funde zum Aufräumen auflisten"
+msgstr "list clean-up findings"
+
+#: wfa_cli.py
+msgid "mit --cleanup: Funde in den Papierkorb verschieben"
+msgstr "with --cleanup: move findings to the trash"
+
+#: wfa_cli.py
+msgid "--apply gehört zu --cleanup"
+msgstr "--apply belongs to --cleanup"
+
+#: wfa_cli.py
+msgid "AddOns-Ordner nicht gefunden: {path}"
+msgstr "AddOns folder not found: {path}"
+
+#: wfa_cli.py
+msgid "Kein AddOns-Ordner eingerichtet. Gefundene Kandidaten:"
+msgstr "No AddOns folder set up. Candidates found:"
+
+#: wfa_cli.py
+msgid "  (keine)"
+msgstr "  (none)"
+
+#: wfa_cli.py
+msgid "Starte ohne --check zur Auswahl oder nutze --addons-dir PFAD."
+msgstr "Start without --check to choose, or use --addons-dir PATH."
+
+#: wfa_expert.py
+msgid "Bitte WoW zuerst beenden. Sonst überschreibt es die Änderungen beim Beenden wieder."
+msgstr "Please close WoW first. Otherwise it overwrites the changes again when it exits."
+
+#: wfa_expert.py
+msgid "Im Flatpak kann der Manager nicht sehen, ob WoW läuft. Läuft es noch, überschreibt es die Änderungen beim Beenden wieder."
+msgstr "In Flatpak the manager cannot tell whether WoW is running. If it is, it overwrites the changes again when it exits."
+
+#: wfa_expert.py
+msgid "Das hat nicht geklappt"
+msgstr "That did not work"
+
+#: wfa_expert.py
+msgid "Addons je Charakter"
+msgstr "Addons per character"
+
+#: wfa_expert.py
+msgid "{name} – {realm} (Konto {account})"
+msgstr "{name} – {realm} (account {account})"
+
+#: wfa_expert.py
+msgid "{name} – {realm}"
+msgstr "{name} – {realm}"
+
+#: wfa_expert.py
+msgid "Alle Charaktere"
+msgstr "All characters"
+
+#: wfa_expert.py
+msgid "Charakter"
+msgstr "Character"
+
+#: wfa_expert.py
+msgid "Bei „Alle Charaktere“ ist ein Addon angehakt, wenn es bei allen aktiv ist."
+msgstr "With “All characters”, an addon is checked if it is enabled for every character."
+
+#: wfa_expert.py
+msgid "Keine Änderungen."
+msgstr "No changes."
+
+#: wfa_expert.py
+msgid "{n} Änderung übernommen."
+msgid_plural "{n} Änderungen übernommen."
+msgstr[0] "{n} change applied."
+msgstr[1] "{n} changes applied."
+
+#: wfa_expert.py
+msgid "Addons je Charakter: {text}"
+msgstr "Addons per character: {text}"
+
+#: wfa_expert.py
+msgid "Bitte zuerst in den Einstellungen einen AddOns-Ordner wählen."
+msgstr "Please select an AddOns folder in the settings first."
+
+#: wfa_expert.py
+msgid "Keine Charaktere gefunden"
+msgstr "No characters found"
+
+#: wfa_expert.py
+msgid "Im WTF-Ordner gibt es noch keine Charaktere. Sobald du dich mit einem Charakter in WoW angemeldet hast, erscheint er hier."
+msgstr "There are no characters in the WTF folder yet. Once you have logged in with a character in WoW, it will show up here."
+
+#: wfa_expert.py
+msgid "Aufräumen"
+msgstr "Clean up"
+
+#: wfa_expert.py
+msgid "Gefundenes"
+msgstr "Findings"
+
+#: wfa_expert.py
+msgid "Art"
+msgstr "Type"
+
+#: wfa_expert.py
+msgid "Größe"
+msgstr "Size"
+
+#: wfa_expert.py
+msgid "Ausgewählte aufräumen"
+msgstr "Clean up selected"
+
+#: wfa_expert.py
+msgid "Papierkorb …"
+msgstr "Trash …"
+
+#: wfa_expert.py
+msgid "Einstellungs-Schnappschüsse (SavedVariables)"
+msgstr "Settings snapshots (SavedVariables)"
+
+#: wfa_expert.py
+msgid "Gesamtstände"
+msgstr "Full snapshots"
+
+#: wfa_expert.py
+msgid "Papierkorb"
+msgstr "Trash"
+
+#: wfa_expert.py
+msgid "Cache"
+msgstr "Cache"
+
+#: wfa_expert.py
+msgid "Nichts angehakt."
+msgstr "Nothing checked."
+
+#: wfa_expert.py
+msgid "Ausgewählte Funde aufräumen?"
+msgstr "Clean up the selected findings?"
+
+#: wfa_expert.py
+msgid "Sie werden in den Papierkorb des Managers verschoben und lassen sich dort über „Papierkorb …“ zurücklegen."
+msgstr "They are moved to the manager’s trash and can be put back from there via “Trash …”."
+
+#: wfa_expert.py
+msgid "Räume auf …"
+msgstr "Cleaning up …"
+
+#: wfa_expert.py
+msgid "Aufräumen: {n} von {m} verschoben."
+msgstr "Clean up: {n} of {m} moved."
+
+#: wfa_expert.py
+msgid "Nicht alles ließ sich aufräumen"
+msgstr "Not everything could be cleaned up"
+
+#: wfa_expert.py
+msgid "Einträge"
+msgstr "Entries"
+
+#: wfa_expert.py
+msgid "Zurücklegen"
+msgstr "Put back"
+
+#: wfa_expert.py
+msgid "Der Papierkorb ist leer."
+msgstr "The trash is empty."
+
+#: wfa_expert.py
+msgid "Lege zurück …"
+msgstr "Putting back …"
+
+#: wfa_expert.py
+msgid "Nicht alles ließ sich zurücklegen"
+msgstr "Not everything could be put back"
+
+#: wfa_expert.py
+msgid "Konflikte, bereits Vorhandenes wurde nicht überschrieben:"
+msgstr "Conflicts, existing items were not overwritten:"
+
+#: wfa_expert.py
+msgid "Papierkorb: Satz zurückgelegt."
+msgstr "Trash: set put back."
+
+#: wfa_expert.py
+msgid "Ein Gesamtstand sichert alle Addons und die Einstellungen aller Konten (WTF)."
+msgstr "A full snapshot backs up all addons and the settings of all accounts (WTF)."
+
+#: wfa_expert.py
+msgid "Bezeichnung"
+msgstr "Label"
+
+#: wfa_expert.py
+msgid "Jetzt sichern …"
+msgstr "Back up now …"
+
+#: wfa_expert.py
+msgid "Löschen"
+msgstr "Delete"
+
+#: wfa_expert.py
+msgid "Noch keine Gesamtstände vorhanden."
+msgstr "No full snapshots yet."
+
+#: wfa_expert.py
+msgid "Gesamtstand sichern"
+msgstr "Back up full snapshot"
+
+#: wfa_expert.py
+msgid "Sichern"
+msgstr "Back up"
+
+#: wfa_expert.py
+msgid "Bezeichnung (optional)"
+msgstr "Label (optional)"
+
+#: wfa_expert.py
+msgid "Sichere …"
+msgstr "Backing up …"
+
+#: wfa_expert.py
+msgid "Gesamtstand {id} angelegt."
+msgstr "Full snapshot {id} created."
+
+#: wfa_expert.py
+msgid "Gesamtstand angelegt."
+msgstr "Full snapshot created."
+
+#: wfa_expert.py
+msgid "Gesamtstand wiederherstellen?"
+msgstr "Restore full snapshot?"
+
+#: wfa_expert.py
+msgid "Die aktuellen Ordner AddOns und WTF werden durch den Stand vom {date} ersetzt. Vorher wird der jetzige Stand automatisch gesichert."
+msgstr "The current AddOns and WTF folders will be replaced by the state from {date}. The current state is backed up automatically first."
+
+#: wfa_expert.py
+msgid "Gesamtstand wiederhergestellt, vorheriger Stand: {id}."
+msgstr "Full snapshot restored, previous state: {id}."
+
+#: wfa_expert.py
+msgid "Gesamtstand wiederhergestellt"
+msgstr "Full snapshot restored"
+
+#: wfa_expert.py
+msgid "Der vorherige Stand wurde als {id} gesichert."
+msgstr "The previous state was saved as {id}."
+
+#: wfa_expert.py
+msgid "Gesamtstand löschen?"
+msgstr "Delete full snapshot?"
+
+#: wfa_expert.py
+msgid "Der Stand vom {date} wird endgültig gelöscht."
+msgstr "The state from {date} will be deleted permanently."
+
+#: wfa_manager.py
+msgid "ungültig"
+msgstr "invalid"
+
+#: wfa_manager.py
+msgid "aus Umgebung"
+msgstr "from environment"
+
+#: wfa_manager.py
+msgid "gesetzt"
+msgstr "set"
+
+#: wfa_manager.py
+msgid "fehlt"
+msgstr "missing"
+
+#: wfa_snapshot.py
+msgid "Vor Wiederherstellung"
+msgstr "Before restore"
+
+#: wfa_toc.py
+msgid "ok"
+msgstr "ok"
+
+#: wfa_toc.py
+msgid "veraltet"
+msgstr "outdated"
+
+#: wow-forever-addon-manager.py
+msgid "GUI nicht startbar ({error}); verwende Kommandozeile."
+msgstr "Cannot start the GUI ({error}); using the command line."
+
+#: wow-forever-addon-manager.py
+msgid "Startmenü-Eintrag angelegt: {path}"
+msgstr "Start menu entry created: {path}"
+
+#: wfa_base.py
+msgid "Release"
+msgstr "Release"

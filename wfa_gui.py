@@ -21,7 +21,7 @@ from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango  # noqa: E402
 
 import wfa_core as core  # noqa: E402
 from wfa_core import ApiError, Manager  # noqa: E402
-from wfa_i18n import _  # noqa: E402
+from wfa_i18n import N_, _, ngettext  # noqa: E402
 
 TITLE = "WoW: Forever Addon-Manager"
 APP_ID = core.APP_ID
@@ -30,7 +30,7 @@ RED, ORANGE, GREY, GREEN = "#e74c3c", "#e67e22", "#8a8a8a", "#2e9e5b"
 STATUS_COLOR = {}
 SKIP, ABORT = 1, 2  # Antworten des Warte-Dialogs
 BANNER_TITLE = "WoW: Forever"
-BANNER_SUB = "Addon-Manager für Linux"
+BANNER_SUB = N_("Addon-Manager für Linux")
 FONT_STACK = 'Cinzel, "Cormorant Garamond", "Liberation Serif", serif'
 THEME = {"on": False, "provider": None, "widgets": []}
 
@@ -51,8 +51,9 @@ set_status_colors(False)
  C_SSET, C_FSET, C_STYLE, C_DIM, C_DIMCOLOR) = range(17)
 COL_TYPES = (bool, str, str, str, str, str, str, str, int, str, str, bool, bool, bool, int, bool, str)
 CHANNEL_MARK = {"beta": "β", "alpha": "α"}
-CHANNEL_NAMES = (("Standard (wie Einstellung)", None), ("Nur Release", "release"), ("Beta", "beta"), ("Alpha", "alpha"))
-FOREVER_SHOW = {"ok": "✓", "veraltet": "⚠ veraltet", "nein": "✗"}
+CHANNEL_NAMES = ((N_("Standard (wie Einstellung)"), None), (N_("Nur Release"), "release"), (N_("Beta"), "beta"),
+                 (N_("Alpha"), "alpha"))
+FOREVER_SHOW = {"ok": "✓", "veraltet": N_("⚠ veraltet"), "nein": "✗"}
 
 
 # ---------------------------------------------------------------- Theme
@@ -193,7 +194,7 @@ def make_banner():
     mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0, valign=Gtk.Align.CENTER, margin_top=4, margin_bottom=4)
     t = Gtk.Label(label=BANNER_TITLE)
     t.get_style_context().add_class("wfa-title")
-    st = Gtk.Label(label=BANNER_SUB.upper())
+    st = Gtk.Label(label=_(BANNER_SUB).upper())
     st.get_style_context().add_class("wfa-sub")
     mid.pack_start(t, False, False, 0)
     mid.pack_start(st, False, False, 0)
@@ -204,6 +205,11 @@ def make_banner():
     box.set_visible(THEME["on"])
     THEME["widgets"].append(box)
     return box
+
+
+def colored(color, text):
+    """Pango-Markup: Text (wird maskiert) in Farbe."""
+    return '<span foreground="{}">{}</span>'.format(color, GLib.markup_escape_text(text))
 
 
 def short_path(p):
@@ -234,7 +240,7 @@ def add_button(d, label, response, suggested=False, destructive=False):
 
 
 def fmt_time(t):
-    return time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(t))
+    return time.strftime(_("%d.%m.%Y %H:%M:%S"), time.localtime(t))
 
 
 def message(parent, text, secondary=None, kind=Gtk.MessageType.INFO):
@@ -246,10 +252,10 @@ def message(parent, text, secondary=None, kind=Gtk.MessageType.INFO):
     d.destroy()
 
 
-def ask(parent, text, secondary, yes, no="Abbrechen", kind=Gtk.MessageType.QUESTION):
+def ask(parent, text, secondary, yes, no=None, kind=Gtk.MessageType.QUESTION):
     d = Gtk.MessageDialog(transient_for=parent, modal=True, message_type=kind, text=text)
     d.format_secondary_text(secondary)
-    d.add_button(no, Gtk.ResponseType.CANCEL)
+    d.add_button(no or _("Abbrechen"), Gtk.ResponseType.CANCEL)
     add_button(d, yes, Gtk.ResponseType.OK, suggested=kind == Gtk.MessageType.QUESTION,
                destructive=kind == Gtk.MessageType.WARNING)
     r = d.run()
@@ -270,10 +276,14 @@ def text_view_scroller(text, width=560, height=300):
     return sw
 
 
+def result_line(r):
+    return "{status}  {name}: {message}".format(status=_("OK    ") if r.ok else _("FEHLER"), name=r.name, message=r.message)
+
+
 def err_text(e):
     if isinstance(e, ApiError):
         return str(e)
-    return f"Unerwarteter Fehler: {e}"
+    return _("Unerwarteter Fehler: {error}").format(error=e)
 
 
 def run_in_thread(fn, cb):
@@ -291,7 +301,7 @@ def run_in_thread(fn, cb):
 def choose_file(parent, title, action, accept, filters=(), name=None):
     """Datei-/Ordnerauswahl ueber Gtk.FileChooserNative: im Flatpak laeuft sie ueber das Datei-Portal, das den
     gewaehlten Ort fuer das Programm freigibt (Pfad unter /run/user/<uid>/doc/). -> Pfad oder None."""
-    fc = Gtk.FileChooserNative.new(title, parent, action, accept, "Abbrechen")
+    fc = Gtk.FileChooserNative.new(title, parent, action, accept, _("Abbrechen"))
     if action == Gtk.FileChooserAction.SAVE:
         fc.set_do_overwrite_confirmation(True)
         if name:
@@ -303,27 +313,28 @@ def choose_file(parent, title, action, accept, filters=(), name=None):
     return path
 
 
-def choose_folder(parent, title="Ordner wählen"):
-    return choose_file(parent, title, Gtk.FileChooserAction.SELECT_FOLDER, "Auswählen")
+def choose_folder(parent, title=None):
+    return choose_file(parent, title or _("Ordner wählen"), Gtk.FileChooserAction.SELECT_FOLDER, _("Auswählen"))
 
 
 def choose_addons_dir(mgr, parent=None):
     """Dialog zur Auswahl des AddOns-Ordners. -> True, wenn gespeichert."""
-    d = make_dialog("AddOns-Ordner wählen", parent, 640)
-    d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-    add_button(d, "Übernehmen", Gtk.ResponseType.OK, suggested=True)
+    d = make_dialog(_("AddOns-Ordner wählen"), parent, 640)
+    d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+    add_button(d, _("Übernehmen"), Gtk.ResponseType.OK, suggested=True)
     box = d.get_content_area()
     intro = Gtk.Label(xalign=0, wrap=True,
-                      label="Wähle den AddOns-Ordner deiner WoW: Forever-Installation (…/_forever_/Interface/AddOns).")
+                      label=_("Wähle den AddOns-Ordner deiner WoW: Forever-Installation (…/_forever_/Interface/AddOns)."))
     box.pack_start(intro, False, False, 0)
     if core.in_flatpak():
-        txt = ("Flatpak: Freigegeben sind die üblichen Orte von Steam, Lutris, Bottles, Heroic, Wine und ~/Games. "
-               "Liegt WoW woanders, wähle mit „Anderen Ordner wählen …“ den Ordner „World of Warcraft“; "
-               "er wird dann dauerhaft freigegeben.")
+        txt = _("Flatpak: Freigegeben sind die üblichen Orte von Steam, Lutris, Bottles, Heroic, Wine und ~/Games. "
+                "Liegt WoW woanders, wähle mit „Anderen Ordner wählen …“ den Ordner „World of Warcraft“; "
+                "er wird dann dauerhaft freigegeben.")
         blocked = core.sandbox_blocked_libraries()
         if blocked:
-            txt += ("\n\nNicht freigegebene Steam-Bibliotheken: " + ", ".join(short_path(b) for b in blocked)
-                    + "\nFreigeben (danach neu starten): " + "; ".join(core.flatpak_override_cmd(b) for b in blocked))
+            txt += _("\n\nNicht freigegebene Steam-Bibliotheken: {libraries}\nFreigeben (danach neu starten): {commands}").format(
+                libraries=", ".join(short_path(b) for b in blocked),
+                commands="; ".join(core.flatpak_override_cmd(b) for b in blocked))
         fl = Gtk.Label(xalign=0, wrap=True, selectable=True, max_width_chars=80, label=txt)
         fl.get_style_context().add_class("dim-label")
         box.pack_start(fl, False, False, 0)
@@ -342,13 +353,13 @@ def choose_addons_dir(mgr, parent=None):
     for i, p in enumerate(installs):
         add_choice(p, i == 0)
     if not installs:
-        group.pack_start(Gtk.Label(xalign=0, label="Keine Installation automatisch gefunden."), False, False, 0)
+        group.pack_start(Gtk.Label(xalign=0, label=_("Keine Installation automatisch gefunden.")), False, False, 0)
     hint = Gtk.Label(xalign=0, wrap=True)
-    other = Gtk.Button(label="Anderen Ordner wählen …", halign=Gtk.Align.START)
+    other = Gtk.Button(label=_("Anderen Ordner wählen …"), halign=Gtk.Align.START)
 
     def on_other(_b):
-        p = choose_folder(d, "Ordner „World of Warcraft“ oder AddOns-Ordner wählen" if core.in_flatpak()
-                          else "AddOns-Ordner wählen")
+        p = choose_folder(d, _("Ordner „World of Warcraft“ oder AddOns-Ordner wählen") if core.in_flatpak()
+                          else _("AddOns-Ordner wählen"))
         if p:
             ok, h = mgr.validate_addons_dir(p)
             sh = core.sandbox_hint(core.normalize_addons_dir(p)) if ok else ""
@@ -363,7 +374,7 @@ def choose_addons_dir(mgr, parent=None):
     while d.run() == Gtk.ResponseType.OK:
         sel = next((p for r, p in choices if r.get_active()), None)
         if sel is None:
-            hint.set_text("Bitte einen Ordner wählen.")
+            hint.set_text(_("Bitte einen Ordner wählen."))
             continue
         ok, h = mgr.validate_addons_dir(sel)
         if not ok:
@@ -420,29 +431,29 @@ class App:
         w.set_default_size(1100, 680)
         hb = self.header = Gtk.HeaderBar(show_close_button=True, title=TITLE)
         w.set_titlebar(hb)
-        self.refresh_btn = Gtk.Button(tooltip_text="Auf Updates prüfen (F5)")
+        self.refresh_btn = Gtk.Button(tooltip_text=_("Auf Updates prüfen (F5)"))
         self.refresh_stack = Gtk.Stack()
         self.refresh_stack.add_named(Gtk.Image.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON), "icon")
         self.refresh_spinner = Gtk.Spinner()
         self.refresh_stack.add_named(self.refresh_spinner, "spin")
         self.refresh_btn.add(self.refresh_stack)
-        self.refresh_btn.connect("clicked", lambda *_: self.rescan())
+        self.refresh_btn.connect("clicked", lambda *_a: self.rescan())
         hb.pack_start(self.refresh_btn)
         ag = Gtk.AccelGroup()
         w.add_accel_group(ag)
         for key, mod in ((Gdk.KEY_F5, 0), (Gdk.KEY_r, Gdk.ModifierType.CONTROL_MASK)):
-            ag.connect(key, mod, Gtk.AccelFlags.VISIBLE, lambda *_: (self.refresh_btn.get_sensitive() and self.rescan(), True)[1])
+            ag.connect(key, mod, Gtk.AccelFlags.VISIBLE, lambda *_a: (self.refresh_btn.get_sensitive() and self.rescan(), True)[1])
         menu_btn = self.menu_btn = Gtk.MenuButton()
         menu_btn.add(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
         menu = Gtk.Menu()
         managed = core.managed_install()   # Paket/Flatpak: Startmenue-Eintrag und Updates kommen von dort
-        for label, cb in (("Protokoll …", self.show_log), ("Backups …", self.on_backups), ("Verlauf …", self.on_history),
-                          ("Addon-Liste exportieren …", self.on_export), ("Addon-Liste importieren …", self.on_import),
-                          ("Einstellungen …", self.on_settings),
-                          *(() if managed else (("Startmenü-Eintrag anlegen", self.on_desktop_entry),
-                                                ("Nach Programm-Updates suchen …",
-                                                 lambda *_: self.check_self_update(True)))),
-                          ("Über", self.on_about), (None, None), ("Beenden", self.on_quit_item)):
+        for label, cb in ((_("Protokoll …"), self.show_log), (_("Backups …"), self.on_backups), (_("Verlauf …"), self.on_history),
+                          (_("Addon-Liste exportieren …"), self.on_export), (_("Addon-Liste importieren …"), self.on_import),
+                          (_("Einstellungen …"), self.on_settings),
+                          *(() if managed else ((_("Startmenü-Eintrag anlegen"), self.on_desktop_entry),
+                                                (_("Nach Programm-Updates suchen …"),
+                                                 lambda *_a: self.check_self_update(True)))),
+                          (_("Über"), self.on_about), (None, None), (_("Beenden"), self.on_quit_item)):
             mi = Gtk.SeparatorMenuItem() if label is None else Gtk.MenuItem(label=label)
             if cb:
                 mi.connect("activate", cb)
@@ -456,7 +467,7 @@ class App:
             sub.append(mi)
         self.expert_item = Gtk.MenuItem(label=_("Erweitert"), no_show_all=True)
         self.expert_item.set_submenu(sub)
-        menu.insert(self.expert_item, 5)   # vor "Einstellungen …"
+        menu.insert(self.expert_item, 5)   # vor _("Einstellungen …")
         menu.show_all()
         self.apply_expert()
         menu_btn.set_popup(menu)
@@ -483,7 +494,7 @@ class App:
         col.pack_start(self.summary_label, False, False, 0)
         col.pack_start(self.info_label, False, False, 0)
         info.pack_start(col, True, True, 0)
-        self.key_btn = Gtk.Button(label="Key eintragen …", valign=Gtk.Align.CENTER)
+        self.key_btn = Gtk.Button(label=_("Key eintragen …"), valign=Gtk.Align.CENTER)
         self.key_btn.connect("clicked", self.on_settings)
         info.pack_end(self.key_btn, False, False, 0)
         outer.pack_start(info, False, False, 0)
@@ -493,8 +504,8 @@ class App:
         tog = Gtk.CellRendererToggle()
         tog.connect("toggled", self.on_toggled)
         self.tree.append_column(Gtk.TreeViewColumn("", tog, active=C_CHECK, visible=C_CAN, activatable=C_CAN))
-        cols = (("Addon", C_NAME, True, 0.0), ("Installiert", C_LOCAL, False, 0.0), ("Verfügbar", C_REMOTE, False, 0.0),
-                ("Quelle", C_SOURCE, False, 0.0), ("Forever", C_FOREVER, False, 0.5), ("Status", C_STATUS, False, 0.0))
+        cols = ((_("Addon"), C_NAME, True, 0.0), (_("Installiert"), C_LOCAL, False, 0.0), (_("Verfügbar"), C_REMOTE, False, 0.0),
+                (_("Quelle"), C_SOURCE, False, 0.0), ("Forever", C_FOREVER, False, 0.5), (_("Status"), C_STATUS, False, 0.0))
         for title, col_id, expand, xal in cols:
             r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END if expand else Pango.EllipsizeMode.NONE, xalign=xal)
             if col_id == C_STATUS:
@@ -529,18 +540,18 @@ class App:
 
         outer.pack_start(divider(), False, False, 0)
         bar = Gtk.Box(spacing=6)
-        self.update_btn = Gtk.Button(label="Aktualisieren")
+        self.update_btn = Gtk.Button(label=_("Aktualisieren"))
         self.update_btn.get_style_context().add_class("suggested-action")
         self.update_btn.connect("clicked", self.on_update_selected)
-        self.mark_btn = Gtk.Button(label="Alle Updates markieren")
+        self.mark_btn = Gtk.Button(label=_("Alle Updates markieren"))
         self.mark_btn.connect("clicked", self.on_mark_all)
-        self.uninstall_btn = Gtk.Button(label="Deinstallieren …")
+        self.uninstall_btn = Gtk.Button(label=_("Deinstallieren …"))
         self.uninstall_btn.connect("clicked", self.on_uninstall)
-        self.browser_btn = Gtk.Button(label="Im Browser laden …")
+        self.browser_btn = Gtk.Button(label=_("Im Browser laden …"))
         self.browser_btn.connect("clicked", self.on_browser_selected)
         for b in (self.uninstall_btn, self.browser_btn):
             b.get_style_context().add_class("wfa-flat")
-        self.new_btn = Gtk.Button(label="Neues Addon …")
+        self.new_btn = Gtk.Button(label=_("Neues Addon …"))
         self.new_btn.connect("clicked", self.on_new_addon)
         for b in (self.update_btn, self.mark_btn, self.uninstall_btn, self.browser_btn):
             bar.pack_start(b, False, False, 0)
@@ -552,9 +563,9 @@ class App:
         self.prog_box = Gtk.Box(spacing=8, no_show_all=True)
         self.prog_bar = Gtk.ProgressBar(show_text=True, hexpand=True, valign=Gtk.Align.CENTER,
                                         ellipsize=Pango.EllipsizeMode.MIDDLE)
-        self.prog_cancel = Gtk.Button(label="Abbrechen")
+        self.prog_cancel = Gtk.Button(label=_("Abbrechen"))
         self.prog_cancel.get_style_context().add_class("wfa-flat")
-        self.prog_cancel.set_tooltip_text("Bricht die laufenden Downloads ab")
+        self.prog_cancel.set_tooltip_text(_("Bricht die laufenden Downloads ab"))
         self.prog_cancel.connect("clicked", self.on_cancel_downloads)
         self.prog_box.pack_start(self.prog_bar, True, True, 0)
         self.prog_box.pack_start(self.prog_cancel, False, False, 0)
@@ -593,11 +604,11 @@ class App:
             return False
         GLib.idle_add(add)
 
-    def show_log(self, *_):
+    def show_log(self, *_a):
         if self.log_win is not None:
             self.log_win.present()
             return
-        w = self.log_win = Gtk.Window(title="Protokoll")
+        w = self.log_win = Gtk.Window(title=_("Protokoll"))
         w.set_default_size(760, 420)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         for m in ("margin_start", "margin_end", "margin_top", "margin_bottom"):
@@ -608,17 +619,17 @@ class App:
         sw.add(self.log_view)
         box.pack_start(sw, True, True, 0)
         row = Gtk.Box(spacing=6)
-        cp = Gtk.Button(label="Kopieren")
-        cp.connect("clicked", lambda *_: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(
+        cp = Gtk.Button(label=_("Kopieren"))
+        cp.connect("clicked", lambda *_a: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(
             self.log_buf.get_text(self.log_buf.get_start_iter(), self.log_buf.get_end_iter(), False), -1))
-        cl = Gtk.Button(label="Schließen")
-        cl.connect("clicked", lambda *_: w.destroy())
+        cl = Gtk.Button(label=_("Schließen"))
+        cl.connect("clicked", lambda *_a: w.destroy())
         row.pack_end(cl, False, False, 0)
         row.pack_end(cp, False, False, 0)
         box.pack_start(row, False, False, 0)
         w.add(box)
 
-        def gone(*_):
+        def gone(*_a):
             self.log_win = None
             self.log_view = None
         w.connect("destroy", gone)
@@ -631,50 +642,51 @@ class App:
     def update_info(self):
         m = self.mgr
         state = m.cf_key_state()
-        parts = [f"Client {m.client_version} (Interface {m.client_interface})" if m.client_version
-                 else f"Client-Interface {m.client_interface} (aus den Addons geschätzt)"]
+        parts = [_("Client {version} (Interface {interface})").format(version=m.client_version, interface=m.client_interface)
+                 if m.client_version
+                 else _("Client-Interface {interface} (aus den Addons geschätzt)").format(interface=m.client_interface)]
         if state == "fehlt":
-            parts.append(f'<span foreground="{ORANGE}">CurseForge: kein API-Key – kostenlos unter '
-                         f'{GLib.markup_escape_text(core.CF_KEY_URL)} erzeugen.</span>')
+            parts.append(colored(ORANGE, _("CurseForge: kein API-Key – kostenlos unter {url} erzeugen.").format(
+                url=core.CF_KEY_URL)))
         elif state == "ungültig":
-            parts.append(f'<span foreground="{RED}">CurseForge: Key ungültig oder abgelehnt.</span>')
+            parts.append(colored(RED, _("CurseForge: Key ungültig oder abgelehnt.")))
         else:
-            parts.append(f"CurseForge: Key {state}")
+            parts.append(GLib.markup_escape_text(_("CurseForge: Key {state}").format(state=_(state))))
         for n in dict.fromkeys(m.notes):
-            parts.append(f'<span foreground="{ORANGE}">{GLib.markup_escape_text(n)}</span>')
+            parts.append(colored(ORANGE, n))
         self.info_label.set_markup("  ·  ".join(parts))
         self.key_btn.set_visible(state in ("fehlt", "ungültig"))
         n, u = len(self.pkgs), len(self.mgr.updatable(self.pkgs))
         ign = sum(1 for p in self.pkgs if p.ignored)
-        s = f"{n} {'Addon' if n == 1 else 'Addons'} · {u} {'Update' if u == 1 else 'Updates'}"
+        s = "{} · {}".format(ngettext("1 Addon", "{n} Addons", n).format(n=n), ngettext("1 Update", "{n} Updates", u).format(n=u))
         if ign:
-            s += f" · {ign} ignoriert"
-        self.summary_label.set_markup(f"<b>{s if self.ready or n else 'Prüfe …'}</b>")
+            s += " · " + _("{n} ignoriert").format(n=ign)
+        self.summary_label.set_markup("<b>{}</b>".format(GLib.markup_escape_text(s if self.ready or n else _("Prüfe …"))))
 
     def update_actions(self):
         working = self.busy
         n = sum(1 for r in self.store if r[C_CHECK] and self.rows.get(r[C_KEY]) is not None
                 and self.rows[r[C_KEY]].status == core.UPDATE and self.rows[r[C_KEY]].remote is not None)
-        self.update_btn.set_label(f"{n} aktualisieren" if n else "Aktualisieren")
+        self.update_btn.set_label(ngettext("1 aktualisieren", "{n} aktualisieren", n).format(n=n) if n else _("Aktualisieren"))
         self.update_btn.set_sensitive(n > 0 and not working)
         self.mark_btn.set_sensitive(not working)
         for b in (self.uninstall_btn, self.browser_btn, self.new_btn):
             b.set_sensitive(not working)
 
-    def on_delete(self, *_):
+    def on_delete(self, *_a):
         bg = self.background
         if bg is not None and bg.available and self.mgr.cfg["close_to_tray"]:
             self.win.hide()
             return True
-        if self.busy and not ask(self.win, "Vorgang läuft", "Vorgang läuft – trotzdem beenden?",
-                                 "Beenden", kind=Gtk.MessageType.WARNING):
+        if self.busy and not ask(self.win, _("Vorgang läuft"), _("Vorgang läuft – trotzdem beenden?"),
+                                 _("Beenden"), kind=Gtk.MessageType.WARNING):
             return True
         self.quit(force=True)
         return True
 
-    def on_quit_item(self, *_):
-        if self.busy and not ask(self.win, "Vorgang läuft", "Vorgang läuft – trotzdem beenden?",
-                                 "Beenden", kind=Gtk.MessageType.WARNING):
+    def on_quit_item(self, *_a):
+        if self.busy and not ask(self.win, _("Vorgang läuft"), _("Vorgang läuft – trotzdem beenden?"),
+                                 _("Beenden"), kind=Gtk.MessageType.WARNING):
             return
         self.quit(force=True)
 
@@ -685,8 +697,8 @@ class App:
         self._asking = True
         try:
             self.present()
-            return ask(self.win, "Vorgang läuft", "Vorgang läuft – trotzdem beenden?",
-                       "Beenden", kind=Gtk.MessageType.WARNING)
+            return ask(self.win, _("Vorgang läuft"), _("Vorgang läuft – trotzdem beenden?"),
+                       _("Beenden"), kind=Gtk.MessageType.WARNING)
         finally:
             self._asking = False
 
@@ -748,8 +760,8 @@ class App:
             return
         now = time.monotonic()
         i, n = ev.get("ctx") or (0, 1)
-        name = ev.get("name") or "Download"
-        head = f"{name} ({i + 1}/{n})" if n > 1 else name
+        name = ev.get("name") or _("Download")
+        head = "{name} ({i}/{n})".format(name=name, i=i + 1, n=n) if n > 1 else name
         state, frac = ev.get("state"), None
         if state == "download":
             done, total = ev.get("done") or 0, ev.get("total")
@@ -761,24 +773,26 @@ class App:
             if ev["t"] - t0 >= 1 and done > b0:
                 parts.append(core.fmt_size((done - b0) / (ev["t"] - t0)) + "/s")
             if (ev.get("attempt") or 1) > 1:
-                parts.append(f"Versuch {ev['attempt']}/{core.DL_ATTEMPTS}")
+                parts.append(_("Versuch {attempt}/{total}").format(attempt=ev["attempt"], total=core.DL_ATTEMPTS))
             idle = now - ev["t"]
             if idle >= 5:
-                parts.append(f"keine Daten seit {idle:.0f} s")
+                parts.append(_("keine Daten seit {seconds} s").format(seconds="{:.0f}".format(idle)))
             text = " · ".join(p for p in parts if p)
             frac = done / total if total else None
         elif state == "verify":
-            text, frac = f"{head} · prüfe Zip-Datei …", 1.0
+            text, frac = _("{head} · prüfe Zip-Datei …").format(head=head), 1.0
         elif state == "retry":
             left = max(0, ev.get("wait", 0) - (now - ev["t"]))
-            text = (f"{head} · {ev.get('way')}: {ev.get('error')} – neuer Versuch "
-                    f"{ev.get('attempt')}/{core.DL_ATTEMPTS} in {left:.0f} s")
+            text = _("{head} · {way}: {error} – neuer Versuch {attempt}/{total} in {seconds} s").format(
+                head=head, way=ev.get("way"), error=ev.get("error"), attempt=ev.get("attempt"),
+                total=core.DL_ATTEMPTS, seconds="{:.0f}".format(left))
         elif state == "fallback":
-            text = f"{head} · {ev.get('way')}: {ev.get('error')} – wechsle zu {ev.get('next')}"
+            text = _("{head} · {way}: {error} – wechsle zu {next}").format(
+                head=head, way=ev.get("way"), error=ev.get("error"), next=ev.get("next"))
         else:
             return
         if self.mgr.dl_cancel.is_set():
-            text = "Breche ab …"
+            text = _("Breche ab …")
         if frac is None and state == "download":
             self.prog_bar.pulse()
         else:
@@ -805,30 +819,34 @@ class App:
         self.prog_box.hide()
         self.prog_bar.set_fraction(0.0)
 
-    def on_cancel_downloads(self, *_):
+    def on_cancel_downloads(self, *_a):
         self.mgr.dl_cancel.set()
         self.prog_cancel.set_sensitive(False)
-        self.prog_bar.set_text("Breche ab …")
-        self.log("Downloads werden abgebrochen …")
+        self.prog_bar.set_text(_("Breche ab …"))
+        self.log(_("Downloads werden abgebrochen …"))
 
-    def log_results(self, results, what="aktualisiert"):
+    def log_results(self, results, installed=False):
         """Ergebnis einer Installation ins Protokoll; die letzte Zeile landet in der Statuszeile."""
         ok = [r.name for r in results if r.ok]
         for r in results:
             if not r.ok:
-                self.log(f"FEHLER {r.name}: {r.message}")
+                self.log(_("FEHLER {name}: {message}").format(name=r.name, message=r.message))
         if ok:
-            self.log(f"Fertig: {len(ok)} Addon{'s' if len(ok) != 1 else ''} {what} ({', '.join(ok)})")
+            if installed:
+                msg = ngettext("Fertig: 1 Addon installiert ({names})", "Fertig: {n} Addons installiert ({names})", len(ok))
+            else:
+                msg = ngettext("Fertig: 1 Addon aktualisiert ({names})", "Fertig: {n} Addons aktualisiert ({names})", len(ok))
+            self.log(msg.format(n=len(ok), names=", ".join(ok)))
         elif results:
-            self.log("Fertig: nichts installiert")
+            self.log(_("Fertig: nichts installiert"))
 
-    def bg(self, fn, cb, text="Arbeite …"):
-        self.set_busy(True, text)
+    def bg(self, fn, cb, text=None):
+        self.set_busy(True, text or _("Arbeite …"))
 
         def done(res, err):
             self.set_busy(False)
             if err:
-                self.log(f"Fehler: {err_text(err)}")
+                self.log(_("Fehler: {error}").format(error=err_text(err)))
             cb(res, err)
             return False
         run_in_thread(fn, done)
@@ -837,22 +855,22 @@ class App:
     def row_values(self, p, checked=False):
         upd = p.status == core.UPDATE
         if p.ignored:
-            stext, scolor, sset, weight, style = "ignoriert", GREY, True, 400, 2
+            stext, scolor, sset, weight, style = _("ignoriert"), GREY, True, 400, 2
         elif upd:
-            stext, scolor, sset, weight, style = "▲ Update", ORANGE, True, 700, 0
+            stext, scolor, sset, weight, style = _("▲ Update"), ORANGE, True, 700, 0
         elif p.status == core.CURRENT:
-            stext, scolor, sset, weight, style = "✓ aktuell", GREEN, True, 400, 0
+            stext, scolor, sset, weight, style = _("✓ aktuell"), GREEN, True, 400, 0
         elif p.status in (core.HELD, core.SKIPPED):
-            stext, scolor, sset, weight, style = p.status, GREY, True, 400, 2
+            stext, scolor, sset, weight, style = _(p.status), GREY, True, 400, 2
         else:
-            stext, scolor, sset, weight, style = p.status, STATUS_COLOR.get(p.status, GREY), p.status in STATUS_COLOR, 400, 0
+            stext, scolor, sset, weight, style = _(p.status), STATUS_COLOR.get(p.status, GREY), p.status in STATUS_COLOR, 400, 0
         fcolor = {"ok": GREEN, "veraltet": ORANGE, "nein": RED}.get(p.forever)
         remote = core.display_version(p.remote.version) if p.remote else "–"
         if p.channel in CHANNEL_MARK:
             remote += " " + CHANNEL_MARK[p.channel]
         return [checked, p.name, core.display_version(p.local_version) or "?",
                 remote, p.source,
-                FOREVER_SHOW.get(p.forever, p.forever), stext, p.key, weight, scolor, fcolor or GREY, True, sset,
+                _(FOREVER_SHOW.get(p.forever, p.forever)), stext, p.key, weight, scolor, fcolor or GREY, True, sset,
                 fcolor is not None, style, p.ignored, GREY]
 
     def render(self, marked=()):
@@ -866,8 +884,11 @@ class App:
         if not self.pkgs and self.ready:
             ad = short_path(self.mgr.addons_dir) if self.mgr.addons_dir else "–"
             self.empty_label.set_markup(
-                "<big><b>Keine Addons gefunden</b></big>\n\nIm AddOns-Ordner liegen keine Addons.\n"
-                f"{GLib.markup_escape_text(ad)}\n\nÜber „Neues Addon …“ lassen sich Addons installieren.")
+                "<big><b>{title}</b></big>\n\n{empty}\n{path}\n\n{hint}".format(
+                    title=GLib.markup_escape_text(_("Keine Addons gefunden")),
+                    empty=GLib.markup_escape_text(_("Im AddOns-Ordner liegen keine Addons.")),
+                    path=GLib.markup_escape_text(ad),
+                    hint=GLib.markup_escape_text(_("Über „Neues Addon …“ lassen sich Addons installieren."))))
             self.table_stack.set_visible_child_name("empty")
         else:
             self.table_stack.set_visible_child_name("list")
@@ -901,7 +922,7 @@ class App:
                 row[C_CHECK] = False
         self.update_actions()
 
-    def on_mark_all(self, *_):
+    def on_mark_all(self, *_a):
         ok = {p.key for p in self.mgr.updatable(self.pkgs)}
         for row in self.store:
             if row[C_KEY] in ok:
@@ -920,18 +941,18 @@ class App:
         gerade etwas laeuft, und behaelt die Haken des Nutzers (nur neue Updates werden angehakt)."""
         if not self.mgr.addons_dir:
             if then:
-                then(self.pkgs, "Kein AddOns-Ordner gewählt")
+                then(self.pkgs, _("Kein AddOns-Ordner gewählt"))
             return
         if self.busy and quiet:
             if then:
-                then(self.pkgs, "Programm ist beschäftigt")
+                then(self.pkgs, _("Programm ist beschäftigt"))
             return
 
         before = {p.key for p in self.mgr.updatable(self.pkgs)}
 
         def work():
             pkgs = self.mgr.scan()
-            self.mgr.check(pkgs, lambda d, t, s: GLib.idle_add(self.status_label.set_text, f"Prüfe … {d}/{t} {s}"))
+            self.mgr.check(pkgs, lambda d, t, s: GLib.idle_add(self.status_label.set_text, _("Prüfe … {done}/{total} {name}").format(done=d, total=t, name=s)))
             return pkgs
 
         def done(res, err):
@@ -953,7 +974,7 @@ class App:
                         traceback.print_exc()
             if then:
                 then(self.pkgs, err)
-        self.bg(work, done, "Lese AddOns-Ordner und prüfe Versionen … (der erste Lauf dauert etwas länger)")
+        self.bg(work, done, _("Lese AddOns-Ordner und prüfe Versionen … (der erste Lauf dauert etwas länger)"))
 
     # ------------------------------------------------------------ Kontextmenue, Ignorieren, Changelog
     def on_tree_button(self, tree, ev):
@@ -982,23 +1003,23 @@ class App:
         m = self.ctx_menu = Gtk.Menu()
         url = p.page_url or (p.remote.page_url if p.remote else None)
         items = (
-            ("Zuordnen …", lambda: self.assign_dialog(p), bool(p.meta.get("unassigned")) and not self.busy),
-            ("Aktualisieren", lambda: self.install_flow([(p.name, (lambda: self.mgr.plan_update(p)), p)]),
+            (_("Zuordnen …"), lambda: self.assign_dialog(p), bool(p.meta.get("unassigned")) and not self.busy),
+            (_("Aktualisieren"), lambda: self.install_flow([(p.name, (lambda: self.mgr.plan_update(p)), p)]),
              p.status == core.UPDATE and p.remote is not None),
-            ("Changelog …", lambda: self.show_changelog(p), p.remote is not None),
-            ("Verlauf …", lambda: self.on_history(name=p.name), True),
-            ("Andere Version …", lambda: self.pick_version(p),
+            (_("Changelog …"), lambda: self.show_changelog(p), p.remote is not None),
+            (_("Verlauf …"), lambda: self.on_history(name=p.name), True),
+            (_("Andere Version …"), lambda: self.pick_version(p),
              not p.meta.get("unassigned") and bool(p.cf_mod_id or p.meta.get("gh")) and not self.busy),
-            *((("Festhalten aufheben" if p.pin["mode"] == "hold" else "Auslassen aufheben", lambda: self.release_pin(p), not self.busy),)
+            *(((_("Festhalten aufheben") if p.pin["mode"] == "hold" else _("Auslassen aufheben"), lambda: self.release_pin(p), not self.busy),)
               if p.pin else ()),
             ("@channel", p),
-            ("Updates nicht mehr ignorieren" if p.ignored else "Updates ignorieren", lambda: self.toggle_ignore(p), True),
+            (_("Updates nicht mehr ignorieren") if p.ignored else _("Updates ignorieren"), lambda: self.toggle_ignore(p), True),
             None,
-            ("Seite öffnen", lambda: self.open_uri(url), bool(url)),
-            ("Ordner öffnen", lambda: self.open_folder(p), bool(p.folders)),
-            ("Im Browser laden …", lambda: self.browser_flow(p), True),
+            (_("Seite öffnen"), lambda: self.open_uri(url), bool(url)),
+            (_("Ordner öffnen"), lambda: self.open_folder(p), bool(p.folders)),
+            (_("Im Browser laden …"), lambda: self.browser_flow(p), True),
             None,
-            ("Deinstallieren …", lambda: self.uninstall([p]), True),
+            (_("Deinstallieren …"), lambda: self.uninstall([p]), True),
         )
         for it in items:
             if it is None:
@@ -1017,19 +1038,20 @@ class App:
     def assign_dialog(self, p):
         """„Zuordnen …“: Vorschläge aus TOC/Suche oder Freitext (ID, Adresse, gh:owner/repo)."""
         def got(sugs, err):
-            d = make_dialog(f"{p.name} zuordnen", self.win, 560)
-            d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-            add_button(d, "Zuordnen", Gtk.ResponseType.OK, suggested=True)
+            d = make_dialog(_("{name} zuordnen").format(name=p.name), self.win, 560)
+            d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+            add_button(d, _("Zuordnen"), Gtk.ResponseType.OK, suggested=True)
             box = d.get_content_area()
             radios, group = [], None
-            none_rb = Gtk.RadioButton.new_with_label_from_widget(None, "Keine Auswahl (Eingabe unten verwenden)")
+            none_rb = Gtk.RadioButton.new_with_label_from_widget(None, _("Keine Auswahl (Eingabe unten verwenden)"))
             group = none_rb
             if sugs:
                 box.pack_start(none_rb, False, False, 0)
             for sg in sugs or []:
                 src = "CurseForge" if sg.cand.source == "CF" else "GitHub"
                 rb = Gtk.RadioButton.new_with_label_from_widget(
-                    group, f"{sg.cand.name}  ({src} {sg.cand.ident})\n{sg.reason}" + ("  – eindeutig" if sg.strong else ""))
+                    group, "{name}  ({src} {ident})\n{reason}".format(name=sg.cand.name, src=src, ident=sg.cand.ident, reason=sg.reason)
+                    + (_("  – eindeutig") if sg.strong else ""))
                 rb.get_child().set_xalign(0)
                 radios.append((rb, sg))
                 box.pack_start(rb, False, False, 0)
@@ -1037,10 +1059,11 @@ class App:
             if first_strong:   # nur eindeutige Vorschläge werden vorgewählt
                 first_strong.set_active(True)
             if not radios:
-                lb = Gtk.Label(label="Keine Vorschläge gefunden." if not err else f"Vorschläge nicht ermittelbar: {err_text(err)}",
+                lb = Gtk.Label(label=_("Keine Vorschläge gefunden.") if not err
+                               else _("Vorschläge nicht ermittelbar: {error}").format(error=err_text(err)),
                                xalign=0, wrap=True)
                 box.pack_start(lb, False, False, 0)
-            box.pack_start(Gtk.Label(label="Oder Projekt-ID, CurseForge-/GitHub-Adresse, gh:owner/repo:", xalign=0), False, False, 0)
+            box.pack_start(Gtk.Label(label=_("Oder Projekt-ID, CurseForge-/GitHub-Adresse, gh:owner/repo:"), xalign=0), False, False, 0)
             entry = Gtk.Entry(activates_default=True)
             box.pack_start(entry, False, False, 0)
             d.set_default_response(Gtk.ResponseType.OK)
@@ -1054,60 +1077,61 @@ class App:
             if text:
                 def target(cand, e):
                     if e:
-                        message(self.win, "Zuordnung nicht möglich", err_text(e), Gtk.MessageType.WARNING)
+                        message(self.win, _("Zuordnung nicht möglich"), err_text(e), Gtk.MessageType.WARNING)
                     else:
                         self.do_assign(p, cand)
-                self.bg(lambda: self.mgr.assign_target(text), target, "Prüfe Eingabe …")
+                self.bg(lambda: self.mgr.assign_target(text), target, _("Prüfe Eingabe …"))
             elif chosen:
                 self.do_assign(p, chosen.cand)
-        self.bg(lambda: self.mgr.suggest_assignments(p), got, "Suche Zuordnungen …")
+        self.bg(lambda: self.mgr.suggest_assignments(p), got, _("Suche Zuordnungen …"))
 
     def do_assign(self, p, cand):
         if cand.source == "CF":
             self.mgr.assign_folders(p.folders, cand.name, cf_id=int(cand.ident))
         else:
             self.mgr.assign_folders(p.folders, cand.name, gh=str(cand.ident))
-        self.log(f"Zugeordnet: {', '.join(p.folders)} → {cand.name} ({cand.source} {cand.ident})")
+        self.log(_("Zugeordnet: {folders} → {name} ({source} {ident})").format(
+            folders=", ".join(p.folders), name=cand.name, source=cand.source, ident=cand.ident))
         self.rescan()
 
     def channel_item(self, p):
         sub = Gtk.Menu()
         group = None
         for label, ch in CHANNEL_NAMES:
-            mi = Gtk.RadioMenuItem(label=label, group=group)
+            mi = Gtk.RadioMenuItem(label=_(label), group=group)
             group = group or mi
             mi.set_active(p.channel == ch)
             mi.connect("activate", lambda w, ch=ch: w.get_active() and self.set_channel(p, ch))
             sub.append(mi)
-        top = Gtk.MenuItem(label="Kanal", sensitive=not self.busy and not p.meta.get("unassigned"))
+        top = Gtk.MenuItem(label=_("Kanal"), sensitive=not self.busy and not p.meta.get("unassigned"))
         top.set_submenu(sub)
         return top
 
-    def recheck_pkg(self, p, text="Prüfe …"):
+    def recheck_pkg(self, p, text=None):
         def done(_res, err):
             if err:
-                self.log(f"Prüfung fehlgeschlagen: {err_text(err)}")
+                self.log(_("Prüfung fehlgeschlagen: {error}").format(error=err_text(err)))
             self.refresh_row(p)
             refresh = getattr(self.background, "refresh", None)
             if refresh:
                 refresh()
-        self.bg(lambda: self.mgr.recheck(p), done, text)
+        self.bg(lambda: self.mgr.recheck(p), done, text or _("Prüfe …"))
 
     def set_channel(self, p, ch):
         if p.channel == ch:
             return
         self.mgr.set_channel(p.key, ch)
         p.channel = ch
-        self.log(f"{p.name}: Kanal {dict((v, k) for k, v in CHANNEL_NAMES)[ch]}")
+        self.log(_("{name}: Kanal {channel}").format(name=p.name, channel=_(dict((v, k) for k, v in CHANNEL_NAMES)[ch])))
         self.recheck_pkg(p)
 
     def release_pin(self, p):
         if self.busy:
             return
-        what = "Festhalten" if p.pin and p.pin["mode"] == "hold" else "Auslassen"
+        hold = bool(p.pin and p.pin["mode"] == "hold")
         self.mgr.clear_pin(p.key)
         p.pin = None
-        self.log(f"{p.name}: {what} aufgehoben")
+        self.log((_("{name}: Festhalten aufgehoben") if hold else _("{name}: Auslassen aufgehoben")).format(name=p.name))
         self.recheck_pkg(p)
 
     def pick_version(self, p):
@@ -1115,14 +1139,14 @@ class App:
         pages = []
 
         def load(page, cb):
-            self.bg(lambda: self.mgr.versions(p, page), cb, "Lade Versionsliste …")
+            self.bg(lambda: self.mgr.versions(p, page), cb, _("Lade Versionsliste …"))
 
         def first(res, err):
             if err:
-                message(self.win, "Versionsliste nicht verfügbar", err_text(err), Gtk.MessageType.ERROR)
+                message(self.win, _("Versionsliste nicht verfügbar"), err_text(err), Gtk.MessageType.ERROR)
                 return
             if not res[0]:
-                message(self.win, "Keine Versionen", "Es wurden keine Forever-Versionen gefunden.")
+                message(self.win, _("Keine Versionen"), _("Es wurden keine Forever-Versionen gefunden."))
                 return
             pages.extend(res[0])
             self.version_dialog(p, pages, res[1], load)
@@ -1131,9 +1155,9 @@ class App:
     def version_dialog(self, p, remotes, more, load):
         """remotes wird bei „Mehr laden“ in place erweitert."""
         mgr = self.mgr
-        d = make_dialog(f"Andere Version – {p.name}", self.win, 640, 480)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        inst = add_button(d, "Installieren", Gtk.ResponseType.OK, suggested=True)
+        d = make_dialog(_("Andere Version – {name}").format(name=p.name), self.win, 640, 480)
+        d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+        inst = add_button(d, _("Installieren"), Gtk.ResponseType.OK, suggested=True)
         box = d.get_content_area()
         store = Gtk.ListStore(str, str, str, str, int)
         installed = mgr.installed_ident(p)
@@ -1141,11 +1165,11 @@ class App:
         def fill():
             store.clear()
             for i, r in enumerate(remotes):
-                mark = "✓ installiert" if installed is not None and r.ident == installed else ""
-                store.append([r.display or r.version, (r.file_date or "")[:10], core.TYPE_NAMES.get(r.rtype, "Release"), mark, i])
+                mark = _("✓ installiert") if installed is not None and r.ident == installed else ""
+                store.append([r.display or r.version, (r.file_date or "")[:10], _(core.TYPE_NAMES.get(r.rtype, "Release")), mark, i])
         fill()
         tree = Gtk.TreeView(model=store)
-        for i, (title, expand) in enumerate((("Version", True), ("Datum", False), ("Typ", False), ("", False))):
+        for i, (title, expand) in enumerate(((_("Version"), True), (_("Datum"), False), (_("Typ"), False), ("", False))):
             r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END if expand else Pango.EllipsizeMode.NONE)
             tc = Gtk.TreeViewColumn(title, r, text=i)
             tc.set_expand(expand)
@@ -1154,15 +1178,15 @@ class App:
         sw = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         sw.add(tree)
         box.pack_start(sw, True, True, 0)
-        more_btn = Gtk.Button(label="Mehr laden", halign=Gtk.Align.START, no_show_all=True)
+        more_btn = Gtk.Button(label=_("Mehr laden"), halign=Gtk.Align.START, no_show_all=True)
         more_btn.set_visible(more)
         box.pack_start(more_btn, False, False, 0)
-        hold = Gtk.RadioButton(label="Auf dieser Version festhalten, bis ich es aufhebe")
+        hold = Gtk.RadioButton(label=_("Auf dieser Version festhalten, bis ich es aufhebe"))
         skip = Gtk.RadioButton.new_with_label_from_widget(
-            hold, "Nur die jetzt neueren Versionen auslassen (Updates wieder ab einer noch neueren Version)")
+            hold, _("Nur die jetzt neueren Versionen auslassen (Updates wieder ab einer noch neueren Version)"))
         skip.set_active(True)
         opts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        opts.pack_start(Gtk.Label(label="Danach gilt:", xalign=0), False, False, 0)
+        opts.pack_start(Gtk.Label(label=_("Danach gilt:"), xalign=0), False, False, 0)
         opts.pack_start(skip, False, False, 0)
         opts.pack_start(hold, False, False, 0)
         box.pack_start(opts, False, False, 0)
@@ -1174,14 +1198,14 @@ class App:
             model, it = tree.get_selection().get_selected()
             return remotes[model[it][4]] if it else None
 
-        def sync(*_):
+        def sync(*_a):
             r = chosen()
             newest = mgr.newest_allowed(p, remotes)
             is_new = r is not None and newest is not None and r.ident == newest.ident
             inst.set_sensitive(r is not None and not (installed is not None and r.ident == installed and is_new))
             opts.set_visible(r is not None and not is_new)
             note.set_visible(is_new)
-            note.set_text("Das ist die neueste Version – normales Update, ohne Festhalten." if is_new else "")
+            note.set_text(_("Das ist die neueste Version – normales Update, ohne Festhalten.") if is_new else "")
         tree.get_selection().connect("changed", sync)
 
         def on_more(_b):
@@ -1191,7 +1215,7 @@ class App:
                 more_btn.set_sensitive(True)
                 if err:
                     state["page"] -= 1
-                    message(d, "Laden fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
+                    message(d, _("Laden fehlgeschlagen"), err_text(err), Gtk.MessageType.ERROR)
                     return
                 remotes.extend(res[0])
                 state["more"] = res[1]
@@ -1223,7 +1247,7 @@ class App:
         try:
             Gio.AppInfo.launch_default_for_uri(url, None)
         except GLib.Error as e:
-            message(self.win, "Öffnen fehlgeschlagen", e.message, Gtk.MessageType.ERROR)
+            message(self.win, _("Öffnen fehlgeschlagen"), e.message, Gtk.MessageType.ERROR)
 
     def open_folder(self, p):
         base = self.mgr.addons_dir
@@ -1264,13 +1288,13 @@ class App:
             return False
         bx, by = tree.convert_widget_to_bin_window_coords(x, y)
         hit = tree.get_path_at_pos(bx, by)
-        if not hit or hit[1].get_title() not in ("Addon", "Verfügbar", "Status"):
+        if not hit or hit[1].get_title() not in (_("Addon"), _("Verfügbar"), _("Status")):
             return False
         p = self.rows.get(self.store[hit[0]][C_KEY])
         if p is None:
             return False
-        missing = f"Fehlt: {', '.join(p.missing)} (Abhängigkeit laut TOC)" if p.missing else ""
-        if p.status not in (core.UPDATE, core.HELD, core.SKIPPED) or p.remote is None or hit[1].get_title() == "Addon":
+        missing = _("Fehlt: {names} (Abhängigkeit laut TOC)").format(names=", ".join(p.missing)) if p.missing else ""
+        if p.status not in (core.UPDATE, core.HELD, core.SKIPPED) or p.remote is None or hit[1].get_title() == _("Addon"):
             if not missing:
                 return False
             tip.set_text(missing)
@@ -1279,23 +1303,24 @@ class App:
         k = self.changelog_key(p)
         if k not in self.changelogs:
             self.load_changelog(p)
-            text = "Changelog wird geladen …"
+            text = _("Changelog wird geladen …")
         else:
             lines = self.changelogs[k].strip().splitlines()
-            text = "\n".join(lines[:12]) + ("\n…" if len(lines) > 12 else "") if lines else "Kein Changelog verfügbar."
+            text = "\n".join(lines[:12]) + ("\n…" if len(lines) > 12 else "") if lines else _("Kein Changelog verfügbar.")
         if p.status != core.UPDATE:
-            text = core.pin_text(p.pin) + "\n\nNeueste Version: " + (core.display_version(p.remote.version) or "?") + "\n" + text
+            text = core.pin_text(p.pin) + "\n\n" + _("Neueste Version: {version}").format(
+                version=core.display_version(p.remote.version) or "?") + "\n" + text
         if p.channel in CHANNEL_MARK:
-            text = f"Kanal: {dict((v, k) for k, v in CHANNEL_NAMES)[p.channel]}\n\n" + text
+            text = _("Kanal: {channel}").format(channel=_(dict((v, k) for k, v in CHANNEL_NAMES)[p.channel])) + "\n\n" + text
         tip.set_text(text + ("\n\n" + missing if missing else ""))
         tree.set_tooltip_cell(tip, hit[0], hit[1], None)
         return True
 
     def show_changelog(self, p):
         def show():
-            text = self.changelogs.get(self.changelog_key(p)) or "Kein Changelog verfügbar."
-            d = make_dialog(f"Changelog – {p.name}", self.win, 640, 420)
-            add_button(d, "Schließen", Gtk.ResponseType.CLOSE, suggested=True)
+            text = self.changelogs.get(self.changelog_key(p)) or _("Kein Changelog verfügbar.")
+            d = make_dialog(_("Changelog – {name}").format(name=p.name), self.win, 640, 420)
+            add_button(d, _("Schließen"), Gtk.ResponseType.CLOSE, suggested=True)
             d.get_content_area().pack_start(text_view_scroller(text, 560, 320), True, True, 0)
             d.show_all()
             d.run()
@@ -1307,53 +1332,53 @@ class App:
         def fetched(res, err):
             self.changelogs[self.changelog_key(p)] = "" if err else (res or "")
             show()
-        self.bg(lambda: self.mgr.changelog(p), fetched, "Lade Changelog …")
+        self.bg(lambda: self.mgr.changelog(p), fetched, _("Lade Changelog …"))
 
     # ------------------------------------------------------------ Installieren
-    def on_update_selected(self, *_):
+    def on_update_selected(self, *_a):
         marked = [self.rows[r[C_KEY]] for r in self.store if r[C_CHECK]]
         if not marked:
-            message(self.win, "Nichts ausgewählt", "Markiere Addons mit einem Häkchen.")
+            message(self.win, _("Nichts ausgewählt"), _("Markiere Addons mit einem Häkchen."))
             return
         sel = [p for p in marked if p.status == core.UPDATE and p.remote is not None]
         if len(sel) < len(marked):
             skipped = ", ".join(p.name for p in marked if p not in sel)
-            message(self.win, "Ohne Update übersprungen", skipped)
+            message(self.win, _("Ohne Update übersprungen"), skipped)
             if not sel:
                 return
         self.install_flow([(p.name, (lambda p=p: self.mgr.plan_update(p)), p) for p in sel])
 
-    def on_uninstall(self, *_):
+    def on_uninstall(self, *_a):
         self.uninstall([self.rows[r[C_KEY]] for r in self.store if r[C_CHECK]])
 
     def uninstall(self, sel):
         if not sel:
-            message(self.win, "Nichts ausgewählt", "Markiere die Addons mit einem Häkchen.")
+            message(self.win, _("Nichts ausgewählt"), _("Markiere die Addons mit einem Häkchen."))
             return
 
         def planned(plans, err):
             if err:
-                message(self.win, "Deinstallation nicht möglich", err_text(err), Gtk.MessageType.ERROR)
+                message(self.win, _("Deinstallation nicht möglich"), err_text(err), Gtk.MessageType.ERROR)
                 return
             plans = [p for p in plans if p.folders]
             if not plans:
-                message(self.win, "Nichts zu deinstallieren", "Die Ordner existieren nicht mehr.")
+                message(self.win, _("Nichts zu deinstallieren"), _("Die Ordner existieren nicht mehr."))
                 self.rescan()
                 return
             lines = []
             running = self.mgr.wow_running()
             if running:
-                lines.append("ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden.\n")
+                lines.append(_("ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden.\n"))
             elif running is None:
-                lines.append("Hinweis: Im Flatpak ist nicht erkennbar, ob WoW läuft. Bitte vorher beenden.\n")
+                lines.append(_("Hinweis: Im Flatpak ist nicht erkennbar, ob WoW läuft. Bitte vorher beenden.\n"))
             for p in plans:
-                lines.append(f"• {p.name}\n    Ordner: " + ", ".join(p.folders))
-                lines += [f"    ! {w}" for w in p.warnings]
-            lines.append("\nDie Ordner werden in ein Backup verschoben und lassen sich unter ☰ → Backups "
-                         "wiederherstellen. Einstellungen (SavedVariables/WTF) bleiben erhalten.")
-            d = make_dialog("Deinstallation bestätigen", self.win, 640, 420)
-            d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-            add_button(d, "Deinstallieren", Gtk.ResponseType.OK, destructive=True)
+                lines.append("• {name}\n    {folders}".format(name=p.name, folders=_("Ordner: {names}").format(names=", ".join(p.folders))))
+                lines += ["    ! {}".format(w) for w in p.warnings]
+            lines.append(_("\nDie Ordner werden in ein Backup verschoben und lassen sich unter ☰ → Backups "
+                           "wiederherstellen. Einstellungen (SavedVariables/WTF) bleiben erhalten."))
+            d = make_dialog(_("Deinstallation bestätigen"), self.win, 640, 420)
+            d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+            add_button(d, _("Deinstallieren"), Gtk.ResponseType.OK, destructive=True)
             d.get_content_area().pack_start(text_view_scroller("\n".join(lines)), True, True, 0)
             d.show_all()
             ok = d.run() == Gtk.ResponseType.OK
@@ -1363,16 +1388,16 @@ class App:
 
             def finished(results, err2):
                 if err2:
-                    message(self.win, "Deinstallation fehlgeschlagen", err_text(err2), Gtk.MessageType.ERROR)
+                    message(self.win, _("Deinstallation fehlgeschlagen"), err_text(err2), Gtk.MessageType.ERROR)
                 else:
-                    out = [f"{'OK    ' if r.ok else 'FEHLER'}  {r.name}: {r.message}" for r in results]
-                    message(self.win, "Deinstallation abgeschlossen", "\n".join(out))
+                    out = [result_line(r) for r in results]
+                    message(self.win, _("Deinstallation abgeschlossen"), "\n".join(out))
                 self.rescan()
-            self.bg(lambda: self.mgr.uninstall(plans), finished, "Deinstalliere …")
-        self.bg(lambda: [self.mgr.plan_uninstall(p) for p in sel], planned, "Prüfe Abhängigkeiten …")
+            self.bg(lambda: self.mgr.uninstall(plans), finished, _("Deinstalliere …"))
+        self.bg(lambda: [self.mgr.plan_uninstall(p) for p in sel], planned, _("Prüfe Abhängigkeiten …"))
 
     def plan_all(self, planners):
-        """Im Worker: plant (laedt) alle Pakete nacheinander; nach "Abbrechen" werden die restlichen übersprungen."""
+        """Im Worker: plant (laedt) alle Pakete nacheinander; nach _("Abbrechen") werden die restlichen übersprungen."""
         plans, errs = [], []
         self.mgr.dl_cancel.clear()
         try:
@@ -1407,18 +1432,18 @@ class App:
             plans, errs = res
             errs, cancelled = self.split_cancelled(errs)
             if cancelled:
-                self.log(f"Abgebrochen: {', '.join(cancelled)}")
+                self.log(_("Abgebrochen: {names}").format(names=", ".join(cancelled)))
             queue = []
             if errs:
-                lines = [f"{n}: {err_text(e)}" for n, e, _c in errs]
+                lines = ["{}: {}".format(n, err_text(e)) for n, e, _c in errs]
                 dl = [(n, c) for n, e, c in errs if is_dl(e)]
                 if dl:
-                    what = ("Datei stattdessen im Browser herunterladen?" if len(dl) == 1 else
-                            f"Die {len(dl)} Dateien nacheinander im Browser herunterladen?")
-                    if ask(self.win, "Download fehlgeschlagen", "\n".join(lines) + "\n\n" + what, "Im Browser laden"):
+                    what = ngettext("Datei stattdessen im Browser herunterladen?",
+                                    "Die {n} Dateien nacheinander im Browser herunterladen?", len(dl)).format(n=len(dl))
+                    if ask(self.win, _("Download fehlgeschlagen"), "\n".join(lines) + "\n\n" + what, _("Im Browser laden")):
                         queue = [(n, c, None) for n, c in dl]
                 else:
-                    message(self.win, "Nicht alles konnte vorbereitet werden", "\n".join(lines), Gtk.MessageType.WARNING)
+                    message(self.win, _("Nicht alles konnte vorbereitet werden"), "\n".join(lines), Gtk.MessageType.WARNING)
             if queue or finish:
                 col = dict(installed=[], skipped=list(cancelled), errors=[])
                 col["errors"] += [(n, err_text(e)) for n, e, _c in errs if not is_dl(e)]
@@ -1431,7 +1456,7 @@ class App:
         if planned is not None:
             done(planned, None)
         else:
-            self.bg(lambda: self.plan_all(planners), done, "Lade und prüfe Pakete …")
+            self.bg(lambda: self.plan_all(planners), done, _("Lade und prüfe Pakete …"))
 
     def update_packages(self, pkgs, background=False, done=None):
         """done(dict(ok, failed, interactive)). background: ohne Dialog, solange nichts Interaktives noetig ist."""
@@ -1457,7 +1482,7 @@ class App:
 
         def fin_interactive(col):
             self.show_summary(col)
-            self.rescan(then=lambda *_: report(col, True))
+            self.rescan(then=lambda *_a: report(col, True))
 
         if not background:
             self.install_flow(planners, finish=fin_interactive)
@@ -1467,7 +1492,7 @@ class App:
             plans, errs, running = res
             errs, cancelled = self.split_cancelled(errs)
             if cancelled:
-                self.log(f"Abgebrochen: {', '.join(cancelled)}")
+                self.log(_("Abgebrochen: {names}").format(names=", ".join(cancelled)))
                 if not plans and not errs:
                     report(dict(installed=[], skipped=cancelled, errors=[]), False)
                     return
@@ -1486,8 +1511,8 @@ class App:
                         self.log_results(results)
                         for r in results:
                             (col["installed"] if r.ok else col["errors"]).append(r.name if r.ok else (r.name, r.message))
-                    self.rescan(quiet=True, then=lambda *_: report(col, False))
-                self.bg(lambda: self.mgr.apply(plans, origin="auto"), applied, "Installiere Updates …")
+                    self.rescan(quiet=True, then=lambda *_a: report(col, False))
+                self.bg(lambda: self.mgr.apply(plans, origin="auto"), applied, _("Installiere Updates …"))
             else:
                 self.present()
                 self.install_flow(planners, finish=fin_interactive, planned=(plans, errs))
@@ -1498,7 +1523,7 @@ class App:
             plans, errs = self.plan_all(planners)
             running = self.mgr.wow_running() is not False
             return (plans if running else self.auto_deps(plans)), errs, running
-        self.bg(work, planned, "Lade Updates …")
+        self.bg(work, planned, _("Lade Updates …"))
 
     def auto_deps(self, plans):
         """Hintergrund-Update: fehlende CF-Pflicht-Abhängigkeiten mitladen, alles andere nur ins Protokoll (Worker)."""
@@ -1507,17 +1532,18 @@ class App:
         try:
             needs = self.mgr.resolve_deps(plans, cf_only=True)
         except Exception as e:  # noqa: BLE001
-            self.log(f"Abhängigkeiten nicht prüfbar: {err_text(e)}")
+            self.log(_("Abhängigkeiten nicht prüfbar: {error}").format(error=err_text(e)))
             return plans
         take = [d for d in needs if d.cand and d.via == "cf"]
         for d in needs:
             if d not in take:
-                self.log(f"Abhängigkeit fehlt: {d.name} ({d.reason}) – {d.note or 'nicht automatisch installierbar'}")
+                self.log(_("Abhängigkeit fehlt: {name} ({reason}) – {note}").format(
+                    name=d.name, reason=d.reason, note=d.note or _("nicht automatisch installierbar")))
         dplans, errs = self.plan_all([(d.name, (lambda d=d: self.mgr.plan_candidate(d.cand)), None) for d in take])
         for n, e, _c in errs:
-            self.log(f"Abhängigkeit {n}: {err_text(e)}")
+            self.log(_("Abhängigkeit {name}: {error}").format(name=n, error=err_text(e)))
         if dplans:
-            self.log("Abhängigkeiten werden mitinstalliert: " + ", ".join(p.name for p in dplans))
+            self.log(_("Abhängigkeiten werden mitinstalliert: {names}").format(names=", ".join(p.name for p in dplans)))
         return plans + dplans
 
     def confirm_and_apply(self, plans, after=None, col=None):
@@ -1528,36 +1554,39 @@ class App:
                 after()
             return
         self.bg(lambda: self.mgr.resolve_deps(plans),
-                lambda deps, _err: self.confirm_dialog(plans, deps or [], after, col), "Prüfe Abhängigkeiten …")
+                lambda deps, _err: self.confirm_dialog(plans, deps or [], after, col), _("Prüfe Abhängigkeiten …"))
 
     def confirm_dialog(self, plans, deps, after, col):
         lines = []
         for p in plans:
-            lines.append(f"• {p.name}: {core.display_version(p.old_version) or '–'} → "
-                         f"{core.display_version(p.new_version) or '?'} ({p.source})")
-            lines.append("    Ordner: " + ", ".join(p.install_folders))
+            lines.append("• {name}: {old} → {new} ({source})".format(
+                name=p.name, old=core.display_version(p.old_version) or "–", new=core.display_version(p.new_version) or "?",
+                source=p.source))
+            lines.append("    " + _("Ordner: {names}").format(names=", ".join(p.install_folders)))
             if p.skipped_folders:
-                lines.append("    Übersprungen (werden von WoW: Forever nicht geladen): " + ", ".join(p.skipped_folders))
-            lines += [f"    ! {w}" for w in p.warnings]
+                lines.append("    " + _("Übersprungen (werden von WoW: Forever nicht geladen): {names}").format(
+                    names=", ".join(p.skipped_folders)))
+            lines += ["    ! {}".format(w) for w in p.warnings]
         running = self.mgr.wow_running()
         if running:
-            lines.insert(0, "ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden, sonst können Dateien gesperrt sein.\n")
+            lines.insert(0, _("ACHTUNG: WoW scheint zu laufen (heuristisch erkannt). Bitte vorher beenden, sonst können Dateien gesperrt sein.\n"))
         elif running is None:
-            lines.insert(0, "Hinweis: Im Flatpak ist nicht erkennbar, ob WoW läuft. Bitte vorher beenden, sonst können Dateien gesperrt sein.\n")
-        d = make_dialog("Installation bestätigen", self.win, 640, 420)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        add_button(d, "Installieren", Gtk.ResponseType.OK, suggested=True)
+            lines.insert(0, _("Hinweis: Im Flatpak ist nicht erkennbar, ob WoW läuft. Bitte vorher beenden, sonst können Dateien gesperrt sein.\n"))
+        d = make_dialog(_("Installation bestätigen"), self.win, 640, 420)
+        d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+        add_button(d, _("Installieren"), Gtk.ResponseType.OK, suggested=True)
         box = d.get_content_area()
         box.pack_start(text_view_scroller("\n".join(lines)), True, True, 0)
         checks = []
         for dn in deps:
             if dn.cand:
-                cb = Gtk.CheckButton(label=f"Benötigt: {dn.name} (wird mitinstalliert)", active=True,
+                cb = Gtk.CheckButton(label=_("Benötigt: {name} (wird mitinstalliert)").format(name=dn.name), active=True,
                                      tooltip_text=dn.reason)
                 checks.append((cb, dn))
                 box.pack_start(cb, False, False, 0)
             else:
-                lb = Gtk.Label(label=f"Benötigt: {dn.name} – {dn.note} ({dn.reason})", xalign=0, wrap=True)
+                lb = Gtk.Label(label=_("Benötigt: {name} – {note} ({reason})").format(name=dn.name, note=dn.note, reason=dn.reason),
+                             xalign=0, wrap=True)
                 lb.get_style_context().add_class("wfa-dim")
                 box.pack_start(lb, False, False, 0)
         d.show_all()
@@ -1582,25 +1611,25 @@ class App:
             dplans, errs = res
             errs, cancelled = self.split_cancelled(errs)
             for n, e, _c in errs:
-                self.log(f"Abhängigkeit {n}: {err_text(e)}")
+                self.log(_("Abhängigkeit {name}: {error}").format(name=n, error=err_text(e)))
                 if col is not None:
                     col["errors"].append((n, err_text(e)))
             if errs and col is None:
-                message(self.win, "Abhängigkeiten nicht vollständig",
-                        "\n".join(f"{n}: {err_text(e)}" for n, e, _c in errs), Gtk.MessageType.WARNING)
+                message(self.win, _("Abhängigkeiten nicht vollständig"),
+                        "\n".join("{}: {}".format(n, err_text(e)) for n, e, _c in errs), Gtk.MessageType.WARNING)
             if cancelled and col is not None:
                 col["skipped"] += cancelled
             self.apply_plans(keep + self.confirm_strong(dplans, col), after, col)
-        self.bg(lambda: self.plan_all(planners), planned, "Lade Abhängigkeiten …")
+        self.bg(lambda: self.plan_all(planners), planned, _("Lade Abhängigkeiten …"))
 
     def confirm_strong(self, plans, col):
         """Pakete ohne Forever-Hauptdatei brauchen eine eigene Bestätigung; -> Liste der weiter zu installierenden."""
         keep = []
         for p in plans:
             if p.needs_strong_confirm and not ask(
-                    self.win, f"{p.name}: nicht für WoW: Forever gedacht",
-                    "Das Hauptpaket enthält keine kompatible Forever-Datei (Interface 16xxx). "
-                    "Es wird möglicherweise nicht geladen oder verursacht Fehler.", "Trotzdem installieren",
+                    self.win, _("{name}: nicht für WoW: Forever gedacht").format(name=p.name),
+                    _("Das Hauptpaket enthält keine kompatible Forever-Datei (Interface 16xxx). "
+                      "Es wird möglicherweise nicht geladen oder verursacht Fehler."), _("Trotzdem installieren"),
                     kind=Gtk.MessageType.WARNING):
                 self.mgr.discard(p)
                 if col is not None:
@@ -1617,7 +1646,7 @@ class App:
 
         def finished(results, err):
             if not err:
-                self.log_results(results, "installiert")
+                self.log_results(results, installed=True)
             if col is not None:
                 if err:
                     col["errors"] += [(p.name, err_text(err)) for p in keep]
@@ -1629,43 +1658,43 @@ class App:
                     after()
                 return
             if err:
-                message(self.win, "Installation fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
+                message(self.win, _("Installation fehlgeschlagen"), err_text(err), Gtk.MessageType.ERROR)
             else:
                 sets = {r.backup_set for r in results if r.backup_set}
-                out = [f"{'OK    ' if r.ok else 'FEHLER'}  {r.name}: {r.message}" for r in results]
+                out = [result_line(r) for r in results]
                 if sets:
-                    out.append("\nBackup-Satz: " + ", ".join(sorted(sets)))
-                d2 = make_dialog("Ergebnis", self.win, 600, 300)
-                add_button(d2, "Schließen", Gtk.ResponseType.CLOSE, suggested=True)
+                    out.append(_("\nBackup-Satz: {names}").format(names=", ".join(sorted(sets))))
+                d2 = make_dialog(_("Ergebnis"), self.win, 600, 300)
+                add_button(d2, _("Schließen"), Gtk.ResponseType.CLOSE, suggested=True)
                 d2.get_content_area().pack_start(text_view_scroller("\n".join(out), 520, 200), True, True, 0)
                 d2.show_all()
                 d2.run()
                 d2.destroy()
             self.rescan(after)
-        self.bg(lambda: self.mgr.apply(keep), finished, "Installiere …")
+        self.bg(lambda: self.mgr.apply(keep), finished, _("Installiere …"))
 
     # ------------------------------------------------------------ Browser
-    def on_browser_selected(self, *_):
+    def on_browser_selected(self, *_a):
         p = self.selected_pkg()
         if not p:
-            message(self.win, "Kein Addon gewählt", "Wähle eine Zeile in der Liste.")
+            message(self.win, _("Kein Addon gewählt"), _("Wähle eine Zeile in der Liste."))
             return
         self.browser_flow(p)
 
     def browser_flow(self, target=None, url=None):
         """target: Package/Candidate (oder None mit url). Öffnet Browser, wartet auf neue Zip, installiert."""
-        self.browser_queue([(getattr(target, "name", None) or "Download", target, url)])
+        self.browser_queue([(getattr(target, "name", None) or _("Download"), target, url)])
 
     def show_summary(self, col):
         parts = []
-        for title, key in (("Installiert", "installed"), ("Übersprungen", "skipped"), ("Fehler", "errors")):
-            items = [i if isinstance(i, str) else f"{i[0]}: {i[1]}" for i in col[key]]
+        for title, key in ((N_("Installiert"), "installed"), (N_("Übersprungen"), "skipped"), (N_("Fehler"), "errors")):
+            items = [i if isinstance(i, str) else "{}: {}".format(i[0], i[1]) for i in col[key]]
             if items:
-                parts.append(f"{title} ({len(items)}):\n" + "\n".join(f"  • {i}" for i in items))
-        d = make_dialog("Gesamtergebnis", self.win, 600, 320)
-        add_button(d, "Schließen", Gtk.ResponseType.CLOSE, suggested=True)
+                parts.append("{title} ({n}):\n".format(title=_(title), n=len(items)) + "\n".join("  • {}".format(i) for i in items))
+        d = make_dialog(_("Gesamtergebnis"), self.win, 600, 320)
+        add_button(d, _("Schließen"), Gtk.ResponseType.CLOSE, suggested=True)
         d.get_content_area().pack_start(
-            text_view_scroller("\n\n".join(parts) or "Nichts zu tun.", 520, 220), True, True, 0)
+            text_view_scroller("\n\n".join(parts) or _("Nichts zu tun."), 520, 220), True, True, 0)
         d.show_all()
         d.run()
         d.destroy()
@@ -1693,18 +1722,22 @@ class App:
             folders = watch["folders"]
             mgr.open_browser(url)
             cancel, state = threading.Event(), {}
-            d = make_dialog("Browser-Download", self.win, 500)
+            d = make_dialog(_("Browser-Download"), self.win, 500)
             if solo:
-                add_button(d, "Abbrechen", Gtk.ResponseType.CANCEL)
+                add_button(d, _("Abbrechen"), Gtk.ResponseType.CANCEL)
             else:
-                d.add_button("Überspringen", SKIP)
-                d.add_button("Alle abbrechen", ABORT)
-            head = f"Browser-Download {i + 1} von {n}: {name}" if n > 1 else f"Browser-Download: {name}"
-            text = (f"<b>{GLib.markup_escape_text(head)}</b>\n\nLade die Datei für WoW: Forever herunter …\n"
-                    "Falls nicht vorgefiltert: Filter „Game Version/Flavor“ → „Forever“ wählen.\n\n"
-                    "Überwachte Ordner: " + (", ".join(core.tilde(f) for f in folders) or "(keiner gefunden)"))
+                d.add_button(_("Überspringen"), SKIP)
+                d.add_button(_("Alle abbrechen"), ABORT)
+            head = (_("Browser-Download {i} von {n}: {name}").format(i=i + 1, n=n, name=name) if n > 1
+                    else _("Browser-Download: {name}").format(name=name))
+            text = "<b>{head}</b>\n\n{body}".format(head=GLib.markup_escape_text(head), body=GLib.markup_escape_text(
+                _("Lade die Datei für WoW: Forever herunter …\n"
+                  "Falls nicht vorgefiltert: Filter „Game Version/Flavor“ → „Forever“ wählen.\n\n"
+                  "Überwachte Ordner: {folders}").format(
+                      folders=", ".join(core.tilde(f) for f in folders) or _("(keiner gefunden)"))))
             if watch["ask"]:
-                text += "\n\nBrowser fragt nach Speicherort – bitte in einen dieser Ordner speichern."
+                text += "\n\n" + GLib.markup_escape_text(
+                    _("Browser fragt nach Speicherort – bitte in einen dieser Ordner speichern."))
             row = Gtk.Box(spacing=12)
             sp = Gtk.Spinner()
             sp.start()
@@ -1726,17 +1759,17 @@ class App:
                     self.fallback_pins.pop(hint, None)
                 if err:
                     if solo:
-                        message(self.win, "Fehler beim Warten", err_text(err), Gtk.MessageType.ERROR)
+                        message(self.win, _("Fehler beim Warten"), err_text(err), Gtk.MessageType.ERROR)
                     else:
                         col["errors"].append((name, err_text(err)))
                         step(i + 1)
                 elif path is None:
                     if resp is None:
                         if solo:
-                            message(self.win, "Keine Datei erkannt",
-                                    "Es wurde keine neue Zip-Datei gefunden (Zeitlimit).")
+                            message(self.win, _("Keine Datei erkannt"),
+                                    _("Es wurde keine neue Zip-Datei gefunden (Zeitlimit)."))
                         else:
-                            col["errors"].append((name, "Zeitlimit: keine neue Zip gefunden"))
+                            col["errors"].append((name, _("Zeitlimit: keine neue Zip gefunden")))
                     if solo:
                         return False
                     if resp == SKIP:
@@ -1760,19 +1793,19 @@ class App:
                             if pin and plan.key == hint:
                                 plan.extra["pin"] = pin
                             self.confirm_and_apply([plan], lambda: step(i + 1), col)
-                    self.bg(lambda: mgr.plan_zip(path, hint), planned, "Prüfe Zip …")
+                    self.bg(lambda: mgr.plan_zip(path, hint), planned, _("Prüfe Zip …"))
                 return False
             run_in_thread(lambda: mgr.wait_for_download(since, cancel=cancel, folders=folders), done)
         step(0)
 
     # ------------------------------------------------------------ Neues Addon
-    def on_new_addon(self, *_):
+    def on_new_addon(self, *_a):
         if not self.mgr.addons_dir:
             return
         try:
             from wfa_newaddon import NewAddonDialog
         except ImportError as e:
-            message(self.win, "Dialog nicht verfügbar", f"wfa_newaddon fehlt: {e}", Gtk.MessageType.ERROR)
+            message(self.win, _("Dialog nicht verfügbar"), _("wfa_newaddon fehlt: {error}").format(error=e), Gtk.MessageType.ERROR)
             return
         d = NewAddonDialog(self.win, self.mgr)
         r = d.run()
@@ -1794,20 +1827,20 @@ class App:
         elif kind == "input":
             def done(res, err):
                 if isinstance(err, ApiError) and err.kind == "download" and value.lower().startswith("http"):
-                    if ask(self.win, "Download fehlgeschlagen", f"{err}\n\nDatei stattdessen im Browser herunterladen?",
-                           "Im Browser laden"):
+                    if ask(self.win, _("Download fehlgeschlagen"), _("{error}\n\nDatei stattdessen im Browser herunterladen?").format(error=err),
+                           _("Im Browser laden")):
                         self.browser_flow(url=value)
                 elif err:
-                    message(self.win, "Eingabe nicht verarbeitbar", err_text(err), Gtk.MessageType.WARNING)
+                    message(self.win, _("Eingabe nicht verarbeitbar"), err_text(err), Gtk.MessageType.WARNING)
                 elif isinstance(res, list):
                     if len(res) == 1:
                         self.install_flow([(res[0].name, lambda: mgr.plan_candidate(res[0]), res[0])])
                     else:
-                        message(self.win, "Nichts Eindeutiges gefunden",
-                                "Für Suchbegriffe bitte den Tab „Suchen“ verwenden.")
+                        message(self.win, _("Nichts Eindeutiges gefunden"),
+                                _("Für Suchbegriffe bitte den Tab „Suchen“ verwenden."))
                 else:
                     self.confirm_and_apply([res])
-            self.bg(lambda: mgr.resolve_input(value), done, "Prüfe Eingabe …")
+            self.bg(lambda: mgr.resolve_input(value), done, _("Prüfe Eingabe …"))
 
     # ------------------------------------------------------------ Erweiterte Funktionen
     def apply_expert(self):
@@ -1820,7 +1853,7 @@ class App:
         try:
             import wfa_expert
         except ImportError as e:
-            message(self.win, _("Dialog nicht verfügbar"), f"wfa_expert: {e}", Gtk.MessageType.ERROR)
+            message(self.win, _("Dialog nicht verfügbar"), _("wfa_expert fehlt: {error}").format(error=e), Gtk.MessageType.ERROR)
             return
         getattr(wfa_expert, name)(self)
 
@@ -1834,20 +1867,22 @@ class App:
         self._expert("open_snapshots")
 
     # ------------------------------------------------------------ Backups
-    def on_backups(self, *_):
+    def on_backups(self, *_a):
         entries = [(b.created, b, ", ".join(b.folders)) for b in self.mgr.list_backups()]
-        entries += [(v.created, v, f"Einstellungen (SavedVariables) vom {fmt_time(v.created)} – {len(v.addons)} Addons")
+        entries += [(v.created, v, ngettext("Einstellungen (SavedVariables) vom {date} – 1 Addon",
+                                            "Einstellungen (SavedVariables) vom {date} – {n} Addons",
+                                            len(v.addons)).format(date=fmt_time(v.created), n=len(v.addons)))
                     for v in self.mgr.list_sv_backups()]
         entries.sort(key=lambda e: e[0], reverse=True)
-        d = make_dialog("Backups", self.win, 560, 380)
-        d.add_button("Schließen", Gtk.ResponseType.CLOSE)
-        rb = add_button(d, "Wiederherstellen", Gtk.ResponseType.OK, destructive=True)
+        d = make_dialog(_("Backups"), self.win, 560, 380)
+        d.add_button(_("Schließen"), Gtk.ResponseType.CLOSE)
+        rb = add_button(d, _("Wiederherstellen"), Gtk.ResponseType.OK, destructive=True)
         rb.set_sensitive(False)
         store = Gtk.ListStore(object, str, str)
         for created, obj, text in entries:
             store.append([obj, fmt_time(created), text])
         tree = Gtk.TreeView(model=store)
-        for i, t in enumerate(("Datum", "Ordner")):
+        for i, t in enumerate((_("Datum"), _("Ordner"))):
             r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
             c = Gtk.TreeViewColumn(t, r, text=i + 1)
             c.set_expand(i == 1)
@@ -1858,7 +1893,7 @@ class App:
         if entries:
             d.get_content_area().pack_start(sw, True, True, 0)
         else:
-            d.get_content_area().pack_start(Gtk.Label(label="Noch keine Backups vorhanden."), True, True, 0)
+            d.get_content_area().pack_start(Gtk.Label(label=_("Noch keine Backups vorhanden.")), True, True, 0)
         d.show_all()
         chosen = None
         if d.run() == Gtk.ResponseType.OK:
@@ -1872,40 +1907,41 @@ class App:
 
     def restore_backup_flow(self, chosen, only=None):
         names = [f for f in chosen.folders if only is None or f in only]
-        text = "Die aktuellen Ordner werden vorher selbst gesichert.\n" + ", ".join(names)
+        text = _("Die aktuellen Ordner werden vorher selbst gesichert.\n{names}").format(names=", ".join(names))
         if self.mgr.wow_running():
-            text = "Hinweis: WoW scheint zu laufen (heuristisch erkannt). Besser vorher beenden.\n\n" + text
-        if not ask(self.win, "Backup wiederherstellen?", text, "Wiederherstellen", kind=Gtk.MessageType.WARNING):
+            text = _("Hinweis: WoW scheint zu laufen (heuristisch erkannt). Besser vorher beenden.") + "\n\n" + text
+        if not ask(self.win, _("Backup wiederherstellen?"), text, _("Wiederherstellen"), kind=Gtk.MessageType.WARNING):
             return
 
         def done(res, err):
             if err:
-                message(self.win, "Wiederherstellung fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
+                message(self.win, _("Wiederherstellung fehlgeschlagen"), err_text(err), Gtk.MessageType.ERROR)
             else:
-                message(self.win, "Wiederherstellung" + (" abgeschlossen" if res.ok else " fehlgeschlagen"), res.message,
+                message(self.win, _("Wiederherstellung abgeschlossen") if res.ok else _("Wiederherstellung fehlgeschlagen"), res.message,
                         Gtk.MessageType.INFO if res.ok else Gtk.MessageType.ERROR)
             self.rescan()
-        self.bg(lambda: self.mgr.restore(chosen, only), done, "Stelle wieder her …")
+        self.bg(lambda: self.mgr.restore(chosen, only), done, _("Stelle wieder her …"))
 
     def restore_sv_flow(self, sset):
         """Einstellungen (SavedVariables) wiederherstellen: ganzer Satz oder einzelne Addons."""
         running = self.mgr.wow_running()
         if running:
-            message(self.win, "WoW läuft", "Einstellungen lassen sich nur wiederherstellen, solange WoW beendet ist – "
-                    "sonst überschreibt WoW sie beim Beenden wieder.", Gtk.MessageType.WARNING)
+            message(self.win, _("WoW läuft"), _("Einstellungen lassen sich nur wiederherstellen, solange WoW beendet ist – "
+                                              "sonst überschreibt WoW sie beim Beenden wieder."), Gtk.MessageType.WARNING)
             return
-        if running is None and not ask(self.win, "Ist WoW beendet?",
-                                       "Im Flatpak kann der Manager nicht sehen, ob WoW läuft. Läuft es noch, "
-                                       "überschreibt es die wiederhergestellten Einstellungen beim Beenden wieder.",
-                                       "WoW ist beendet", kind=Gtk.MessageType.WARNING):
+        if running is None and not ask(self.win, _("Ist WoW beendet?"),
+                                       _("Im Flatpak kann der Manager nicht sehen, ob WoW läuft. Läuft es noch, "
+                                         "überschreibt es die wiederhergestellten Einstellungen beim Beenden wieder."),
+                                       _("WoW ist beendet"), kind=Gtk.MessageType.WARNING):
             return
-        d = make_dialog("Einstellungen wiederherstellen", self.win, 460, 420)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        add_button(d, "Wiederherstellen", Gtk.ResponseType.OK, destructive=True)
+        d = make_dialog(_("Einstellungen wiederherstellen"), self.win, 460, 420)
+        d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+        add_button(d, _("Wiederherstellen"), Gtk.ResponseType.OK, destructive=True)
         box = d.get_content_area()
         box.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=56,
-                                 label=f"Einstellungen vom {fmt_time(sset.created)}. Der aktuelle Stand wird vorher "
-                                       "selbst gesichert. Nur angehakte Addons werden zurückgeschrieben."), False, False, 0)
+                                 label=_("Einstellungen vom {date}. Der aktuelle Stand wird vorher "
+                                         "selbst gesichert. Nur angehakte Addons werden zurückgeschrieben.").format(
+                                     date=fmt_time(sset.created))), False, False, 0)
         vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         checks = []
         for a in sset.addons:
@@ -1922,32 +1958,32 @@ class App:
         if not ok:
             return
         if not picked:
-            message(self.win, "Nichts ausgewählt", "Es ist kein Addon angehakt.")
+            message(self.win, _("Nichts ausgewählt"), _("Es ist kein Addon angehakt."))
             return
 
         def done(res, err):
             if err:
-                message(self.win, "Wiederherstellung fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
+                message(self.win, _("Wiederherstellung fehlgeschlagen"), err_text(err), Gtk.MessageType.ERROR)
                 return
-            self.log(f"Einstellungen: {res.message}")
-            message(self.win, "Einstellungen wiederhergestellt" if res.ok else "Wiederherstellung fehlgeschlagen",
+            self.log(_("Einstellungen: {message}").format(message=res.message))
+            message(self.win, _("Einstellungen wiederhergestellt") if res.ok else _("Wiederherstellung fehlgeschlagen"),
                     res.message, Gtk.MessageType.INFO if res.ok else Gtk.MessageType.ERROR)
         self.bg(lambda: self.mgr.restore_sv(sset, None if len(picked) == len(sset.addons) else picked),
-                done, "Stelle Einstellungen wieder her …")
+                done, _("Stelle Einstellungen wieder her …"))
 
     # ------------------------------------------------------------ Verlauf
-    def on_history(self, *_, name=""):
+    def on_history(self, *_a, name=""):
         entries = self.mgr.read_history()
         backups = {b.name: b for b in self.mgr.list_backups()}
         svs = {v.name: v for v in self.mgr.list_sv_backups()}
-        d = make_dialog("Verlauf", self.win, 720, 460)
-        d.add_button("Schließen", Gtk.ResponseType.CLOSE)
-        rs = add_button(d, "Einstellungen zurücksetzen", 2)
-        rb = add_button(d, "Zurücksetzen", 1, destructive=True)
+        d = make_dialog(_("Verlauf"), self.win, 720, 460)
+        d.add_button(_("Schließen"), Gtk.ResponseType.CLOSE)
+        rs = add_button(d, _("Einstellungen zurücksetzen"), 2)
+        rb = add_button(d, _("Zurücksetzen"), 1, destructive=True)
         rs.set_sensitive(False)
         rb.set_sensitive(False)
         box = d.get_content_area()
-        search = Gtk.SearchEntry(placeholder_text="Nach Addon filtern …", text=name)
+        search = Gtk.SearchEntry(placeholder_text=_("Nach Addon filtern …"), text=name)
         box.pack_start(search, False, False, 0)
         store = Gtk.ListStore(object, str, str, str, str)
         for e in entries:
@@ -1956,8 +1992,9 @@ class App:
             except (ValueError, OverflowError):
                 t = 0
             old, new = e.get("old"), e.get("new")
-            ver = f"{old or '–'} → {new or '–'}" if (old or new) else ""
-            store.append([e, fmt_time(t) if t else "?", str(e.get("kind") or ""), str(e.get("name") or ""), str(ver)])
+            ver = "{} → {}".format(old or "–", new or "–") if (old or new) else ""
+            kind = str(e.get("kind") or "")
+            store.append([e, fmt_time(t) if t else "?", _(kind) if kind else "", str(e.get("name") or ""), str(ver)])
         flt = store.filter_new()
 
         def visible(model, it, _d):
@@ -1966,7 +2003,7 @@ class App:
             return not q or q in str(e.get("name") or "").lower() or q in str(e.get("key") or "").lower()
         flt.set_visible_func(visible)
         tree = Gtk.TreeView(model=flt)
-        for i, t in enumerate(("Zeitpunkt", "Aktion", "Addon", "Version")):
+        for i, t in enumerate((_("Zeitpunkt"), _("Aktion"), _("Addon"), _("Version"))):
             r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
             c = Gtk.TreeViewColumn(t, r, text=i + 1)
             c.set_expand(i == 2)
@@ -1978,13 +2015,13 @@ class App:
             rb.set_sensitive(e.get("backup") in backups)
             rs.set_sensitive(e.get("sv") in svs)
         tree.get_selection().connect("changed", sel_changed)
-        search.connect("search-changed", lambda *_: flt.refilter())
+        search.connect("search-changed", lambda *_a: flt.refilter())
         sw = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         sw.add(tree)
         if entries:
             box.pack_start(sw, True, True, 0)
         else:
-            box.pack_start(Gtk.Label(label="Noch keine Änderungen protokolliert."), True, True, 0)
+            box.pack_start(Gtk.Label(label=_("Noch keine Änderungen protokolliert.")), True, True, 0)
         d.show_all()
         resp = d.run()
         model, it = tree.get_selection().get_selected()
@@ -1997,20 +2034,20 @@ class App:
             self.restore_sv_flow(svs[e["sv"]])
 
     # ------------------------------------------------------------ Addon-Liste exportieren / importieren
-    def on_export(self, *_):
+    def on_export(self, *_a):
         data = self.mgr.export_data(self.pkgs)
         n, lost = len(data["packages"]), data["untransferable"]
-        info = f"{n} Addon{'s' if n != 1 else ''} in der Liste."
+        info = ngettext("1 Addon in der Liste.", "{n} Addons in der Liste.", n).format(n=n)
         if not self.mgr.api_key:
-            info += "\nHinweis: Ohne CurseForge-Key sind Namen und Zuordnungen evtl. unvollständig."
+            info += "\n" + _("Hinweis: Ohne CurseForge-Key sind Namen und Zuordnungen evtl. unvollständig.")
         if not n:
-            info += "\nKeine übertragbaren Addons (CurseForge-/GitHub-Zuordnung fehlt)."
+            info += "\n" + _("Keine übertragbaren Addons (CurseForge-/GitHub-Zuordnung fehlt).")
         if lost:
-            info += f"\nNicht übertragbar (keine CurseForge-/GitHub-Quelle): {', '.join(lost)}"
-        d = make_dialog("Addon-Liste exportieren", self.win, 480)
-        d.add_button("Schließen", Gtk.ResponseType.CLOSE)
-        add_button(d, "Als Text kopieren", 2)
-        add_button(d, "Als Datei speichern …", 1, suggested=True)
+            info += "\n" + _("Nicht übertragbar (keine CurseForge-/GitHub-Quelle): {names}").format(names=", ".join(lost))
+        d = make_dialog(_("Addon-Liste exportieren"), self.win, 480)
+        d.add_button(_("Schließen"), Gtk.ResponseType.CLOSE)
+        add_button(d, _("Als Text kopieren"), 2)
+        add_button(d, _("Als Datei speichern …"), 1, suggested=True)
         lb = Gtk.Label(label=info, xalign=0, wrap=True)
         done = Gtk.Label(label="", xalign=0, wrap=True)
         done.get_style_context().add_class("wfa-dim")
@@ -2021,44 +2058,44 @@ class App:
             r = d.run()
             if r == 2:
                 Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(core.export_text(data), -1)
-                done.set_text("Als Text in die Zwischenablage kopiert.")
-                self.log(f"Addon-Liste ({n}) als Text kopiert")
+                done.set_text(_("Als Text in die Zwischenablage kopiert."))
+                self.log(_("Addon-Liste ({n}) als Text kopiert").format(n=n))
             elif r == 1:
-                path = choose_file(d, "Addon-Liste speichern", Gtk.FileChooserAction.SAVE, "Speichern",
+                path = choose_file(d, _("Addon-Liste speichern"), Gtk.FileChooserAction.SAVE, _("Speichern"),
                                    name="wow-forever-addons.json")
                 if path:
                     try:
                         Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", "utf-8")
-                        done.set_text(f"Gespeichert: {short_path(path)}")
-                        self.log(f"Addon-Liste ({n}) gespeichert: {short_path(path)}")
+                        done.set_text(_("Gespeichert: {path}").format(path=short_path(path)))
+                        self.log(_("Addon-Liste ({n}) gespeichert: {path}").format(n=n, path=short_path(path)))
                     except OSError as e:
-                        message(d, "Speichern fehlgeschlagen", str(e), Gtk.MessageType.ERROR)
+                        message(d, _("Speichern fehlgeschlagen"), str(e), Gtk.MessageType.ERROR)
             else:
                 break
         d.destroy()
 
-    def on_import(self, *_):
+    def on_import(self, *_a):
         if not self.mgr.addons_dir:
             return
-        d = make_dialog("Addon-Liste importieren", self.win, 560, 360)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        add_button(d, "Weiter", Gtk.ResponseType.OK, suggested=True)
+        d = make_dialog(_("Addon-Liste importieren"), self.win, 560, 360)
+        d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+        add_button(d, _("Weiter"), Gtk.ResponseType.OK, suggested=True)
         box = d.get_content_area()
-        box.pack_start(Gtk.Label(label="Liste einfügen (Text oder JSON) oder eine Datei laden:", xalign=0), False, False, 0)
+        box.pack_start(Gtk.Label(label=_("Liste einfügen (Text oder JSON) oder eine Datei laden:"), xalign=0), False, False, 0)
         tv = Gtk.TextView(wrap_mode=Gtk.WrapMode.CHAR, monospace=True)
         sw = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         sw.add(tv)
         box.pack_start(sw, True, True, 0)
-        fb = Gtk.Button(label="Datei laden …", halign=Gtk.Align.START)
+        fb = Gtk.Button(label=_("Datei laden …"), halign=Gtk.Align.START)
 
         def load_file(*_a):
-            path = choose_file(d, "Addon-Liste wählen", Gtk.FileChooserAction.OPEN, "Öffnen")
+            path = choose_file(d, _("Addon-Liste wählen"), Gtk.FileChooserAction.OPEN, _("Öffnen"))
             if path:
                 try:
                     with open(path, encoding="utf-8-sig") as f:
                         tv.get_buffer().set_text(f.read(1_000_000))
                 except (OSError, UnicodeDecodeError) as e:
-                    message(d, "Datei nicht lesbar", str(e), Gtk.MessageType.ERROR)
+                    message(d, _("Datei nicht lesbar"), str(e), Gtk.MessageType.ERROR)
         fb.connect("clicked", load_file)
         box.pack_start(fb, False, False, 0)
         d.show_all()
@@ -2071,25 +2108,26 @@ class App:
                 entries = core.parse_import(buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False))
                 break
             except ApiError as e:
-                message(d, "Liste nicht lesbar", str(e), Gtk.MessageType.WARNING)
+                message(d, _("Liste nicht lesbar"), str(e), Gtk.MessageType.WARNING)
         d.destroy()
-        self.bg(lambda: self.mgr.import_preview(entries), self.import_preview, "Prüfe Liste …")
+        self.bg(lambda: self.mgr.import_preview(entries), self.import_preview, _("Prüfe Liste …"))
 
     def import_preview(self, items, err):
         if err or not items:
-            message(self.win, "Liste nicht prüfbar", err_text(err) if err else "Die Liste enthält keine Addons.",
+            message(self.win, _("Liste nicht prüfbar"), err_text(err) if err else _("Die Liste enthält keine Addons."),
                     Gtk.MessageType.WARNING)
             return
-        d = make_dialog("Addon-Liste importieren", self.win, 520, 420)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        add_button(d, "Installieren", Gtk.ResponseType.OK, suggested=True)
+        d = make_dialog(_("Addon-Liste importieren"), self.win, 520, 420)
+        d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+        add_button(d, _("Installieren"), Gtk.ResponseType.OK, suggested=True)
         box = d.get_content_area()
-        box.pack_start(Gtk.Label(label="Diese Addons installieren:", xalign=0), False, False, 0)
+        box.pack_start(Gtk.Label(label=_("Diese Addons installieren:"), xalign=0), False, False, 0)
         inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         checks = []
         for it in items:
-            ch = f"  [{it['channel']}]" if it.get("channel") else ""
-            cb = Gtk.CheckButton(label=(f"{it['name']}  ({it['source']})" if it["name"] != it["source"] else it["name"]) + ch + ("  – schon installiert" if it["installed"] else ""),
+            ch = "  [{}]".format(it["channel"]) if it.get("channel") else ""
+            cb = Gtk.CheckButton(label=("{}  ({})".format(it["name"], it["source"]) if it["name"] != it["source"] else it["name"]) + ch
+                                 + (_("  – schon installiert") if it["installed"] else ""),
                                  active=not it["installed"], sensitive=not it["installed"])
             checks.append((cb, it))
             inner.pack_start(cb, False, False, 0)
@@ -2114,9 +2152,9 @@ class App:
     # ------------------------------------------------------------ Einstellungen u. a.
     def on_settings(self, *_a):
         m = self.mgr
-        d = make_dialog("Einstellungen", self.win, 540)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        add_button(d, "Speichern", Gtk.ResponseType.OK, suggested=True)
+        d = make_dialog(_("Einstellungen"), self.win, 540)
+        d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+        add_button(d, _("Speichern"), Gtk.ResponseType.OK, suggested=True)
         sc = Gtk.ScrolledWindow(hexpand=True, vexpand=True, propagate_natural_height=True, max_content_height=540)
         sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_end=6)
@@ -2124,7 +2162,7 @@ class App:
         d.get_content_area().pack_start(sc, True, True, 0)
 
         def section(text, top=8):
-            box.pack_start(Gtk.Label(xalign=0, use_markup=True, label=f"<b>{text}</b>", margin_top=top), False, False, 0)
+            box.pack_start(Gtk.Label(xalign=0, use_markup=True, label="<b>{}</b>".format(GLib.markup_escape_text(text)), margin_top=top), False, False, 0)
 
         def check(label, active, sens=True):
             c = Gtk.CheckButton(label=label)
@@ -2132,20 +2170,20 @@ class App:
             c.set_sensitive(sens)
             box.pack_start(c, False, False, 0)
             return c
-        section("CurseForge-API-Key", 0)
+        section(_("CurseForge-API-Key"), 0)
         key = Gtk.Entry(visibility=False, hexpand=True)
         current = m.cfg["curseforge_api_key"]
-        key.set_placeholder_text(core.mask(current) if current else "Key einfügen …")
+        key.set_placeholder_text(core.mask(current) if current else _("Key einfügen …"))
         box.pack_start(key, False, False, 0)
-        link = Gtk.LinkButton.new_with_label(core.CF_KEY_URL, "Kostenlosen Key erzeugen (console.curseforge.com)")
+        link = Gtk.LinkButton.new_with_label(core.CF_KEY_URL, _("Kostenlosen Key erzeugen (console.curseforge.com)"))
         link.set_halign(Gtk.Align.START)
         box.pack_start(link, False, False, 0)
-        clear = check("Gespeicherten Key löschen", False, bool(current))
-        section("Anzeige und Download")
-        beta = check("Beta-Versionen anzeigen", m.cfg["include_beta"])
-        classic = check("Klassisches Theme (dunkel, Gold-Akzente)", m.cfg["classic_theme"])
-        direct = check("Direkt-Download für Addons ohne API-Freigabe", m.cfg["direct_download"])
-        sv = check("Vor Updates die Addon-Einstellungen (SavedVariables) sichern", m.cfg["sv_backup"])
+        clear = check(_("Gespeicherten Key löschen"), False, bool(current))
+        section(_("Anzeige und Download"))
+        beta = check(_("Beta-Versionen anzeigen"), m.cfg["include_beta"])
+        classic = check(_("Klassisches Theme (dunkel, Gold-Akzente)"), m.cfg["classic_theme"])
+        direct = check(_("Direkt-Download für Addons ohne API-Freigabe"), m.cfg["direct_download"])
+        sv = check(_("Vor Updates die Addon-Einstellungen (SavedVariables) sichern"), m.cfg["sv_backup"])
         section(_("Sprache"))
         lang_row = Gtk.Box(spacing=8)
         lang = Gtk.ComboBoxText()
@@ -2157,72 +2195,72 @@ class App:
         lang_hint.get_style_context().add_class("wfa-dim")
         lang_row.pack_start(lang_hint, False, False, 0)
         box.pack_start(lang_row, False, False, 0)
-        section("AddOns-Ordner")
+        section(_("AddOns-Ordner"))
         path = Gtk.Label(xalign=0, selectable=True, wrap=True, label=short_path(m.addons_dir) if m.addons_dir else "–")
         box.pack_start(path, False, False, 0)
         changed = []
 
-        def change(*_):
+        def change(*_a):
             if choose_addons_dir(m, d):
                 path.set_text(short_path(m.addons_dir))
                 changed.append(True)
-        b1 = Gtk.Button(label="Ändern / automatisch suchen …", halign=Gtk.Align.START)
+        b1 = Gtk.Button(label=_("Ändern / automatisch suchen …"), halign=Gtk.Align.START)
         b1.connect("clicked", change)
         box.pack_start(b1, False, False, 0)
-        section("Download-Ordner")
+        section(_("Download-Ordner"))
         dl_label = Gtk.Label(xalign=0, selectable=True, wrap=True, max_width_chars=60, label=m.download_summary())
         box.pack_start(dl_label, False, False, 0)
         drow = Gtk.Box(spacing=6)
 
-        def pick_dl(*_):
-            f = choose_folder(d, "Download-Ordner wählen")
+        def pick_dl(*_a):
+            f = choose_folder(d, _("Download-Ordner wählen"))
             if f:
                 m.set_download_dir(f)
                 dl_label.set_text(m.download_summary())
 
-        def auto_dl(*_):
+        def auto_dl(*_a):
             m.set_download_dir(None)
             dl_label.set_text(m.download_summary())
-        b2 = Gtk.Button(label="Ordner wählen …")
+        b2 = Gtk.Button(label=_("Ordner wählen …"))
         b2.connect("clicked", pick_dl)
-        b3 = Gtk.Button(label="Automatisch (aus Browser)")
+        b3 = Gtk.Button(label=_("Automatisch (aus Browser)"))
         b3.connect("clicked", auto_dl)
         drow.pack_start(b2, False, False, 0)
         drow.pack_start(b3, False, False, 0)
         box.pack_start(drow, False, False, 0)
 
-        section("Hintergrund")
+        section(_("Hintergrund"))
         bgd = self.background
         if bgd is None or not bgd.available:
             hint = Gtk.Label(xalign=0, wrap=True, max_width_chars=60, use_markup=True,
-                             label=f'<span foreground="{ORANGE}">Kein Tray verfügbar (kein StatusNotifier-Host gefunden). '
-                                   "Das Schließen des Fensters beendet dann das Programm.</span>")
+                             label=colored(ORANGE, _("Kein Tray verfügbar (kein StatusNotifier-Host gefunden). "
+                                                     "Das Schließen des Fensters beendet dann das Programm.")))
             box.pack_start(hint, False, False, 0)
         autostart_on = bool(m.cfg["autostart_portal"]) if core.in_flatpak() else core.autostart_enabled()
-        autostart = check("Beim Systemstart im Tray starten", autostart_on)
-        to_tray = check("Fenster schließen minimiert in den Tray", m.cfg["close_to_tray"])
+        autostart = check(_("Beim Systemstart im Tray starten"), autostart_on)
+        to_tray = check(_("Fenster schließen minimiert in den Tray"), m.cfg["close_to_tray"])
         irow = Gtk.Box(spacing=8)
-        irow.pack_start(Gtk.Label(label="Prüfintervall (Minuten)"), False, False, 0)
+        irow.pack_start(Gtk.Label(label=_("Prüfintervall (Minuten)")), False, False, 0)
         spin = Gtk.SpinButton.new_with_range(15, 1440, 5)
         spin.set_value(max(15, min(1440, int(m.cfg["check_interval_min"]))))
         irow.pack_start(spin, False, False, 0)
         box.pack_start(irow, False, False, 0)
-        auto = check("Updates automatisch installieren (nur wenn WoW nicht läuft)", m.cfg["auto_update"])
+        auto = check(_("Updates automatisch installieren (nur wenn WoW nicht läuft)"), m.cfg["auto_update"])
         if core.in_flatpak() and not core.host_spawn_available():
             wl = Gtk.Label(xalign=0, wrap=True, selectable=True, max_width_chars=70,
-                           label="Im Flatpak ist nicht erkennbar, ob WoW läuft; Updates werden deshalb nur gemeldet, "
-                                 "nicht still installiert. Erkennung freigeben (erlaubt dem Programm, Befehle "
-                                 f"außerhalb der Sandbox zu starten):\n{core.WOW_DETECT_OVERRIDE}")
+                           label=_("Im Flatpak ist nicht erkennbar, ob WoW läuft; Updates werden deshalb nur gemeldet, "
+                                   "nicht still installiert. Erkennung freigeben (erlaubt dem Programm, Befehle "
+                                   "außerhalb der Sandbox zu starten):\n{command}").format(command=core.WOW_DETECT_OVERRIDE))
             wl.get_style_context().add_class("dim-label")
             box.pack_start(wl, False, False, 0)
-        section("Programm-Updates")
-        su_check = check("Beim Start nach Programm-Updates suchen", m.cfg["self_update_check"])
-        su_auto = check("Programm-Updates automatisch installieren", m.cfg["self_auto_update"])
+        section(_("Programm-Updates"))
+        su_check = check(_("Beim Start nach Programm-Updates suchen"), m.cfg["self_update_check"])
+        su_auto = check(_("Programm-Updates automatisch installieren"), m.cfg["self_auto_update"])
         if core.managed_install():
             for c in (su_check, su_auto):
                 c.set_no_show_all(True)
             box.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
-                                     label=f"Programm-Updates kommen über {core.package_channel()}."), False, False, 0)
+                                     label=_("Programm-Updates kommen über {channel}.").format(channel=core.package_channel())), False, False, 0)
         section(_("Erweitert"))
         expert = check(_("Erweiterte Funktionen anzeigen"), m.cfg["expert"])
         box.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
@@ -2267,7 +2305,7 @@ class App:
             try:
                 core.set_autostart(on)
             except OSError as e:
-                message(parent or self.win, "Autostart fehlgeschlagen", str(e), Gtk.MessageType.ERROR)
+                message(parent or self.win, _("Autostart fehlgeschlagen"), str(e), Gtk.MessageType.ERROR)
             return
         import wfa_portal
 
@@ -2276,10 +2314,10 @@ class App:
                 with self.mgr.cfg.lock:
                     self.mgr.cfg["autostart_portal"] = bool(on)
                     self.mgr.cfg.save()
-                self.log("Autostart " + ("eingerichtet." if on else "entfernt."))
+                self.log(_("Autostart eingerichtet.") if on else _("Autostart entfernt."))
             else:
-                self.log(f"Autostart: {text}")
-                message(self.win, "Autostart fehlgeschlagen", text, Gtk.MessageType.ERROR)
+                self.log(_("Autostart: {text}").format(text=text))
+                message(self.win, _("Autostart fehlgeschlagen"), text, Gtk.MessageType.ERROR)
         wfa_portal.request_autostart(on, done)
 
     def set_theme(self, on):
@@ -2287,18 +2325,18 @@ class App:
         apply_theme(on)
         self.render(marked)
 
-    def on_desktop_entry(self, *_):
+    def on_desktop_entry(self, *_a):
         try:
             p = core.install_desktop_entry()
         except OSError as e:
-            message(self.win, "Startmenü-Eintrag fehlgeschlagen", str(e), Gtk.MessageType.ERROR)
+            message(self.win, _("Startmenü-Eintrag fehlgeschlagen"), str(e), Gtk.MessageType.ERROR)
             return
-        message(self.win, "Startmenü-Eintrag angelegt", short_path(p))
+        message(self.win, _("Startmenü-Eintrag angelegt"), short_path(p))
 
-    def on_about(self, *_):
+    def on_about(self, *_a):
         d = Gtk.AboutDialog(transient_for=self.win, modal=True, program_name=TITLE, version=core.__version__,
-                            comments="Inoffizieller Addon-Manager für WoW: Forever unter Linux.\n"
-                                     "Nicht mit Blizzard oder CurseForge verbunden.",
+                            comments=_("Inoffizieller Addon-Manager für WoW: Forever unter Linux.\n"
+                                       "Nicht mit Blizzard oder CurseForge verbunden."),
                             website=REPO_URL, license_type=Gtk.License.MIT_X11, copyright="© 2026 m3rtl")
         logo = load_icon(96)
         if logo:
@@ -2333,21 +2371,21 @@ class App:
         su = self.selfupdate_module()
         if su is None or not su.enabled():
             if manual:
-                message(self.win, "Nicht verfügbar", f"Programm-Updates kommen über {core.package_channel()}."
-                        if su is not None else "Die Programm-Updates sind in dieser Version nicht enthalten.")
+                message(self.win, _("Nicht verfügbar"), _("Programm-Updates kommen über {channel}.").format(channel=core.package_channel())
+                        if su is not None else _("Die Programm-Updates sind in dieser Version nicht enthalten."))
             return
 
         def done(rel, err):
             if err:
-                self.log(f"Programm-Update-Prüfung fehlgeschlagen: {err_text(err)}")
+                self.log(_("Programm-Update-Prüfung fehlgeschlagen: {error}").format(error=err_text(err)))
                 if manual:
-                    message(self.win, "Prüfung fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
+                    message(self.win, _("Prüfung fehlgeschlagen"), err_text(err), Gtk.MessageType.ERROR)
             elif rel:
                 self.on_self_update_available(rel, manual)
                 if manual:
                     self.self_update(rel, True)
             elif manual:
-                message(self.win, "Kein Update", f"Du nutzt die aktuelle Version ({core.__version__}).")
+                message(self.win, _("Kein Update"), _("Du nutzt die aktuelle Version ({version}).").format(version=core.__version__))
             return False
         run_in_thread(su.check, done)
 
@@ -2355,8 +2393,8 @@ class App:
         if not force and rel.version == self.mgr.cfg["self_update_skipped"]:
             return
         self.self_rel = rel
-        self.show_infobar(f"Version {rel.version} des Addon-Managers ist verfügbar.",
-                          [("Aktualisieren", 1, True), ("Details", 2, False), ("Überspringen", 3, False)],
+        self.show_infobar(_("Version {version} des Addon-Managers ist verfügbar.").format(version=rel.version),
+                          [(_("Aktualisieren"), 1, True), (_("Details"), 2, False), (_("Überspringen"), 3, False)],
                           lambda r: self.on_infobar(rel, r))
 
     def on_infobar(self, rel, r):
@@ -2393,17 +2431,18 @@ class App:
         can = bool(su and su.can_self_update())
         if interactive:
             self.present()
-        d = make_dialog(f"Programm-Update {rel.version}", self.win, 600, 420)
-        d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        add_button(d, "Jetzt aktualisieren" if can else "Release-Seite öffnen", Gtk.ResponseType.OK, suggested=True)
+        d = make_dialog(_("Programm-Update {version}").format(version=rel.version), self.win, 600, 420)
+        d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+        add_button(d, _("Jetzt aktualisieren") if can else _("Release-Seite öffnen"), Gtk.ResponseType.OK, suggested=True)
         box = d.get_content_area()
-        box.pack_start(Gtk.Label(xalign=0, use_markup=True, wrap=True, label=(
-            f"<b>Version {GLib.markup_escape_text(rel.version)}</b> (installiert: {core.__version__})")), False, False, 0)
+        box.pack_start(Gtk.Label(xalign=0, use_markup=True, wrap=True, label="<b>{}</b>{}".format(
+            GLib.markup_escape_text(_("Version {version}").format(version=rel.version)),
+            GLib.markup_escape_text(_(" (installiert: {version})").format(version=core.__version__)))), False, False, 0)
         if not can:
-            box.pack_start(Gtk.Label(xalign=0, wrap=True, label="Dieses Programm läuft nicht als einzelne ausführbare "
-                                     "Datei und kann sich nicht selbst ersetzen. Die Release-Seite wird im Browser geöffnet."),
+            box.pack_start(Gtk.Label(xalign=0, wrap=True, label=_("Dieses Programm läuft nicht als einzelne ausführbare "
+                                       "Datei und kann sich nicht selbst ersetzen. Die Release-Seite wird im Browser geöffnet.")),
                            False, False, 0)
-        box.pack_start(text_view_scroller(rel.notes or "(Keine Release-Notes vorhanden.)", 540, 260), True, True, 0)
+        box.pack_start(text_view_scroller(rel.notes or _("(Keine Release-Notes vorhanden.)"), 540, 260), True, True, 0)
         d.show_all()
         ok = d.run() == Gtk.ResponseType.OK
         d.destroy()
@@ -2422,10 +2461,10 @@ class App:
         cancel = threading.Event()
         d = bar = None
         if show_progress:
-            d = make_dialog("Programm-Update", self.win, 420)
-            d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-            d.connect("response", lambda *_: cancel.set())
-            bar = Gtk.ProgressBar(show_text=True, text=f"Lade Version {rel.version} …")
+            d = make_dialog(_("Programm-Update"), self.win, 420)
+            d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+            d.connect("response", lambda *_a: cancel.set())
+            bar = Gtk.ProgressBar(show_text=True, text=_("Lade Version {version} …").format(version=rel.version))
             d.get_content_area().pack_start(bar, False, False, 6)
             d.show_all()
 
@@ -2441,14 +2480,14 @@ class App:
             if d is not None:
                 d.destroy()
             if err:
-                self.log(f"Programm-Update fehlgeschlagen: {err_text(err)}")
+                self.log(_("Programm-Update fehlgeschlagen: {error}").format(error=err_text(err)))
                 if not cancel.is_set():
-                    message(self.win, "Programm-Update fehlgeschlagen", err_text(err), Gtk.MessageType.ERROR)
+                    message(self.win, _("Programm-Update fehlgeschlagen"), err_text(err), Gtk.MessageType.ERROR)
                 return False
-            self.log(f"Programm-Update {rel.version} installiert.")
-            self.show_infobar(f"Version {rel.version} installiert – Neustart nötig.", [("Neu starten", 4, True)],
+            self.log(_("Programm-Update {version} installiert.").format(version=rel.version))
+            self.show_infobar(_("Version {version} installiert – Neustart nötig.").format(version=rel.version), [(_("Neu starten"), 4, True)],
                               lambda r: self.restart_self())
-            if show_progress and ask(self.win, "Update installiert", "Jetzt neu starten?", "Neu starten"):
+            if show_progress and ask(self.win, _("Update installiert"), _("Jetzt neu starten?"), _("Neu starten")):
                 self.restart_self()
             return False
         run_in_thread(lambda: su.install(rel, progress=progress, cancel=cancel), done)
@@ -2468,7 +2507,7 @@ class App:
             subprocess.Popen(["sh", "-c", wait, str(os.getpid()), *cmd], env=env, start_new_session=True,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:  # noqa: BLE001
-            message(self.win, "Neustart fehlgeschlagen", str(e), Gtk.MessageType.ERROR)
+            message(self.win, _("Neustart fehlgeschlagen"), str(e), Gtk.MessageType.ERROR)
             return
         self.quit(force=True)
 
@@ -2504,7 +2543,7 @@ class App:
             if a.screenshot_dialog == "new":
                 from wfa_newaddon import NewAddonDialog
                 dlg = NewAddonDialog(self.win, self.mgr)
-                dlg.connect("response", lambda *_: None)
+                dlg.connect("response", lambda *_a: None)
                 start = time.time()
 
                 def wait_dialog():

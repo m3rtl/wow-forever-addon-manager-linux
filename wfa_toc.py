@@ -6,6 +6,7 @@ import re
 import struct
 from pathlib import Path
 
+from wfa_i18n import N_
 from wfa_base import CURRENT, DEFAULT_CLIENT, FOREVER_RE, NEWER, UNKNOWN, UPDATE, _read_text
 
 # ---------------------------------------------------------------- TOC / Versionen
@@ -53,10 +54,10 @@ def forever_toc(folder, client=DEFAULT_CLIENT):
             chosen = folder / files[cand.lower()]
             break
     if not chosen:
-        return "nein", None, None
+        return N_("nein"), None, None
     meta = parse_toc(chosen)
     f16 = [i for i in interfaces(meta) if 16000 <= i < 17000]
-    status = "nein" if not f16 else ("ok" if max(f16) >= client else "veraltet")
+    status = N_("nein") if not f16 else (N_("ok") if max(f16) >= client else N_("veraltet"))
     ver = meta.get("version")
     if not ver or "@" in ver:
         base = files.get(f"{n}.toc".lower())

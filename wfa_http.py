@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-from wfa_i18n import _
+from wfa_i18n import _, current
 from wfa_base import ApiError, DL_TIMEOUT, MAX_DOWNLOAD, UA
 
 # ---------------------------------------------------------------- HTTP
@@ -84,7 +84,10 @@ def fmt_size(n):
     n = float(n or 0)
     for unit in ("B", "KB", "MB"):
         if n < 1024 or unit == "MB":
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}".replace(".", ",")
+            if unit == "B":
+                return f"{n:.0f} {unit}"
+            text = f"{n:.1f} {unit}"
+            return text.replace(".", ",") if current() == "de" else text
         n /= 1024
     return ""
 

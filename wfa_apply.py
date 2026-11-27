@@ -11,7 +11,7 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
-from wfa_i18n import _, ngettext
+from wfa_i18n import N_, _, ngettext
 from wfa_base import ApiError, BackupSet, Candidate, KEEP_BACKUPS, Package, Result, UninstallPlan, host_spawn_available, in_flatpak
 from wfa_files import _remove
 from wfa_paths import browser_download_dirs, tilde, xdg_user_dir
@@ -180,8 +180,8 @@ class ApplyMixin:
                         self._record(plan, list(dirs))
                     except Exception as e:
                         self.log(_("Konfiguration konnte nicht gespeichert werden: {error}").format(error=e))
-                    kind = "Automatisch" if origin == "auto" else (
-                        "Installation" if not plan.old_version else "Versionswechsel" if plan.extra.get("pin") else "Update")
+                    kind = N_("Automatisch") if origin == "auto" else (
+                        N_("Installation") if not plan.old_version else N_("Versionswechsel") if plan.extra.get("pin") else N_("Update"))
                     self.add_history(kind, plan.key, plan.name, plan.old_version, plan.new_version, plan.source,
                                      bdir.name if moved else None, sv, list(dirs))
                     results.append(Result(plan.key, plan.name, True, ngettext("1 Ordner installiert", "{n} Ordner installiert", len(dirs)).format(n=len(dirs)),
@@ -275,7 +275,7 @@ class ApplyMixin:
                                               _("Fehler: {error} (Zustand wiederhergestellt)").format(error=e)))
                         continue
                     rec = self.cfg["installed"].get(plan.key) or {}
-                    self.add_history("Deinstallation", plan.key, plan.name, rec.get("version"), None, rec.get("source"),
+                    self.add_history(N_("Deinstallation"), plan.key, plan.name, rec.get("version"), None, rec.get("source"),
                                      bdir.name, None, plan.folders)
                     try:
                         self._forget(plan.folders)
@@ -358,5 +358,5 @@ class ApplyMixin:
                     self.cfg.save()
             with contextlib.suppress(OSError):
                 self._prune_backups()
-        self.add_history("Wiederherstellung", "", ", ".join(names), None, None, None, bdir.name, folders=names)
+        self.add_history(N_("Wiederherstellung"), "", ", ".join(names), None, None, None, bdir.name, folders=names)
         return Result(bset.name, bset.name, True, _("Wiederhergestellt: {names}").format(names=", ".join(names)), bdir.name)

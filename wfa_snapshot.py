@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 import wfa_core
-from wfa_i18n import _
+from wfa_i18n import N_, _
 
 _ID = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
 _ADDONS, _WTF, _META = "addons.tar.gz", "wtf.tar.gz", "meta.json"
@@ -175,7 +175,7 @@ def restore(snap, addons_dir, wtf, snap_root, keep=3) -> Snapshot:
                 _members_ok(tf)
         except tarfile.TarError as e:
             raise ValueError(_("Das Archiv {name} ist beschaedigt: {error}").format(name=arc.name, error=e)) from e
-    safety = create(addons_dir, wtf, snap_root, label="Vor Wiederherstellung", keep=keep, protect={sp.name})
+    safety = create(addons_dir, wtf, snap_root, label=N_("Vor Wiederherstellung"), keep=keep, protect={sp.name})
     done = []
     try:
         for arc, tgt in parts:

@@ -9,7 +9,7 @@ import wfa_i18n
 
 PO_FILE = ROOT / "assets" / "locale" / "en.po"
 # Dateien, deren Texte noch nicht in en.po stehen; der spaetere Schritt leert die Menge.
-PENDING = {"wfa_gui.py", "wfa_cli.py", "wfa_expert.py", "wow-forever-addon-manager.py"}
+PENDING: set = set()
 FUNCS = ("_", "N_", "ngettext")
 PLACEHOLDER = re.compile(r"\{([^{}]*)\}")
 

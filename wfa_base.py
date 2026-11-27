@@ -8,7 +8,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from wfa_i18n import _
+from wfa_i18n import N_, _
 
 __version__ = "0.3.0"
 
@@ -32,21 +32,21 @@ CF_CDNS = ("https://mediafilez.forgecdn.net", "https://edge.forgecdn.net")
 BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"  # nur fuer Website/CDN-Downloads
 MAX_IMAGE = 2 * 1024 * 1024
 IMAGE_HOSTS = ("forgecdn.net", "githubusercontent.com", "github.com")
-TYPE_NAMES = {1: "Release", 2: "Beta", 3: "Alpha"}
+TYPE_NAMES = {1: N_("Release"), 2: N_("Beta"), 3: N_("Alpha")}
 SORT_FIELDS = {"downloads": 6, "popularity": 2, "updated": 3, "name": 4}
 
 # Status-Konstanten
 UPDATE = "UPDATE"
-CURRENT = "aktuell"
-NEWER = "lokal neuer"
+CURRENT = N_("aktuell")
+NEWER = N_("lokal neuer")
 UNKNOWN = "?"
-NOKEY = "kein Key"
-UNASSIGNED = "nicht zugeordnet"
-ERROR = "Fehler"
-NO_FOREVER = "keine Forever-Datei"
-HELD = "festgehalten"
-SKIPPED = "ausgelassen"
-UNCHECKED = "nicht geprüft"
+NOKEY = N_("kein Key")
+UNASSIGNED = N_("nicht zugeordnet")
+ERROR = N_("Fehler")
+NO_FOREVER = N_("keine Forever-Datei")
+HELD = N_("festgehalten")
+SKIPPED = N_("ausgelassen")
+UNCHECKED = N_("nicht geprüft")
 
 CATALOG = [
     dict(key="dbm-core", name="Deadly Boss Mods", cf=3358, gh="DeadlyBossMods/DeadlyBossMods",

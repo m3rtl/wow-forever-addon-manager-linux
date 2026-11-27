@@ -402,7 +402,7 @@ class SnapshotsDialog(_Base):
     def load(self):
         self.store.clear()
         for s in wfa_snapshot.list_snapshots(self.root):
-            self.store.append([fmt_iso(s.created), s.label, str(len(s.addons)), core.fmt_size(s.size), s])
+            self.store.append([fmt_iso(s.created), _(s.label) if s.label else "", str(len(s.addons)), core.fmt_size(s.size), s])
         self.empty.set_text("" if len(self.store) else _("Noch keine Gesamtstände vorhanden."))
         self.sync()
 

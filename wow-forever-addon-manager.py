@@ -5,6 +5,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from wfa_i18n import _  # noqa: E402
+
 CLI_FLAGS = {"--cli", "--check", "--addons-dir", "--snapshot", "--snapshots", "--restore-snapshot",
              "--cleanup", "--apply", "--version", "-h", "--help"}
 
@@ -26,10 +28,10 @@ def _gui(argv):
         import wfa_gui
     except ModuleNotFoundError as e:
         if e.name not in ("gi", "wfa_gui"):
-            print(f"GUI nicht startbar ({e}); verwende Kommandozeile.", file=sys.stderr)
+            print(_("GUI nicht startbar ({error}); verwende Kommandozeile.").format(error=e), file=sys.stderr)
         return None
     except Exception as e:
-        print(f"GUI nicht startbar ({e}); verwende Kommandozeile.", file=sys.stderr)
+        print(_("GUI nicht startbar ({error}); verwende Kommandozeile.").format(error=e), file=sys.stderr)
         return None
     return wfa_gui.main(argv)
 
@@ -55,7 +57,7 @@ def main(argv=None):
     if "--install-desktop-entry" in argv:
         import wfa_core
         try:
-            print(f"Startmenü-Eintrag angelegt: {wfa_core.install_desktop_entry()}")
+            print(_("Startmenü-Eintrag angelegt: {path}").format(path=wfa_core.install_desktop_entry()))
         except OSError as e:
             print(e, file=sys.stderr)
             return 1

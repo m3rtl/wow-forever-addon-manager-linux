@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from wfa_i18n import _
+from wfa_i18n import N_, _
 from wfa_base import HISTORY_MAX, KEEP_BACKUPS, Result, SvSet
 
 class SavedVarsMixin:
@@ -150,7 +150,7 @@ class SavedVarsMixin:
                               None, pre)
             self._prune_sv()
         names = sorted({f.stem for f in files}, key=str.lower)
-        self.add_history("Einstellungen", "", ", ".join(names), None, None, None, None, pre)
+        self.add_history(N_("Einstellungen"), "", ", ".join(names), None, None, None, None, pre)
         return Result(sset.name, label, True,
                       _("{files} Dateien zurückgeschrieben ({addons} Addons)").format(files=len(files), addons=len(names)), None, pre)
 

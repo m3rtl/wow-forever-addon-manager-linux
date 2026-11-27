@@ -8,7 +8,7 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from wfa_i18n import _
+from wfa_i18n import N_, _
 from wfa_apply import ApplyMixin
 from wfa_assign import AssignMixin
 from wfa_base import ApiError, CATALOG, CURRENT, DEFAULT_CLIENT, ERROR, FOREVER_TYPE_FALLBACK, HELD, NEWER, NOKEY, NO_FOREVER, Package, SKIPPED, UNASSIGNED, UNCHECKED, UPDATE
@@ -87,10 +87,10 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
 
     def cf_key_state(self):
         if self._key_invalid and self.api_key:
-            return "ungültig"
+            return N_("ungültig")
         if os.environ.get("CF_API_KEY", "").strip():
-            return "aus Umgebung"
-        return "gesetzt" if self.cfg["curseforge_api_key"] else "fehlt"
+            return N_("aus Umgebung")
+        return N_("gesetzt") if self.cfg["curseforge_api_key"] else N_("fehlt")
 
     def set_cf_key(self, key):
         with self.cfg.lock:
