@@ -8,6 +8,8 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/pyinstaller --noconfirm --clean --onefile --name wow-forever-addon-manager \
     --add-data assets:assets \
     --hidden-import wfa_gui --hidden-import wfa_cli --hidden-import wfa_core \
+    --hidden-import wfa_base --hidden-import wfa_paths --hidden-import wfa_http --hidden-import wfa_toc --hidden-import wfa_sources --hidden-import wfa_files --hidden-import wfa_pins \
+    --hidden-import wfa_manager --hidden-import wfa_plan --hidden-import wfa_apply --hidden-import wfa_savedvars --hidden-import wfa_assign \
     --hidden-import wfa_tray --hidden-import wfa_background --hidden-import wfa_newaddon --hidden-import wfa_selfupdate --hidden-import wfa_portal \
     wow-forever-addon-manager.py
 echo "Fertig: dist/wow-forever-addon-manager"
