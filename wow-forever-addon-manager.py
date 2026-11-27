@@ -33,8 +33,24 @@ def _gui(argv):
     return wfa_gui.main(argv)
 
 
+def _setup_language():
+    """Sprache vor dem ersten Text festlegen: WFA_LANG, sonst Einstellung "language", sonst Locale."""
+    import json
+    import wfa_i18n
+    lang = os.environ.get("WFA_LANG")
+    if not lang:
+        try:
+            import wfa_paths
+            with open(wfa_paths.Paths().config_file, encoding="utf-8") as f:
+                lang = json.load(f).get("language")
+        except (OSError, ValueError, AttributeError):
+            lang = None
+    wfa_i18n.setup(lang if isinstance(lang, str) else "auto")
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    _setup_language()
     if "--install-desktop-entry" in argv:
         import wfa_core
         try:

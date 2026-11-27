@@ -198,6 +198,8 @@ SCHEMA = {
     "self_update_check": (bool, True), "self_auto_update": (bool, False), "self_update_skipped": (str, ""),
     "pins": (dict, {}), "channels": (dict, {}), "sv_backup": (bool, True), "assign_failed": (dict, {}),
     "autostart_portal": (bool, False),   # Flatpak: Autostart ueber das Hintergrund-Portal eingerichtet
+    "expert": (bool, False),             # Erweiterte Funktionen im Menue zeigen
+    "language": (str, "auto"),           # auto, de oder en (wfa_i18n)
 }
 
 
