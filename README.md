@@ -44,13 +44,13 @@ Inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Linux 
 
 **Sicherheit**
 - Ersetzte oder deinstallierte Ordner landen im Backup (letzte 5), wiederherstellbar über ☰ → Backups.
-- Gesamtstände (☰ → „Gesamtstände …“): alle Addons und `WTF/Account` als ein Satz sichern (letzte 3) und mit einem Klick wiederherstellen, z. B. vor einem großen Patch. Dazu entstehen automatisch Stände, die du nicht anlegen musst: vor einem Update ab 5 Addons und bei neuer WoW-Version (beides unter ☰ → Einstellungen → „Automatische Gesamtstände“ einstellbar, Standard an). Es bleiben die letzten 2 automatischen Stände, eigene werden nie verdrängt; die Spalte „Art“ unterscheidet „manuell“ und „automatisch“.
+- Gesamtstände (☰ → „Gesamtstände …“): alle Addons und `WTF/Account` als ein Satz sichern (letzte 3) und mit einem Klick wiederherstellen, z. B. vor einem großen Patch. Dazu entstehen automatisch Stände, die du nicht anlegen musst: vor einem Update ab 5 Addons und bei neuer WoW-Version (beides unter ☰ → Einstellungen → „Sicherungen“ einstellbar, Standard an). Es bleiben die letzten 2 automatischen Stände, eigene werden nie verdrängt; die Spalte „Art“ unterscheidet „manuell“ und „automatisch“.
 - SavedVariables-Schnappschuss vor jedem Update (letzte 5, abschaltbar), Wiederherstellen nur bei beendetem WoW.
 - ☰ → „Verlauf …“: „Zurücksetzen“ und „Einstellungen zurücksetzen“ je Addon.
 - Kompatibilitätsprüfung vor jeder Installation, Hinweis wenn WoW zu laufen scheint.
 - Beim Ersetzen von Addon-Ordnern bleibt `WTF` unverändert; geschrieben wird dort nur beim ausdrücklichen Wiederherstellen.
 
-**Erweitert** (☰ → Einstellungen → „Erweiterte Funktionen anzeigen“, Standard aus; dann ☰ → Erweitert mit „Addons je Charakter und Sets …“, „Aufräumen …“ und „Fehleranalyse …“)
+**Erweitert** (☰ → Einstellungen → „Allgemein“ → „Erweiterte Funktionen anzeigen“, Standard aus; dann ☰ → Erweitert mit „Addons je Charakter und Sets …“, „Aufräumen …“ und „Fehleranalyse …“)
 - Addons je Charakter oder für alle Charaktere an- und ausschalten, ohne sie zu deinstallieren.
 - Aufräumen: Speicherbelegung, Einstellungen deinstallierter Addons, verschachtelte Ordner, Ordner ohne TOC. Alles landet erst im Papierkorb (letzte 5) und lässt sich zurücklegen.
 - Addon-Sets (im Dialog „Addons je Charakter und Sets …“): die aktuell angehakten Addons als Set speichern („Speichern als …“, „Umbenennen …“, „Löschen“) und auf einen oder alle Charaktere anwenden, z. B. ein Set „Raid“ und eines „Leveln“. Die Auswahl zeigt zuerst nur eine Vorschau; Abhängigkeiten werden mit eingeschaltet, nicht installierte Addons des Sets gemeldet. Vor dem Schreiben wird `AddOns.txt` gesichert.

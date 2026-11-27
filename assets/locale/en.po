@@ -3744,3 +3744,36 @@ msgstr "Addons per character and sets"
 #: wfa_cli.py
 msgid " (nicht verwaltet)"
 msgstr " (not managed)"
+
+msgid "Allgemein"
+msgstr "General"
+
+msgid "Darstellung"
+msgstr "Appearance"
+
+msgid "WoW-Installationen"
+msgstr "WoW installations"
+
+msgid "Hier sucht das Programm nach Addon-Dateien, die du im Browser heruntergeladen hast."
+msgstr "This is where the program looks for addon files you downloaded in your browser."
+
+msgid "Eingabe anzeigen"
+msgstr "Show input"
+
+msgid "Hinweise"
+msgstr "Notices"
+
+msgid "Sicherungen"
+msgstr "Backups"
+
+msgid "Addon-Einstellungen"
+msgstr "Addon settings"
+
+msgid "Tray"
+msgstr "Tray"
+
+msgid "Update-Prüfung"
+msgstr "Update check"
+
+msgid "Steam, Lutris oder Heroic können Addons vor jedem Spielstart aktualisieren."
+msgstr "Steam, Lutris or Heroic can update addons before every game launch."

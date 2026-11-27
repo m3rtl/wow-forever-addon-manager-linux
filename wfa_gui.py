@@ -118,6 +118,15 @@ menu, .menu, popover, popover.background { background-color: @wfa_panel; border:
 menuitem:hover, modelbutton:hover { background-color: #8a6a1c; color: #fff8e0; }
 stackswitcher button:checked { background-image: linear-gradient(#efd78b, #b98a1d); color: #2a1d02; }
 notebook header { background-color: #1a2240; }
+stacksidebar, stacksidebar list { background-color: @wfa_panel; }
+stacksidebar scrolledwindow { border: 1px solid @wfa_bronze; }
+stacksidebar separator { background-color: transparent; min-height: 0; }
+stacksidebar row { padding: 8px 12px; }
+stacksidebar row label { color: @wfa_text; }
+stacksidebar row, stacksidebar row:focus { background-image: none; background-color: transparent; box-shadow: none; outline-color: @wfa_bronze; }
+stacksidebar row:hover { background-color: #2b3659; }
+stacksidebar row:selected, stacksidebar row:selected:focus { background-image: none; background-color: #8a6a1c; }
+stacksidebar row:selected label { color: #fff8e0; font-weight: bold; }
 tooltip, tooltip.background { background-color: @wfa_panel; color: @wfa_text; border: 1px solid @wfa_bronze; }
 separator { background-color: @wfa_bronze; }
 expander title { color: @wfa_gold_hi; }
@@ -440,7 +449,8 @@ class App:
     def build_window(self):
         w = self.win = Gtk.Window(title=TITLE)
         w.set_default_size(1100, 680)
-        hb = self.header = Gtk.HeaderBar(show_close_button=True, title=TITLE)
+        hb = self.header = Gtk.HeaderBar(show_close_button=True)
+        hb.set_custom_title(Gtk.Box())   # bewusst leer: kein Titel, kein Pfad
         w.set_titlebar(hb)
         self.refresh_btn = Gtk.Button(tooltip_text=_("Auf Updates prüfen (F5)"))
         self.refresh_stack = Gtk.Stack()
@@ -659,11 +669,12 @@ class App:
         GLib.idle_add(lambda: (self.log_view.scroll_to_iter(self.log_buf.get_end_iter(), 0, False, 0, 0), False)[1])
 
     def update_subtitle(self):
-        path = short_path(self.mgr.addons_dir) if self.mgr.addons_dir else ""
+        """Installations-Umschalter in der Kopfzeile pflegen (Titel und Pfad stehen dort bewusst nicht mehr)."""
         insts = self.mgr.installations()
         cur = next((e for e in insts if e["active"]), None)
         many = len(insts) >= 2
-        self.header.set_subtitle("{} · {}".format(cur["name"], path) if many and cur else path)
+        if cur:
+            self.inst_btn.set_tooltip_text("{}\n{}".format(_("Installation wechseln"), short_path(cur["path"])))
         self.inst_btn.set_visible(many)
         if many:
             self.inst_label.set_text(cur["name"] if cur else "–")
@@ -2343,64 +2354,59 @@ class App:
     # ------------------------------------------------------------ Einstellungen u. a.
     def on_settings(self, *_a, focus=None):
         m = self.mgr
-        d = make_dialog(_("Einstellungen"), self.win, 540)
+        d = make_dialog(_("Einstellungen"), self.win, 760, 540)
         d.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
         add_button(d, _("Speichern"), Gtk.ResponseType.OK, suggested=True)
-        sc = Gtk.ScrolledWindow(hexpand=True, vexpand=True, propagate_natural_height=True, max_content_height=540)
-        sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_end=6)
-        sc.add(box)
-        d.get_content_area().pack_start(sc, True, True, 0)
+        stack = Gtk.Stack(hexpand=True, vexpand=True)
+        side = Gtk.StackSidebar(stack=stack, vexpand=True)
+        side.set_size_request(170, -1)
+        body = Gtk.Box(spacing=12)
+        body.pack_start(side, False, False, 0)
+        body.pack_start(stack, True, True, 0)
+        d.get_content_area().pack_start(body, True, True, 0)
 
-        def section(text, top=8):
-            box.pack_start(Gtk.Label(xalign=0, use_markup=True, label="<b>{}</b>".format(GLib.markup_escape_text(text)), margin_top=top), False, False, 0)
+        def page(name, title):
+            sc = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+            sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_end=12, margin_bottom=8)
+            sc.add(b)
+            stack.add_titled(sc, name, title)
+            return b
 
-        def check(label, active, sens=True):
+        def section(box, text, top=14):
+            box.pack_start(Gtk.Label(xalign=0, use_markup=True, margin_top=top,
+                                     label="<b>{}</b>".format(GLib.markup_escape_text(text))), False, False, 0)
+
+        def note(box, text, markup=False):
+            lb = Gtk.Label(xalign=0, wrap=True, selectable=True, max_width_chars=64, margin_start=26)
+            lb.set_markup(text) if markup else lb.set_text(text)
+            lb.get_style_context().add_class("dim-label")
+            box.pack_start(lb, False, False, 0)
+            return lb
+
+        def check(box, label, active, sens=True, hint=None):
             c = Gtk.CheckButton(label=label)
             c.set_active(bool(active))
             c.set_sensitive(sens)
             box.pack_start(c, False, False, 0)
+            if hint:
+                note(box, hint)
             return c
-        section(_("CurseForge-API-Key"), 0)
-        key = Gtk.Entry(visibility=False, hexpand=True)
-        current = m.cfg["curseforge_api_key"]
-        key.set_placeholder_text(core.mask(current) if current else _("Key einfügen …"))
-        box.pack_start(key, False, False, 0)
-        link = Gtk.LinkButton.new_with_label(core.CF_KEY_URL, _("Kostenlosen Key erzeugen (console.curseforge.com)"))
-        link.set_halign(Gtk.Align.START)
-        box.pack_start(link, False, False, 0)
-        clear = check(_("Gespeicherten Key löschen"), False, bool(current))
-        section(_("Anzeige und Download"))
-        beta = check(_("Beta-Versionen anzeigen"), m.cfg["include_beta"])
-        classic = check(_("Klassisches Theme (dunkel, Gold-Akzente)"), m.cfg["classic_theme"])
-        direct = check(_("Direkt-Download für Addons ohne API-Freigabe"), m.cfg["direct_download"])
-        sv = check(_("Vor Updates die Addon-Einstellungen (SavedVariables) sichern"), m.cfg["sv_backup"])
-        srow = Gtk.Box(spacing=8)
-        srow.pack_start(Gtk.Label(label=_("Hinweis „lange kein Update“ nach")), False, False, 0)
-        stale = Gtk.SpinButton.new_with_range(0, 720, 30)
-        stale.set_value(max(0, min(720, int(m.cfg["stale_days"] or 0))))
-        srow.pack_start(stale, False, False, 0)
-        srow.pack_start(Gtk.Label(label=_("Tagen (0 = aus)")), False, False, 0)
-        box.pack_start(srow, False, False, 0)
-        section(_("Automatische Gesamtstände"))
-        arow = Gtk.Box(spacing=8)
-        snap_min = int(m.cfg["auto_snapshot_min"] or 0)
-        snap_on = Gtk.CheckButton(label=_("Vor Updates automatisch sichern, ab"), active=snap_min > 0)
-        snap_n = Gtk.SpinButton.new_with_range(2, 50, 1)
-        snap_n.set_value(max(2, min(50, snap_min or 5)))
-        snap_n.set_sensitive(snap_min > 0)
-        snap_on.connect("toggled", lambda c: snap_n.set_sensitive(c.get_active()))
-        arow.pack_start(snap_on, False, False, 0)
-        arow.pack_start(snap_n, False, False, 0)
-        arow.pack_start(Gtk.Label(label=_("Addons")), False, False, 0)
-        box.pack_start(arow, False, False, 0)
-        snap_client = check(_("Bei neuer WoW-Version automatisch sichern"), m.cfg["auto_snapshot_client"])
-        sn = Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
-                       label=_("Es bleiben die letzten 2 automatischen Stände; eigene Stände werden nie verdrängt. "
-                               "Wiederherstellen: ☰ → Gesamtstände."))
-        sn.get_style_context().add_class("dim-label")
-        box.pack_start(sn, False, False, 0)
-        section(_("Sprache"))
+
+        def spin_row(box, before, lo, hi, step, value, after):
+            row = Gtk.Box(spacing=8)
+            row.pack_start(Gtk.Label(label=before), False, False, 0)
+            sp = Gtk.SpinButton.new_with_range(lo, hi, step)
+            sp.set_value(max(lo, min(hi, int(value or 0))))
+            row.pack_start(sp, False, False, 0)
+            if after:
+                row.pack_start(Gtk.Label(label=after), False, False, 0)
+            box.pack_start(row, False, False, 0)
+            return sp, row
+
+        # --- Allgemein
+        gbox = page("general", _("Allgemein"))
+        section(gbox, _("Sprache"), 0)
         lang_row = Gtk.Box(spacing=8)
         lang = Gtk.ComboBoxText()
         for lid, text in (("auto", _("Automatisch")), ("de", "Deutsch"), ("en", "English")):
@@ -2408,10 +2414,26 @@ class App:
         lang.set_active_id(m.cfg["language"] if m.cfg["language"] in ("auto", "de", "en") else "auto")
         lang_row.pack_start(lang, False, False, 0)
         lang_hint = Gtk.Label(label=_("Wirkt nach einem Neustart"))
-        lang_hint.get_style_context().add_class("wfa-dim")
+        lang_hint.get_style_context().add_class("dim-label")
         lang_row.pack_start(lang_hint, False, False, 0)
-        box.pack_start(lang_row, False, False, 0)
-        section(_("Installationen"))
+        gbox.pack_start(lang_row, False, False, 0)
+        section(gbox, _("Darstellung"))
+        classic = check(gbox, _("Klassisches Theme (dunkel, Gold-Akzente)"), m.cfg["classic_theme"])
+        expert = check(gbox, _("Erweiterte Funktionen anzeigen"), m.cfg["expert"],
+                       hint=_("Blendet im Menü „Erweitert“ ein: Addons je Charakter und Sets, Aufräumen, Fehleranalyse."))
+        section(gbox, _("Programm-Updates"))
+        su_check = check(gbox, _("Beim Start nach Programm-Updates suchen"), m.cfg["self_update_check"])
+        su_auto = check(gbox, _("Programm-Updates automatisch installieren"), m.cfg["self_auto_update"])
+        su_check.connect("toggled", lambda c: su_auto.set_sensitive(c.get_active()))
+        su_auto.set_sensitive(su_check.get_active())
+        if core.managed_install():
+            for c in (su_check, su_auto):
+                c.set_no_show_all(True)
+            note(gbox, _("Programm-Updates kommen über {channel}.").format(channel=core.package_channel()))
+
+        # --- Installationen
+        ibox = page("installations", _("Installationen"))
+        section(ibox, _("WoW-Installationen"), 0)
         changed = []
         switched = []   # aktive Installation gewechselt
         inst_store = Gtk.ListStore(str, str, str, int)   # Pfad, Name, Ordner, Gewicht
@@ -2421,10 +2443,10 @@ class App:
             c = Gtk.TreeViewColumn(t, r, text=i + 1, weight=3)
             c.set_expand(i == 1)
             inst_tree.append_column(c)
-        isw = Gtk.ScrolledWindow(hexpand=True, propagate_natural_height=True, max_content_height=110, min_content_height=70)
+        isw = Gtk.ScrolledWindow(hexpand=True, propagate_natural_height=True, max_content_height=240, min_content_height=120)
         isw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         isw.add(inst_tree)
-        box.pack_start(isw, False, False, 0)
+        ibox.pack_start(isw, False, False, 0)
         inst_hint = Gtk.Label(xalign=0, wrap=True, max_width_chars=70)
         irow2 = Gtk.Box(spacing=6)
         b_add = Gtk.Button(label=_("Hinzufügen …"))
@@ -2433,8 +2455,8 @@ class App:
         b_act = Gtk.Button(label=_("Aktivieren"))
         for b in (b_add, b_ren, b_del, b_act):
             irow2.pack_start(b, False, False, 0)
-        box.pack_start(irow2, False, False, 0)
-        box.pack_start(inst_hint, False, False, 0)
+        ibox.pack_start(irow2, False, False, 0)
+        ibox.pack_start(inst_hint, False, False, 0)
 
         def sel_inst():
             model, it = inst_tree.get_selection().get_selected()
@@ -2527,10 +2549,12 @@ class App:
         b_del.connect("clicked", remove_inst)
         b_act.connect("clicked", activate_inst)
         reload_insts()
-        section(_("Download-Ordner"))
-        dl_label = Gtk.Label(xalign=0, selectable=True, wrap=True, max_width_chars=60, label=m.download_summary())
-        box.pack_start(dl_label, False, False, 0)
-        drow = Gtk.Box(spacing=6)
+        section(ibox, _("Download-Ordner"))
+        note(ibox, _("Hier sucht das Programm nach Addon-Dateien, die du im Browser heruntergeladen hast."))
+        dl_label = Gtk.Label(xalign=0, selectable=True, wrap=True, max_width_chars=60, margin_start=26,
+                             label=m.download_summary())
+        ibox.pack_start(dl_label, False, False, 0)
+        drow = Gtk.Box(spacing=6, margin_start=26)
 
         def pick_dl(*_a):
             f = choose_folder(d, _("Download-Ordner wählen"))
@@ -2547,57 +2571,79 @@ class App:
         b3.connect("clicked", auto_dl)
         drow.pack_start(b2, False, False, 0)
         drow.pack_start(b3, False, False, 0)
-        box.pack_start(drow, False, False, 0)
+        ibox.pack_start(drow, False, False, 0)
 
-        section(_("Hintergrund"))
+        # --- Addons
+        abox = page("addons", _("Addons"))
+        section(abox, _("CurseForge-API-Key"), 0)
+        key = Gtk.Entry(visibility=False, hexpand=True)
+        current = m.cfg["curseforge_api_key"]
+        key.set_placeholder_text(core.mask(current) if current else _("Key einfügen …"))
+        key.set_icon_from_icon_name(Gtk.EntryIconPosition.SECONDARY, "view-reveal-symbolic")
+        key.set_icon_tooltip_text(Gtk.EntryIconPosition.SECONDARY, _("Eingabe anzeigen"))
+        key.connect("icon-press", lambda e, *_a: e.set_visibility(not e.get_visibility()))
+        abox.pack_start(key, False, False, 0)
+        link = Gtk.LinkButton.new_with_label(core.CF_KEY_URL, _("Kostenlosen Key erzeugen (console.curseforge.com)"))
+        link.set_halign(Gtk.Align.START)
+        abox.pack_start(link, False, False, 0)
+        clear = check(abox, _("Gespeicherten Key löschen"), False, bool(current))
+        clear.connect("toggled", lambda c: key.set_sensitive(not c.get_active()))
+        section(abox, _("Downloads"))
+        beta = check(abox, _("Beta-Versionen anzeigen"), m.cfg["include_beta"])
+        direct = check(abox, _("Direkt-Download für Addons ohne API-Freigabe"), m.cfg["direct_download"])
+        section(abox, _("Hinweise"))
+        stale, _r = spin_row(abox, _("Hinweis „lange kein Update“ nach"), 0, 720, 30, m.cfg["stale_days"],
+                             _("Tagen (0 = aus)"))
+
+        # --- Sicherungen
+        sbox = page("backups", _("Sicherungen"))
+        section(sbox, _("Addon-Einstellungen"), 0)
+        sv = check(sbox, _("Vor Updates die Addon-Einstellungen (SavedVariables) sichern"), m.cfg["sv_backup"])
+        section(sbox, _("Automatische Gesamtstände"))
+        arow = Gtk.Box(spacing=8)
+        snap_min = int(m.cfg["auto_snapshot_min"] or 0)
+        snap_on = Gtk.CheckButton(label=_("Vor Updates automatisch sichern, ab"), active=snap_min > 0)
+        snap_n = Gtk.SpinButton.new_with_range(2, 50, 1)
+        snap_n.set_value(max(2, min(50, snap_min or 5)))
+        snap_n.set_sensitive(snap_min > 0)
+        snap_on.connect("toggled", lambda c: snap_n.set_sensitive(c.get_active()))
+        arow.pack_start(snap_on, False, False, 0)
+        arow.pack_start(snap_n, False, False, 0)
+        arow.pack_start(Gtk.Label(label=_("Addons")), False, False, 0)
+        sbox.pack_start(arow, False, False, 0)
+        snap_client = check(sbox, _("Bei neuer WoW-Version automatisch sichern"), m.cfg["auto_snapshot_client"])
+        note(sbox, _("Es bleiben die letzten 2 automatischen Stände; eigene Stände werden nie verdrängt. "
+                     "Wiederherstellen: ☰ → Gesamtstände."))
+
+        # --- Hintergrund
+        bbox = page("background", _("Hintergrund"))
+        section(bbox, _("Tray"), 0)
         bgd = self.background
         if bgd is None or not bgd.available:
-            hint = Gtk.Label(xalign=0, wrap=True, max_width_chars=60, use_markup=True,
+            hint = Gtk.Label(xalign=0, wrap=True, max_width_chars=64, use_markup=True,
                              label=colored(ORANGE, _("Kein Tray verfügbar (kein StatusNotifier-Host gefunden). "
                                                      "Das Schließen des Fensters beendet dann das Programm.")))
-            box.pack_start(hint, False, False, 0)
+            bbox.pack_start(hint, False, False, 0)
         autostart_on = bool(m.cfg["autostart_portal"]) if core.in_flatpak() else core.autostart_enabled()
-        autostart = check(_("Beim Systemstart im Tray starten"), autostart_on)
-        to_tray = check(_("Fenster schließen minimiert in den Tray"), m.cfg["close_to_tray"])
-        irow = Gtk.Box(spacing=8)
-        irow.pack_start(Gtk.Label(label=_("Prüfintervall (Minuten)")), False, False, 0)
-        spin = Gtk.SpinButton.new_with_range(15, 1440, 5)
-        spin.set_value(max(15, min(1440, int(m.cfg["check_interval_min"]))))
-        irow.pack_start(spin, False, False, 0)
-        box.pack_start(irow, False, False, 0)
-        auto = check(_("Updates automatisch installieren (nur wenn WoW nicht läuft)"), m.cfg["auto_update"])
+        autostart = check(bbox, _("Beim Systemstart im Tray starten"), autostart_on)
+        to_tray = check(bbox, _("Fenster schließen minimiert in den Tray"), m.cfg["close_to_tray"])
+        section(bbox, _("Update-Prüfung"))
+        spin, _r = spin_row(bbox, _("Prüfintervall (Minuten)"), 15, 1440, 5, m.cfg["check_interval_min"], None)
+        auto = check(bbox, _("Updates automatisch installieren (nur wenn WoW nicht läuft)"), m.cfg["auto_update"])
         if core.in_flatpak() and not core.host_spawn_available():
-            wl = Gtk.Label(xalign=0, wrap=True, selectable=True, max_width_chars=70,
-                           label=_("Im Flatpak ist nicht erkennbar, ob WoW läuft; Updates werden deshalb nur gemeldet, "
-                                   "nicht still installiert. Erkennung freigeben (erlaubt dem Programm, Befehle "
-                                   "außerhalb der Sandbox zu starten):\n{command}").format(command=core.WOW_DETECT_OVERRIDE))
-            wl.get_style_context().add_class("dim-label")
-            box.pack_start(wl, False, False, 0)
-        pre = Gtk.Button(label=_("Updates vor dem Spielstart …"), halign=Gtk.Align.START)
+            note(bbox, _("Im Flatpak ist nicht erkennbar, ob WoW läuft; Updates werden deshalb nur gemeldet, "
+                         "nicht still installiert. Erkennung freigeben (erlaubt dem Programm, Befehle "
+                         "außerhalb der Sandbox zu starten):\n{command}").format(command=core.WOW_DETECT_OVERRIDE))
+        section(bbox, _("Updates vor dem Spielstart"))
+        note(bbox, _("Steam, Lutris oder Heroic können Addons vor jedem Spielstart aktualisieren."))
+        pre = Gtk.Button(label=_("Updates vor dem Spielstart …"), halign=Gtk.Align.START, margin_start=26)
         pre.connect("clicked", lambda *_a: self.on_prelaunch_info(d))
-        box.pack_start(pre, False, False, 0)
-        section(_("Programm-Updates"))
-        su_check = check(_("Beim Start nach Programm-Updates suchen"), m.cfg["self_update_check"])
-        su_auto = check(_("Programm-Updates automatisch installieren"), m.cfg["self_auto_update"])
-        if core.managed_install():
-            for c in (su_check, su_auto):
-                c.set_no_show_all(True)
-            box.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
-                                     label=_("Programm-Updates kommen über {channel}.").format(channel=core.package_channel())), False, False, 0)
-        section(_("Erweitert"))
-        expert = check(_("Erweiterte Funktionen anzeigen"), m.cfg["expert"])
-        box.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
-                                 label=_("Blendet im Menü „Erweitert“ ein: Addons je Charakter und Sets, Aufräumen, Fehleranalyse.")),
-                       False, False, 0)
+        bbox.pack_start(pre, False, False, 0)
         d.show_all()
-        if focus == "installations":
-            def to_installations():
-                pos = isw.translate_coordinates(box, 0, 0)
-                if pos:
-                    sc.get_vadjustment().set_value(max(0, pos[1] - 40))
+        if focus:
+            stack.set_visible_child_name(focus)
+            if focus == "installations":
                 inst_tree.grab_focus()
-                return False
-            GLib.timeout_add(80, to_installations)
         if d.run() == Gtk.ResponseType.OK:
             old_interval = m.cfg["check_interval_min"]
             new = dict(classic_theme=classic.get_active(), direct_download=direct.get_active(),

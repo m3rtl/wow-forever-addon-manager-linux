@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
+## 0.5.1 – 2026-11-27
+
+### Geändert
+
+- **Einstellungen in Kategorien**: Der Dialog hat links eine Seitenleiste mit den Reitern „Allgemein“ (Sprache, Darstellung, Erweiterte Funktionen, Programm-Updates), „Installationen“ (WoW-Installationen, Download-Ordner), „Addons“ (CurseForge-API-Key, Downloads, Hinweise), „Sicherungen“ (SavedVariables, automatische Gesamtstände) und „Hintergrund“ (Tray, Update-Prüfung, Updates vor dem Spielstart). Kurze Erklärungen stehen direkt unter den Optionen.
+- Der CurseForge-Key lässt sich über das Augen-Symbol im Feld sichtbar machen; „Gespeicherten Key löschen“ sperrt das Eingabefeld.
+- „Programm-Updates automatisch installieren“ ist nur wählbar, wenn die Suche nach Programm-Updates eingeschaltet ist.
+- Die Kopfzeile zeigt keinen Programmtitel und keinen Pfad mehr. Der Pfad der aktiven Installation steht im Tooltip des Installations-Umschalters.
+
 ## 0.5.0 – 2026-11-27
 
 ### Neu
