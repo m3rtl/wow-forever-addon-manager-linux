@@ -109,6 +109,11 @@ def setup_flow(mgr):
 
 def header(mgr):
     print(paint(_("== WoW: Forever Addon-Manager {version} ==").format(version=core.__version__), "bold"))
+    insts = mgr.installations()
+    if len(insts) >= 2:
+        cur = next((i for i in insts if i["active"]), None)
+        if cur:
+            print(_("Installation: {name}").format(name=cur["name"]))
     print(_("AddOns:     {path}").format(path=mgr.addons_dir))
     client = (_("(Client {version})").format(version=mgr.client_version) if mgr.client_version
               else _("(aus den Addons geschätzt)"))
@@ -123,7 +128,18 @@ def header(mgr):
         print(_("CurseForge: Key {state}: {key}").format(state=_(state), key=core.mask(mgr.api_key)))
 
 
+def health_info(mgr, pkgs):
+    """-> (Health je Paket-Key, Konflikte); bei Fehlern leer (nur Zusatzanzeige)."""
+    import wfa_health
+    try:
+        return (wfa_health.assess(pkgs, mgr.cfg, mgr.client_interface),
+                wfa_health.conflicts(pkgs, mgr.addons_dir))
+    except Exception:  # noqa: BLE001
+        return {}, []
+
+
 def table(mgr, pkgs):
+    health, conflicts = health_info(mgr, pkgs)
     heads = [_("Nr"), _("Addon"), _("Installiert"), _("Verfügbar"), _("Quelle"), _("Forever"), _("Status")]
     data = []
     for i, p in enumerate(pkgs, 1):
@@ -131,7 +147,7 @@ def table(mgr, pkgs):
         data.append([(str(i), None), (name, None), (core.display_version(p.local_version) or "?", None),
                      ((core.display_version(p.remote.version) if p.remote else "–")
                       + {"beta": " β", "alpha": " α"}.get(p.channel, ""), None), (p.source, None),
-                     (_(p.forever), FOREVER_COLOR.get(p.forever)), (_(p.status), STATUS_COLOR.get(p.status))])
+                     (_(p.forever), FOREVER_COLOR.get(p.forever)), status_cell(p, health.get(p.key))])
     w = [max(len(h), *(len(row[c][0]) for row in data)) if data else len(h) for c, h in enumerate(heads)]
     print(paint("  ".join(h.ljust(w[c]) for c, h in enumerate(heads)), "bold"))
     for row in data:
@@ -139,8 +155,28 @@ def table(mgr, pkgs):
     for p in pkgs:
         if p.pin:
             print(paint(f"* {p.name}: {core.pin_text(p.pin)}", "grey"))
+    for p in pkgs:
+        h = health.get(p.key)
+        if h and h.status == "abandoned":
+            for r in h.reasons:
+                print(paint(f"⚠ {p.name}: {r}", "yellow"))
+    for c in conflicts:
+        names = ", ".join(c.folders)
+        text = (_("Doppelt vorhanden: {folders}").format(folders=names) if c.kind == "duplicate"
+                else _("Der Ordner {folder} gehört zu mehreren Addons").format(folder=names))
+        print(paint(_("Konflikt: {text}").format(text=text), "yellow"))
     for n in dict.fromkeys(mgr.notes):
         print(paint("! " + n, "yellow"))
+
+
+def status_cell(p, h):
+    """Statustext wie in der GUI: verwaist/lange kein Update nur, wenn sonst "aktuell"."""
+    if h and p.status == core.CURRENT:
+        if h.status == "abandoned":
+            return _("⚠ verwaist"), "yellow"
+        if h.status == "stale":
+            return _("◷ lange kein Update"), "grey"
+    return _(p.status), STATUS_COLOR.get(p.status)
 
 
 def refresh(mgr):
@@ -747,6 +783,190 @@ def cleanup_cmd(mgr, apply):
     return code
 
 
+def sets_cmd(mgr):
+    import wfa_sets
+    names = wfa_sets.list_sets(mgr.cfg)
+    if not names:
+        print(_("Keine Sets vorhanden."))
+    for n in names:
+        print(_("{name}  {n} Addons").format(name=n, n=len(wfa_sets.get_set(mgr.cfg, n) or [])))
+    return 0
+
+
+def _pick_chars(chars, wanted):
+    """-> (Liste, Fehlertext|None). wanted: NAME-REALM[@KONTO]; leer = alle."""
+    if not wanted:
+        return list(chars), None
+    out = []
+    for w in wanted:
+        want, _s, acc = w.partition("@")
+        hits = [c for c in chars if f"{c.name}-{c.realm}".lower() == want.lower()
+                and (not acc or c.account.lower() == acc.lower())]
+        if not hits:
+            avail = ", ".join(sorted({f"{c.name}-{c.realm}" for c in chars})) or "-"
+            return None, _("Charakter nicht gefunden: {char}. Vorhanden: {names}").format(char=w, names=avail)
+        if len({c.account for c in hits}) > 1:
+            return None, _("Charakter {char} existiert in mehreren Konten: {accounts}. Angabe als NAME-REALM@KONTO.").format(
+                char=w, accounts=", ".join(sorted({c.account for c in hits})))
+        out += [c for c in hits if c not in out]
+    return out, None
+
+
+def set_cmd(mgr, name, wanted_chars):
+    import wfa_chars
+    import wfa_sets
+    folders = wfa_sets.get_set(mgr.cfg, name)
+    if folders is None:
+        avail = ", ".join(wfa_sets.list_sets(mgr.cfg)) or "-"
+        print(paint(_("Set nicht gefunden: {name}. Vorhanden: {names}").format(name=name, names=avail), "red"), file=sys.stderr)
+        return 1
+    wtf = mgr.wtf_dir()
+    chars = wfa_chars.list_characters(wtf) if wtf else []
+    if not chars:
+        print(paint(_("Keine Charaktere gefunden."), "red"), file=sys.stderr)
+        return 1
+    targets, err = _pick_chars(chars, wanted_chars)
+    if err:
+        print(paint(err, "red"), file=sys.stderr)
+        return 1
+    plan = wfa_sets.plan_set(folders, mgr.addons_dir, mgr.client_interface)
+    if not write_allowed(mgr):
+        return 2
+    try:
+        wfa_sets.apply_set(plan, targets, mgr.paths.data_dir / "addons_txt_backups", install=mgr.install_id())
+    except OSError as e:
+        print(paint(str(e), "red"), file=sys.stderr)
+        return 1
+    on = sum(1 for v in plan.changes.values() if v)
+    print(_("Set „{name}“ → {n} Charaktere: {on} an, {off} aus.").format(name=name, n=len(targets), on=on,
+                                                                          off=len(plan.changes) - on))
+    if plan.deps_added:
+        print(_("  Zusätzlich aktiv (Abhängigkeit): {names}").format(names=", ".join(plan.deps_added)))
+    if plan.missing:
+        print(paint(_("  Nicht installiert: {names}").format(names=", ".join(plan.missing)), "yellow"))
+    return 0
+
+
+def errors_cmd(mgr, addon):
+    import wfa_bugs
+    if not wfa_bugs.bug_grabber_installed(mgr.addons_dir):
+        print(_("!BugGrabber ist nicht installiert (Menü n: Neu installieren)."))
+        return 1
+    wtf = mgr.wtf_dir()
+    if not wfa_bugs.bug_files(wtf):
+        print(_("Noch keine Fehlerdaten: !BugGrabber hat noch nichts gespeichert (Abmelden oder /reload)."))
+        return 0
+    errors = wfa_bugs.load_errors(wtf)
+    pkgs = mgr.scan()
+    f2a = {f: (p.key, p.name) for p in pkgs for f in p.folders}
+    groups = wfa_bugs.group_errors(errors, f2a, mgr.read_history())
+    if addon:
+        low = addon.lower()
+        groups = [g for g in groups if low in g.name.lower() or low in g.key.lower()
+                  or any(low in f.lower() for f in g.folders)]
+        if not groups:
+            print(paint(_("Keine Fehler für „{addon}“ gefunden.").format(addon=addon), "yellow"))
+            return 1
+    if not groups:
+        print(_("Keine Fehler aufgezeichnet."))
+        return 0
+    print(_("{n} Fehler in {m} Addons").format(n=sum(g.count for g in groups), m=len(groups)))
+    for g in groups:
+        line = _("{name:<28} {count:>4}  seit Update {since:>3}  davor {before:>3}").format(
+            name=g.name[:28], count=g.count, since=g.since_update, before=g.before_update)
+        lu = g.last_update
+        if lu:
+            line += "  " + _("{old} → {new} ({date})").format(old=lu.get("old") or "?", new=lu.get("new") or "?",
+                                                              date=str(lu.get("ts") or "")[:10])
+            if g.since_update > 0 and g.before_update == 0:
+                line += "  " + paint(_("← neu seit Update"), "yellow")
+        print(line)
+        if addon:
+            for smp in g.samples:
+                print("    " + smp.replace("\n", "\n    "))
+                print()
+    return 0
+
+
+def _installations_text(insts):
+    for i in insts:
+        mark = "*" if i["active"] else " "
+        extra = "" if i["ok"] else "  " + _("(nicht gefunden)")
+        print(f"{mark} {i['name']:<16} {i['path']}{extra}")
+
+
+def installations_cmd(mgr):
+    insts = mgr.installations()
+    if not insts:
+        print(_("Keine Installationen eingetragen."))
+        return 0
+    _installations_text(insts)
+    return 0
+
+
+def find_installation(mgr, key):
+    insts = mgr.installations()
+    low = key.lower()
+    for i in insts:
+        if i["name"].lower() == low:
+            return i
+    try:
+        q = str(core.normalize_addons_dir(key))
+    except Exception:  # noqa: BLE001
+        q = key
+    return next((i for i in insts if i["path"] == q or i["path"] == key), None)
+
+
+def use_cmd(mgr, key):
+    inst = find_installation(mgr, key)
+    if inst is None:
+        print(paint(_("Installation nicht gefunden: {name}").format(name=key), "red"), file=sys.stderr)
+        _installations_text(mgr.installations())
+        return 1
+    ok, hint = mgr.switch_installation(inst["path"])
+    if not ok:
+        print(paint(hint or _("Wechsel nicht möglich."), "red"), file=sys.stderr)
+        return 1
+    print(_("Aktive Installation: {name} ({path})").format(name=inst["name"], path=inst["path"]))
+    return 0
+
+
+def menu_installation(mgr):
+    """[i]: Nummer = wechseln, + = Pfad hinzufuegen, leer = zurueck. -> True, wenn gewechselt."""
+    insts = mgr.installations()
+    for n, i in enumerate(insts, 1):
+        extra = "" if i["ok"] else "  " + _("(nicht gefunden)")
+        print(f"{'*' if i['active'] else ' '} {n}) {i['name']:<16} {i['path']}{extra}")
+    sel = ask(_("Nummer = wechseln, + = Pfad hinzufügen, Enter = zurück: "))
+    if not sel:
+        return False
+    if sel == "+":
+        path = ask(_("Pfad (…/_forever_ oder …/Interface/AddOns): "))
+        if not path:
+            return False
+        ok, hint = mgr.add_installation(path)
+        if hint:
+            print(paint(hint, "yellow" if ok else "red"))
+        if not ok:
+            return False
+        inst = find_installation(mgr, path)
+        return bool(inst) and _switch_to(mgr, inst)
+    s = parse_selection(sel, len(insts))
+    if not s or len(s) != 1:
+        print(_("Ungültige Eingabe."))
+        return False
+    return _switch_to(mgr, insts[s[0] - 1])
+
+
+def _switch_to(mgr, inst):
+    ok, hint = mgr.switch_installation(inst["path"])
+    if not ok:
+        print(paint(hint or _("Wechsel nicht möglich."), "red"))
+        return False
+    print(_("Aktive Installation: {name} ({path})").format(name=inst["name"], path=inst["path"]))
+    return True
+
+
 def update_cmd(mgr, args):
     """--update / --run: ohne Rueckfragen aktualisieren; bei --run danach CMD starten (auch nach Fehlern)."""
     import wfa_unattended
@@ -776,9 +996,11 @@ def run(mgr):
         print()
         header(mgr)
         table(mgr, pkgs)
+        multi = len(mgr.installations()) >= 2
         print("\n" + _("[u] Updates  [n] Neu installieren  [z] Zuordnen  [b] Browser-Download  [k] CF-Key  "
                       "[e] Beta: {beta}  [v] Version/Kanal  [r] Neu prüfen  [d] Deinstallieren  [w] Wiederherstellen  "
-                      "[h] Verlauf  [q] Ende").format(beta=_("an") if mgr.cfg["include_beta"] else _("aus")))
+                      "[h] Verlauf  [q] Ende").format(beta=_("an") if mgr.cfg["include_beta"] else _("aus"))
+              + ("  " + _("[i] Installation") if multi else ""))
         c = ask("> ").lower()
         if c == "q":
             return
@@ -809,6 +1031,8 @@ def run(mgr):
                 again = menu_restore(mgr)
             elif c == "h":
                 menu_history(mgr)
+            elif c == "i" and multi:
+                again = menu_installation(mgr)
             elif c:
                 print(_("Unbekannte Eingabe."))
             if again:
@@ -839,10 +1063,19 @@ def main(argv=None):
     ap.add_argument("--quiet", action="store_true", help=_("mit --update: nur Zusammenfassung und Fehler ausgeben"))
     ap.add_argument("--run", nargs=argparse.REMAINDER, metavar="CMD",
                     help=_("nach dem Update CMD starten (impliziert --update), z. B. Steam-Startoption: wfa --update --run %%command%%"))
+    ap.add_argument("--sets", action="store_true", help=_("Addon-Sets auflisten"))
+    ap.add_argument("--set", metavar="NAME", help=_("Addon-Set anwenden (alle Charaktere oder --char)"))
+    ap.add_argument("--char", action="append", metavar="NAME-REALM",
+                    help=_("mit --set: nur dieser Charakter (mehrfach erlaubt)"))
+    ap.add_argument("--errors", nargs="?", const="", metavar="ADDON", help=_("Fehleranalyse aus !BugGrabber"))
+    ap.add_argument("--installations", action="store_true", help=_("bekannte Installationen auflisten"))
+    ap.add_argument("--use", metavar=_("NAME|PFAD"), help=_("Installation dauerhaft wechseln"))
     ap.add_argument("--version", action="version", version=f"%(prog)s {core.__version__}")
     args = ap.parse_args(argv)
     if args.apply and not args.cleanup:
         ap.error(_("--apply gehört zu --cleanup"))
+    if args.char and not args.set:
+        ap.error(_("--char gehört zu --set"))
     if args.run is not None and args.run[:1] == ["--"]:
         args.run = args.run[1:]
     if args.run is not None and not args.run:
@@ -854,6 +1087,10 @@ def main(argv=None):
         mgr = Manager(addons_dir=args.addons_dir, log=(lambda _s: None) if quiet else print)
         if args.update or args.run:
             return update_cmd(mgr, args)
+        if args.installations:
+            return installations_cmd(mgr)
+        if args.use:
+            return use_cmd(mgr, args.use)
         if mgr.needs_setup():
             if args.addons_dir:
                 print(_("AddOns-Ordner nicht gefunden: {path}").format(path=args.addons_dir), file=sys.stderr)
@@ -866,6 +1103,12 @@ def main(argv=None):
                 return 1
             if not setup_flow(mgr):
                 return 1
+        if args.sets:
+            return sets_cmd(mgr)
+        if args.set:
+            return set_cmd(mgr, args.set, args.char)
+        if args.errors is not None:
+            return errors_cmd(mgr, args.errors)
         if args.snapshot is not None:
             return snapshot_cmd(mgr, args.snapshot)
         if args.snapshots:

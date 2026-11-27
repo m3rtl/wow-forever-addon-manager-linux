@@ -61,7 +61,7 @@ def _status(c):
 class NewAddonDialog(Gtk.Dialog):
     """Ergebnis in self.result: ("cand", Candidate) | ("zip", Path) | ("input", str) | ("browser", str) | None."""
 
-    def __init__(self, parent, mgr):
+    def __init__(self, parent, mgr, query=""):
         super().__init__(title=_("Neues Addon"), transient_for=parent, modal=True, use_header_bar=True)
         self.mgr = mgr
         self.result = None
@@ -101,6 +101,9 @@ class NewAddonDialog(Gtk.Dialog):
         self.stack.connect("notify::visible-child-name", lambda *_: self._update_btn())
         self.show_all()
         self.hint_box.hide()
+        if query:   # vorbelegte Suche
+            self.entry.set_text(query)
+            self.query = query.strip()
         self._load()
 
     def _on_destroy(self, *_):

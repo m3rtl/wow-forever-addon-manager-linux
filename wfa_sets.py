@@ -97,6 +97,7 @@ def plan_set(folders, addons_dir, client_interface) -> SetPlan:
     return SetPlan({n: k in want for k, n in installed.items()}, missing, sorted(deps, key=str.lower))
 
 
-def apply_set(plan, chars, backup_dir) -> None:
-    """Schreibt den Plan in alle Charaktere; der Aufrufer prueft vorher, dass WoW nicht laeuft."""
-    wfa_chars.write_states_all(chars, plan.changes, backup_dir)
+def apply_set(plan, chars, backup_dir, install=None) -> None:
+    """Schreibt den Plan in alle Charaktere; der Aufrufer prueft vorher, dass WoW nicht laeuft.
+    install: Kennung der aktiven Installation fuer die AddOns.txt-Backups."""
+    wfa_chars.write_states_all(chars, plan.changes, backup_dir, install=install)

@@ -17,7 +17,7 @@ _SET = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
 
 @dataclass
 class Finding:
-    kind: str       # "orphan_sv" | "nested" | "no_toc"
+    kind: str       # "orphan_sv" | "nested" | "no_toc" | "duplicate" (aus wfa_health.conflicts)
     path: Path
     size: int
     detail: str
@@ -165,7 +165,7 @@ def _rotate(trash_root, keep, protect=None, legacy=None):
 
 def _apply_one(f, addons_dir, set_dir, idx):
     p = Path(f.path)
-    if f.kind not in ("orphan_sv", "nested", "no_toc"):
+    if f.kind not in ("orphan_sv", "nested", "no_toc", "duplicate"):
         raise ValueError(_("Unbekannte Art: {kind}").format(kind=f.kind))
     if not (p.exists() or p.is_symlink()):
         raise OSError(_("{name} existiert nicht mehr").format(name=p.name))

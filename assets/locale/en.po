@@ -3160,3 +3160,549 @@ msgstr "abandoned"
 #: wfa_health.py
 msgid "gelöscht"
 msgstr "deleted"
+
+#: wfa_gui.py
+msgid "Installation wechseln"
+msgstr "Switch installation"
+
+#: wfa_gui.py
+msgid "Addons je Charakter und Sets …"
+msgstr "Addons per character and sets …"
+
+#: wfa_gui.py
+msgid "Fehleranalyse …"
+msgstr "Error analysis …"
+
+#: wfa_gui.py
+msgid "(nicht gefunden)"
+msgstr "(not found)"
+
+#: wfa_gui.py
+msgid "Installationen verwalten …"
+msgstr "Manage installations …"
+
+#: wfa_gui.py
+msgid "Wechsel nicht möglich"
+msgstr "Cannot switch"
+
+#: wfa_gui.py
+msgid "Installation gewechselt: {name}"
+msgstr "Switched installation: {name}"
+
+#: wfa_gui.py
+msgid "Installation „{name}“ nicht gefunden."
+msgstr "Installation “{name}” not found."
+
+#: wfa_gui.py
+msgid "Zu „{other}“ wechseln"
+msgstr "Switch to “{other}”"
+
+#: wfa_gui.py
+msgid "{n} verwaist"
+msgstr "{n} abandoned"
+
+#: wfa_gui.py
+msgid "⚠ verwaist"
+msgstr "⚠ abandoned"
+
+#: wfa_gui.py
+msgid "◷ lange kein Update"
+msgstr "◷ no recent update"
+
+#: wfa_gui.py
+msgid "Letzte Datei für Forever: {date}"
+msgstr "Latest file for Forever: {date}"
+
+#: wfa_gui.py
+msgid "Es kommen voraussichtlich keine Updates mehr. Ersatz suchen: „Neues Addon …“."
+msgstr "No more updates are expected. Look for a replacement via “New addon …”."
+
+#: wfa_gui.py
+msgid "Doppelt vorhanden: {folders}"
+msgstr "Present twice: {folders}"
+
+#: wfa_gui.py
+msgid "Der Ordner {folder} gehört auch zu: {names}"
+msgstr "Folder {folder} also belongs to: {names}"
+
+#: wfa_gui.py
+msgid "WoW wurde aktualisiert ({old} → {new})."
+msgstr "WoW was updated ({old} → {new})."
+
+#: wfa_gui.py
+msgid "Der vorherige Stand wurde gesichert."
+msgstr "The previous state was backed up."
+
+#: wfa_gui.py
+msgid "Sichere Gesamtstand …"
+msgstr "Creating full snapshot …"
+
+#: wfa_gui.py
+msgid "Automatischer Gesamtstand {id} angelegt ({reason})."
+msgstr "Automatic full snapshot {id} created ({reason})."
+
+#: wfa_gui.py
+msgid "Installation: {name}"
+msgstr "Installation: {name}"
+
+#: wfa_gui.py
+msgid "Hinweis „lange kein Update“ nach"
+msgstr "Show “no recent update” after"
+
+#: wfa_gui.py
+msgid "Tagen (0 = aus)"
+msgstr "days (0 = off)"
+
+#: wfa_gui.py
+msgid "Automatische Gesamtstände"
+msgstr "Automatic full snapshots"
+
+#: wfa_gui.py
+msgid "Vor Updates automatisch sichern, ab"
+msgstr "Back up automatically before updates of"
+
+#: wfa_gui.py
+msgid "Bei neuer WoW-Version automatisch sichern"
+msgstr "Back up automatically when WoW was updated"
+
+#: wfa_gui.py
+msgid "Es bleiben die letzten 2 automatischen Stände; eigene Stände werden nie verdrängt. Wiederherstellen: ☰ → Gesamtstände."
+msgstr "The last 2 automatic snapshots are kept; your own snapshots are never replaced. Restore: ☰ → Full snapshots."
+
+#: wfa_gui.py
+msgid "Installationen"
+msgstr "Installations"
+
+#: wfa_gui.py
+msgid "Hinzufügen …"
+msgstr "Add …"
+
+#: wfa_gui.py
+msgid "Umbenennen …"
+msgstr "Rename …"
+
+#: wfa_gui.py
+msgid "Entfernen"
+msgstr "Remove"
+
+#: wfa_gui.py
+msgid "Aktivieren"
+msgstr "Activate"
+
+#: wfa_gui.py
+msgid "Die aktive Installation kann nicht entfernt werden."
+msgstr "The active installation cannot be removed."
+
+#: wfa_gui.py
+msgid "Umbenennen"
+msgstr "Rename"
+
+#: wfa_gui.py
+msgid "Installation „{name}“ aus der Liste entfernen?"
+msgstr "Remove installation “{name}” from the list?"
+
+#: wfa_gui.py
+msgid "Es werden keine Dateien gelöscht. Backups und Gesamtstände dieser Installation bleiben erhalten."
+msgstr "No files are deleted. Backups and full snapshots of this installation are kept."
+
+#: wfa_gui.py
+msgid "Updates vor dem Spielstart …"
+msgstr "Updates before the game starts …"
+
+#: wfa_gui.py
+msgid "Blendet im Menü „Erweitert“ ein: Addons je Charakter und Sets, Aufräumen, Fehleranalyse."
+msgstr "Adds to the “Advanced” menu: addons per character and sets, clean up, error analysis."
+
+#: wfa_gui.py
+msgid "Updates vor dem Spielstart"
+msgstr "Updates before the game starts"
+
+#: wfa_gui.py
+msgid "Kopiert."
+msgstr "Copied."
+
+#: wfa_gui.py
+msgid "Erst einen AddOns-Ordner einrichten."
+msgstr "Set up an AddOns folder first."
+
+#: wfa_gui.py
+msgid "Der Manager kann Addons aktualisieren, bevor WoW startet. Dazu ruft der Launcher ihn vor dem Spiel auf. Läuft WoW schon oder fehlt das Netz, startet das Spiel trotzdem."
+msgstr "The manager can update addons before WoW starts. Your launcher calls it before the game. If WoW is already running or the network is down, the game still starts."
+
+#: wfa_gui.py
+msgid "Steam"
+msgstr "Steam"
+
+#: wfa_gui.py
+msgid "Bibliothek → WoW → Eigenschaften → Startoptionen:"
+msgstr "Library → WoW → Properties → Launch options:"
+
+#: wfa_gui.py
+msgid "Im Flatpak kann der Manager das Spiel nicht selbst starten, deshalb ohne --run."
+msgstr "Inside Flatpak the manager cannot start the game itself, hence no --run."
+
+#: wfa_gui.py
+msgid "Lutris"
+msgstr "Lutris"
+
+#: wfa_gui.py
+msgid "Spiel konfigurieren → Systemoptionen → „Pre-launch script“ auf das Startskript setzen und „Wait for pre-launch script completion“ einschalten."
+msgstr "Configure game → System options → set “Pre-launch script” to the launch script and enable “Wait for pre-launch script completion”."
+
+#: wfa_gui.py
+msgid "Heroic"
+msgstr "Heroic"
+
+#: wfa_gui.py
+msgid "Spieleinstellungen → Erweitert → Skript vor dem Start: das Startskript wählen."
+msgstr "Game settings → Advanced → script to run before launch: choose the launch script."
+
+#: wfa_gui.py
+msgid "Startskript speichern …"
+msgstr "Save launch script …"
+
+#: wfa_gui.py
+msgid "Startskript speichern"
+msgstr "Save launch script"
+
+#: wfa_gui.py
+msgid "Die Menünamen können je nach Launcher-Version abweichen. Ergebnis jedes Laufs: ☰ → Verlauf."
+msgstr "Menu names may differ between launcher versions. Result of each run: ☰ → History."
+
+#: wfa_gui.py
+msgid "1 Konflikt"
+msgid_plural "{n} Konflikte"
+msgstr[0] "1 conflict"
+msgstr[1] "{n} conflicts"
+
+#: wfa_expert.py
+msgid "Doppelter Ordner"
+msgstr "Duplicate folder"
+
+#: wfa_expert.py
+msgid "Geteilter Ordner"
+msgstr "Shared folder"
+
+#: wfa_expert.py
+msgid "Speichern als …"
+msgstr "Save as …"
+
+#: wfa_expert.py
+msgid "(kein Set)"
+msgstr "(no set)"
+
+#: wfa_expert.py
+msgid "Set speichern"
+msgstr "Save set"
+
+#: wfa_expert.py
+msgid "Set umbenennen"
+msgstr "Rename set"
+
+#: wfa_expert.py
+msgid "Fehleranalyse"
+msgstr "Error analysis"
+
+#: wfa_expert.py
+msgid "Zurücksetzen …"
+msgstr "Roll back …"
+
+#: wfa_expert.py
+msgid "Fehlertext kopieren"
+msgstr "Copy error text"
+
+#: wfa_expert.py
+msgid "Neu laden"
+msgstr "Reload"
+
+#: wfa_expert.py
+msgid "Lese Fehler …"
+msgstr "Reading errors …"
+
+#: wfa_expert.py
+msgid "!BugGrabber ist nicht installiert"
+msgstr "!BugGrabber is not installed"
+
+#: wfa_expert.py
+msgid "Die Fehleranalyse wertet aus, was das Addon !BugGrabber im Spiel aufzeichnet. Installiere es, spiele eine Runde und öffne die Analyse danach erneut."
+msgstr "Error analysis reads what the addon !BugGrabber records in game. Install it, play for a while, then open the analysis again."
+
+#: wfa_expert.py
+msgid "!BugGrabber suchen …"
+msgstr "Search for !BugGrabber …"
+
+#: wfa_expert.py
+msgid "Noch keine Fehlerdaten"
+msgstr "No error data yet"
+
+#: wfa_expert.py
+msgid "!BugGrabber hat noch nichts gespeichert. WoW schreibt die Datei beim Abmelden oder mit /reload."
+msgstr "!BugGrabber has not saved anything yet. WoW writes the file on logout or /reload."
+
+#: wfa_expert.py
+msgid "Keine Fehler aufgezeichnet."
+msgstr "No errors recorded."
+
+#: wfa_expert.py
+msgid "Ein Fehler zählt zu dem Addon, in dessen Dateien er auftritt. Der Auslöser kann ein anderes Addon sein."
+msgstr "An error is counted for the addon whose files raise it. Another addon may be the actual cause."
+
+#: wfa_expert.py
+msgid "Für dieses Update gibt es kein Backup mehr."
+msgstr "There is no backup for this update any more."
+
+#: wfa_expert.py
+msgid "Kein Update im Verlauf – Zuordnung nicht möglich."
+msgstr "No update in the history – cannot relate errors to an update."
+
+#: wfa_expert.py
+msgid "Zurückgesetzt. Die Fehlerliste ändert sich erst nach dem nächsten Spielen."
+msgstr "Rolled back. The error list only changes after you played again."
+
+#: wfa_expert.py
+msgid "Fehlertext kopiert."
+msgstr "Error text copied."
+
+#: wfa_expert.py
+msgid "Set"
+msgstr "Set"
+
+#: wfa_expert.py
+msgid "Set „{name}“: {on} an, {off} aus."
+msgstr "Set “{name}”: {on} on, {off} off."
+
+#: wfa_expert.py
+msgid "Die bisherigen AddOns.txt werden gesichert."
+msgstr "The current AddOns.txt files are backed up."
+
+#: wfa_expert.py
+msgid "Anwenden"
+msgstr "Apply"
+
+#: wfa_expert.py
+msgid "Set „{name}“ angewendet ({n} Charaktere)."
+msgstr "Set “{name}” applied ({n} characters)."
+
+#: wfa_expert.py
+msgid "Name des Sets"
+msgstr "Set name"
+
+#: wfa_expert.py
+msgid "Überschreiben"
+msgstr "Overwrite"
+
+#: wfa_expert.py
+msgid "Set „{name}“ gespeichert."
+msgstr "Set “{name}” saved."
+
+#: wfa_expert.py
+msgid "Es ändert sich nichts an den Charakteren."
+msgstr "Characters are not changed."
+
+#: wfa_expert.py
+msgid "Seit Update"
+msgstr "Since update"
+
+#: wfa_expert.py
+msgid "Letztes Update"
+msgstr "Last update"
+
+#: wfa_expert.py
+msgid "Zuletzt"
+msgstr "Last seen"
+
+#: wfa_expert.py
+msgid "{n} Fehler in {m} Addons, aufgezeichnet von !BugGrabber."
+msgstr "{n} errors in {m} addons, recorded by !BugGrabber."
+
+#: wfa_expert.py
+msgid "Der Name „{name}“ ist schon vergeben."
+msgstr "The name “{name}” is already taken."
+
+#: wfa_expert.py
+msgid "Gehört zu {names}. Eines davon deinstallieren oder per Rechtsklick → „Zuordnen …“ korrigieren."
+msgstr "Belongs to {names}. Uninstall one of them or fix it via right-click → “Assign …”."
+
+#: wfa_expert.py
+msgid "automatisch"
+msgstr "automatic"
+
+#: wfa_expert.py
+msgid "manuell"
+msgstr "manual"
+
+#: wfa_expert.py
+msgid "Vor Update von {n} Addons"
+msgstr "Before updating {n} addons"
+
+#: wfa_expert.py
+msgid "WoW-Update {old} → {new}"
+msgstr "WoW update {old} → {new}"
+
+#: wfa_expert.py
+msgid "{name} (nicht verwaltet)"
+msgstr "{name} (not managed)"
+
+#: wfa_expert.py
+msgid "{n} (neu)"
+msgstr "{n} (new)"
+
+#: wfa_expert.py
+msgid "WoW läuft: Stand vom letzten Abmelden oder /reload."
+msgstr "WoW is running: data from the last logout or /reload."
+
+#: wfa_expert.py
+msgid "Zusätzlich aktiv (Abhängigkeit): {names}"
+msgstr "Also enabled (dependency): {names}"
+
+#: wfa_expert.py
+msgid "Set „{name}“ auf alle {n} Charaktere anwenden?"
+msgstr "Apply set “{name}” to all {n} characters?"
+
+#: wfa_expert.py
+msgid "Set „{name}“ überschreiben?"
+msgstr "Overwrite set “{name}”?"
+
+#: wfa_expert.py
+msgid "Set „{name}“ löschen?"
+msgstr "Delete set “{name}”?"
+
+#: wfa_expert.py
+msgid "Alle {n} Fehler traten nach dem Update vom {date} auf ({old} → {new})."
+msgstr "All {n} errors occurred after the update on {date} ({old} → {new})."
+
+#: wfa_expert.py
+msgid "{a} Fehler seit dem Update vom {date}, {b} schon davor."
+msgstr "{a} errors since the update on {date}, {b} before it."
+
+#: wfa_expert.py
+msgid "Im Set, aber nicht installiert: {names}"
+msgstr "In the set but not installed: {names}"
+
+#: wfa_cli.py
+msgid "Nummer = wechseln, + = Pfad hinzufügen, Enter = zurück: "
+msgstr "Number = switch, + = add path, Enter = back: "
+
+#: wfa_cli.py
+msgid "Keine Sets vorhanden."
+msgstr "No sets found."
+
+#: wfa_cli.py
+msgid "!BugGrabber ist nicht installiert (Menü n: Neu installieren)."
+msgstr "!BugGrabber is not installed (menu n: install new)."
+
+#: wfa_cli.py
+msgid "Noch keine Fehlerdaten: !BugGrabber hat noch nichts gespeichert (Abmelden oder /reload)."
+msgstr "No error data yet: !BugGrabber has not saved anything (log out or /reload)."
+
+#: wfa_cli.py
+msgid "Keine Installationen eingetragen."
+msgstr "No installations registered."
+
+#: wfa_cli.py
+msgid "Addon-Sets auflisten"
+msgstr "list addon sets"
+
+#: wfa_cli.py
+msgid "Addon-Set anwenden (alle Charaktere oder --char)"
+msgstr "apply addon set (all characters or --char)"
+
+#: wfa_cli.py
+msgid "mit --set: nur dieser Charakter (mehrfach erlaubt)"
+msgstr "with --set: only this character (repeatable)"
+
+#: wfa_cli.py
+msgid "Fehleranalyse aus !BugGrabber"
+msgstr "error analysis from !BugGrabber"
+
+#: wfa_cli.py
+msgid "bekannte Installationen auflisten"
+msgstr "list known installations"
+
+#: wfa_cli.py
+msgid "NAME|PFAD"
+msgstr "NAME|PATH"
+
+#: wfa_cli.py
+msgid "Installation dauerhaft wechseln"
+msgstr "switch installation permanently"
+
+#: wfa_cli.py
+msgid "--char gehört zu --set"
+msgstr "--char belongs to --set"
+
+#: wfa_cli.py
+msgid "Keine Charaktere gefunden."
+msgstr "No characters found."
+
+#: wfa_cli.py
+msgid "Set „{name}“ → {n} Charaktere: {on} an, {off} aus."
+msgstr "Set “{name}” → {n} characters: {on} on, {off} off."
+
+#: wfa_cli.py
+msgid "{n} Fehler in {m} Addons"
+msgstr "{n} errors in {m} addons"
+
+#: wfa_cli.py
+msgid "{name:<28} {count:>4}  seit Update {since:>3}  davor {before:>3}"
+msgstr "{name:<28} {count:>4}  since update {since:>3}  before {before:>3}"
+
+#: wfa_cli.py
+msgid "Aktive Installation: {name} ({path})"
+msgstr "Active installation: {name} ({path})"
+
+#: wfa_cli.py
+msgid "Der Ordner {folder} gehört zu mehreren Addons"
+msgstr "The folder {folder} belongs to several addons"
+
+#: wfa_cli.py
+msgid "{name}  {n} Addons"
+msgstr "{name}  {n} addons"
+
+#: wfa_cli.py
+msgid "  Zusätzlich aktiv (Abhängigkeit): {names}"
+msgstr "  Also enabled (dependency): {names}"
+
+#: wfa_cli.py
+msgid "Wechsel nicht möglich."
+msgstr "Cannot switch."
+
+#: wfa_cli.py
+msgid "Konflikt: {text}"
+msgstr "Conflict: {text}"
+
+#: wfa_cli.py
+msgid "Charakter nicht gefunden: {char}. Vorhanden: {names}"
+msgstr "Character not found: {char}. Available: {names}"
+
+#: wfa_cli.py
+msgid "Charakter {char} existiert in mehreren Konten: {accounts}. Angabe als NAME-REALM@KONTO."
+msgstr "Character {char} exists in several accounts: {accounts}. Use NAME-REALM@ACCOUNT."
+
+#: wfa_cli.py
+msgid "Set nicht gefunden: {name}. Vorhanden: {names}"
+msgstr "Set not found: {name}. Available: {names}"
+
+#: wfa_cli.py
+msgid "  Nicht installiert: {names}"
+msgstr "  Not installed: {names}"
+
+#: wfa_cli.py
+msgid "{old} → {new} ({date})"
+msgstr "{old} → {new} ({date})"
+
+#: wfa_cli.py
+msgid "← neu seit Update"
+msgstr "← new since update"
+
+#: wfa_cli.py
+msgid "Installation nicht gefunden: {name}"
+msgstr "Installation not found: {name}"
+
+#: wfa_cli.py
+msgid "[i] Installation"
+msgstr "[i] Installation"
+
+#: wfa_cli.py
+msgid "Keine Fehler für „{addon}“ gefunden."
+msgstr "No errors found for “{addon}”."
