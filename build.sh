@@ -12,5 +12,6 @@ python3 -m venv --system-site-packages .venv
     --hidden-import wfa_manager --hidden-import wfa_plan --hidden-import wfa_apply --hidden-import wfa_savedvars --hidden-import wfa_assign \
     --hidden-import wfa_tray --hidden-import wfa_background --hidden-import wfa_newaddon --hidden-import wfa_selfupdate --hidden-import wfa_portal \
     --hidden-import wfa_i18n --hidden-import wfa_expert --hidden-import wfa_chars --hidden-import wfa_cleanup --hidden-import wfa_snapshot \
+    --hidden-import wfa_unattended --hidden-import wfa_bugs --hidden-import wfa_sets --hidden-import wfa_health \
     wow-forever-addon-manager.py
 echo "Fertig: dist/wow-forever-addon-manager"

@@ -3740,3 +3740,7 @@ msgstr "WoW was updated ({old} → {new}). The automatic backup failed – see t
 #: wfa_expert.py
 msgid "Addons je Charakter und Sets"
 msgstr "Addons per character and sets"
+
+#: wfa_cli.py
+msgid " (nicht verwaltet)"
+msgstr " (not managed)"

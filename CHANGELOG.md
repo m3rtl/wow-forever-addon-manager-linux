@@ -2,7 +2,7 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
-## Unveröffentlicht
+## 0.5.0 – 2026-11-27
 
 ### Neu
 

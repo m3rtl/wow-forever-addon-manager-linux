@@ -877,7 +877,8 @@ def errors_cmd(mgr, addon):
     for g in groups:
         name = g.name
         if g.key.startswith("folder:") and g.folders and g.folders[0].lower() not in known:
-            name = _("{name} (nicht verwaltet)").format(name=name)
+            suffix = _(" (nicht verwaltet)")    # Name kuerzen, nicht den Zusatz
+            name = name[:max(28 - len(suffix), 1)] + suffix
         lu = g.last_update
         if lu:
             line = _("{name:<28} {count:>4}  seit Update {since:>3}  davor {before:>3}").format(
@@ -891,9 +892,10 @@ def errors_cmd(mgr, addon):
                 line += "  " + paint(_("← neu seit Update"), "yellow")
         print(line)
         if addon:
-            for smp in g.samples:
+            for i, smp in enumerate(g.samples):
+                if i:
+                    print("    ----")
                 print("    " + smp.replace("\n", "\n    "))
-                print("    ----")
     return 0
 
 
