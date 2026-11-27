@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 import wfa_core
+from wfa_i18n import _
 
 _ID = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
 _ADDONS, _WTF, _META = "addons.tar.gz", "wtf.tar.gz", "meta.json"
@@ -57,9 +58,9 @@ def _members_ok(tf):
     for m in tf.getmembers():
         n = m.name.replace("\\", "/")
         if not (m.isreg() or m.isdir()):
-            raise ValueError("Unzulaessiger Eintrag im Archiv: {}".format(m.name))
+            raise ValueError(_("Unzulaessiger Eintrag im Archiv: {name}").format(name=m.name))
         if n.startswith("/") or re.match(r"^[A-Za-z]:", n) or ".." in n.split("/"):
-            raise ValueError("Unzulaessiger Pfad im Archiv: {}".format(m.name))
+            raise ValueError(_("Unzulaessiger Pfad im Archiv: {name}").format(name=m.name))
 
 
 def _extract(archive, dest):
@@ -128,7 +129,7 @@ def create(addons_dir, wtf, snap_root, label="", client="", keep=3, protect=()) 
             shutil.rmtree(tmp, ignore_errors=True)
             raise
     except (OSError, tarfile.TarError) as e:
-        raise OSError("Der Schnappschuss konnte nicht angelegt werden: {}".format(e)) from e
+        raise OSError(_("Der Schnappschuss konnte nicht angelegt werden: {error}").format(error=e)) from e
     snap = _meta(snap_root / sid)
     _rotate(snap_root, keep, set(protect) | {sid})
     return snap
@@ -140,7 +141,7 @@ def _swap_in(archive, target):
     old = target.parent / (target.name + ".wfa-old")
     shutil.rmtree(new, ignore_errors=True)
     if old.exists():
-        raise OSError("Reste einer frueheren Wiederherstellung ({}) im Weg; bitte pruefen und entfernen".format(old.name))
+        raise OSError(_("Reste einer frueheren Wiederherstellung ({name}) im Weg; bitte pruefen und entfernen").format(name=old.name))
     target.parent.mkdir(parents=True, exist_ok=True)
     new.mkdir()
     try:
@@ -164,7 +165,7 @@ def restore(snap, addons_dir, wtf, snap_root, keep=3) -> Snapshot:
     """Stellt snap wieder her; legt vorher einen Sicherheits-Satz an und gibt ihn zurueck."""
     sp = Path(snap.path)
     if not (sp / _ADDONS).is_file():
-        raise ValueError("Der Schnappschuss ist unvollstaendig (addons.tar.gz fehlt)")
+        raise ValueError(_("Der Schnappschuss ist unvollstaendig (addons.tar.gz fehlt)"))
     parts = [(sp / _ADDONS, Path(addons_dir))]
     if (sp / _WTF).is_file():
         parts.append((sp / _WTF, _account_dir(wtf)))
@@ -173,7 +174,7 @@ def restore(snap, addons_dir, wtf, snap_root, keep=3) -> Snapshot:
             with tarfile.open(arc, "r:gz") as tf:
                 _members_ok(tf)
         except tarfile.TarError as e:
-            raise ValueError("Das Archiv {} ist beschaedigt: {}".format(arc.name, e)) from e
+            raise ValueError(_("Das Archiv {name} ist beschaedigt: {error}").format(name=arc.name, error=e)) from e
     safety = create(addons_dir, wtf, snap_root, label="Vor Wiederherstellung", keep=keep, protect={sp.name})
     done = []
     try:
@@ -187,7 +188,7 @@ def restore(snap, addons_dir, wtf, snap_root, keep=3) -> Snapshot:
                     os.rename(old, tgt)
             except OSError:
                 pass
-        raise OSError("Die Wiederherstellung ist fehlgeschlagen, der alte Stand bleibt erhalten: {}".format(e)) from e
+        raise OSError(_("Die Wiederherstellung ist fehlgeschlagen, der alte Stand bleibt erhalten: {error}").format(error=e)) from e
     for _tgt, old in done:
         if old is not None:
             shutil.rmtree(old, ignore_errors=True)
@@ -198,4 +199,4 @@ def delete(snap):
     try:
         shutil.rmtree(Path(snap.path))
     except OSError as e:
-        raise OSError("Der Schnappschuss konnte nicht geloescht werden: {}".format(e)) from e
+        raise OSError(_("Der Schnappschuss konnte nicht geloescht werden: {error}").format(error=e)) from e

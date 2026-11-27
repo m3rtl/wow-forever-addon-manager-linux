@@ -11,6 +11,7 @@ import sys
 import zipfile
 from pathlib import Path
 
+from wfa_i18n import _
 from wfa_base import APP_ID, APP_NAME, MAX_UNPACKED, in_flatpak, install_kind, managed_install, package_channel
 from wfa_savedvars import SavedVarsMixin
 
@@ -21,19 +22,19 @@ def safe_extract(zpath, dest):
     with zipfile.ZipFile(zpath) as zf:
         infos = zf.infolist()
         if sum(i.file_size for i in infos) > MAX_UNPACKED:
-            raise ValueError("Zip entpackt zu groß")
+            raise ValueError(_("Zip entpackt zu groß"))
         for i in infos:
             name = i.filename.replace("\\", "/")
             parts = [p for p in name.split("/") if p not in ("", ".")]
             if name.startswith("/") or ".." in parts or re.match(r"^[A-Za-z]:", name):
-                raise ValueError(f"Unsicherer Pfad im Zip: {i.filename}")
+                raise ValueError(_("Unsicherer Pfad im Zip: {name}").format(name=i.filename))
             if stat.S_IFMT(i.external_attr >> 16) == stat.S_IFLNK:
-                raise ValueError(f"Symlink im Zip abgelehnt: {i.filename}")
+                raise ValueError(_("Symlink im Zip abgelehnt: {name}").format(name=i.filename))
             if parts and parts[0] == "__MACOSX":
                 continue
             target = dest.joinpath(*parts)
             if dest not in target.resolve().parents and target.resolve() != dest:
-                raise ValueError(f"Unsicherer Pfad im Zip: {i.filename}")
+                raise ValueError(_("Unsicherer Pfad im Zip: {name}").format(name=i.filename))
             for anc in target.parents:
                 if dest in anc.parents and anc.is_file() and anc.stat().st_size == 0:
                     anc.unlink()  # leere Datei an Stelle eines Ordners
@@ -186,17 +187,17 @@ def validate_addons_dir(p):
     q = normalize_addons_dir(raw)
     if q.is_dir():
         if q.name.lower() != "addons":
-            return False, "Das ist kein AddOns-Ordner."
+            return False, _("Das ist kein AddOns-Ordner.")
         if "_forever_" not in [x.lower() for x in q.parts]:
-            return True, "Warnung: Im Pfad kommt kein Ordner „_forever_“ vor – ist das wirklich WoW: Forever?"
+            return True, _("Warnung: Im Pfad kommt kein Ordner „_forever_“ vor – ist das wirklich WoW: Forever?")
         return True, ""
     # AddOns (bzw. Interface/AddOns) fehlt noch: ok, wenn Interface oder _forever_ existiert. Gilt auch fuer den
     # schon normalisierten Pfad, den der Dialog beim Uebernehmen erneut prueft.
     iface = q.parent
     if q.name.lower() == "addons" and iface.name.lower() == "interface" and (
             iface.is_dir() or (iface.parent.is_dir() and iface.parent.name.lower() == "_forever_")):
-        return True, "Der Ordner Interface/AddOns wird angelegt."
-    return False, "Ordner existiert nicht."
+        return True, _("Der Ordner Interface/AddOns wird angelegt.")
+    return False, _("Ordner existiert nicht.")
 
 
 def portal_path(p):
@@ -214,9 +215,9 @@ def sandbox_hint(addons):
     if (a.parent.parent.parent / ".build.info").is_file():
         return ""
     if portal_path(a) or not a.parent.parent.is_dir():
-        return ("Im Flatpak sieht der Manager nur den gewählten Ordner. Wähle besser den Ordner "
-                "„World of Warcraft“ (oberhalb von _forever_), damit Client-Version und SavedVariables "
-                "erreichbar sind.")
+        return _("Im Flatpak sieht der Manager nur den gewählten Ordner. Wähle besser den Ordner "
+                 "„World of Warcraft“ (oberhalb von _forever_), damit Client-Version und SavedVariables "
+                 "erreichbar sind.")
     return ""
 
 
@@ -269,7 +270,7 @@ def set_autostart(on):
     """Schreibt bzw. entfernt den Autostart-Eintrag (Start im Tray). -> Pfad oder None (entfernt).
     Im Flatpak nicht nutzbar (der Ordner liegt in der Sandbox); dort setzt wfa_portal den Autostart."""
     if in_flatpak():
-        raise OSError("Im Flatpak wird der Autostart über das Hintergrund-Portal gesetzt.")
+        raise OSError(_("Im Flatpak wird der Autostart über das Hintergrund-Portal gesetzt."))
     target = autostart_path()
     if not on:
         with contextlib.suppress(FileNotFoundError):
@@ -293,7 +294,7 @@ def install_desktop_entry():
     """Legt den Startmenue-Eintrag (benutzerlokal, $XDG_DATA_HOME) an. -> Pfad der .desktop-Datei.
     Pakete und Flatpak bringen den Eintrag selbst mit."""
     if managed_install():
-        raise OSError(f"Der Startmenü-Eintrag wird mit dem Paket ({package_channel()}) installiert.")
+        raise OSError(_("Der Startmenü-Eintrag wird mit dem Paket ({package}) installiert.").format(package=package_channel()))
     data = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
     icon_dir = data / APP_NAME
     icon_dir.mkdir(parents=True, exist_ok=True)

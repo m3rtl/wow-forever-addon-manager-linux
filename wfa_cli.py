@@ -12,6 +12,7 @@ from pathlib import Path
 
 import wfa_core as core
 from wfa_core import ApiError, InstallPlan, Manager
+from wfa_i18n import N_, _
 
 USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 COLORS = {"red": "31", "green": "32", "yellow": "33", "cyan": "36", "grey": "90", "bold": "1"}
@@ -654,6 +655,92 @@ def menu_uninstall(mgr, pkgs):
     return True
 
 
+# ---------------------------------------------------------------- Gesamtstaende und Aufraeumen
+
+KIND_LABEL = {"orphan_sv": N_("Einstellungen ohne Addon"), "nested": N_("Verschachtelter Ordner"),
+              "no_toc": N_("Ordner ohne TOC")}
+
+
+def write_allowed(mgr):
+    """Nur bei beendetem WoW schreiben; ist das nicht feststellbar (Flatpak), wird verweigert."""
+    running = mgr.wow_running()
+    if running:
+        print(paint(_("WoW läuft. Bitte zuerst beenden."), "red"), file=sys.stderr)
+    elif running is None:
+        print(paint(_("Ob WoW läuft, ist hier nicht feststellbar. Zur Sicherheit wird nichts geändert."), "red"),
+              file=sys.stderr)
+    return running is False
+
+
+def _iso(s):
+    return str(s).replace("T", " ")
+
+
+def snapshot_cmd(mgr, label):
+    import wfa_snapshot
+    try:
+        snap = wfa_snapshot.create(mgr.addons_dir, mgr.wtf_dir(), mgr.paths.data_dir / "snapshots", label,
+                                   mgr.client_version or "")
+    except OSError as e:
+        print(paint(str(e), "red"), file=sys.stderr)
+        return 1
+    print(_("Gesamtstand {id} angelegt ({size}).").format(id=snap.id, size=core.fmt_size(snap.size)))
+    return 0
+
+
+def snapshots_cmd(mgr):
+    import wfa_snapshot
+    snaps = wfa_snapshot.list_snapshots(mgr.paths.data_dir / "snapshots")
+    if not snaps:
+        print(_("Keine Gesamtstände vorhanden."))
+    for s in snaps:
+        print("{}  {}  {:>3} Addons  {:>9}  {}".format(s.id, _iso(s.created), len(s.addons), core.fmt_size(s.size), s.label))
+    return 0
+
+
+def restore_snapshot_cmd(mgr, sid):
+    import wfa_snapshot
+    root = mgr.paths.data_dir / "snapshots"
+    snap = next((s for s in wfa_snapshot.list_snapshots(root) if s.id == sid), None)
+    if snap is None:
+        print(paint(_("Gesamtstand {id} nicht gefunden (siehe --snapshots).").format(id=sid), "red"), file=sys.stderr)
+        return 1
+    if not write_allowed(mgr):
+        return 1
+    try:
+        safety = wfa_snapshot.restore(snap, mgr.addons_dir, mgr.wtf_dir(), root)
+    except (OSError, ValueError) as e:
+        print(paint(str(e), "red"), file=sys.stderr)
+        return 1
+    print(_("Gesamtstand {id} wiederhergestellt. Vorheriger Stand gesichert als {safe}.").format(id=sid, safe=safety.id))
+    return 0
+
+
+def cleanup_cmd(mgr, apply):
+    import wfa_cleanup
+    findings = wfa_cleanup.scan(mgr.addons_dir, mgr.wtf_dir())
+    if not findings:
+        print(_("Nichts zum Aufräumen gefunden."))
+        return 0
+    for f in findings:
+        print("{:<26} {:>9}  {}".format(_(KIND_LABEL.get(f.kind, f.kind)), core.fmt_size(f.size), f.path))
+    if not apply:
+        print(_("Nur aufgelistet. Mit --cleanup --apply in den Papierkorb verschieben."))
+        return 0
+    if not write_allowed(mgr):
+        return 1
+    code = 0
+    try:
+        results = wfa_cleanup.apply(findings, mgr.addons_dir, mgr.paths.data_dir / "trash")
+    except (OSError, ValueError) as e:
+        print(paint(str(e), "red"), file=sys.stderr)
+        return 1
+    for _f, ok, msg in results:
+        print(paint(msg, "green" if ok else "red"))
+        code = code or (0 if ok else 1)
+    return code
+
+
 def run(mgr):
     pkgs = refresh(mgr)
     while True:
@@ -711,8 +798,16 @@ def main(argv=None):
     ap.add_argument("--export", metavar="PFAD", help="Addon-Liste als JSON (oder Kurztext bei .txt) schreiben, „-“ = stdout")
     ap.add_argument("--import", dest="import_list", metavar="PFAD|TEXT",
                     help="Addon-Liste aus Datei oder Kurztext (WFA1 cf:… gh:…) installieren")
+    ap.add_argument("--snapshot", nargs="?", const="", metavar="BEZEICHNUNG",
+                    help=_("Gesamtstand (AddOns und WTF) sichern, Bezeichnung optional"))
+    ap.add_argument("--snapshots", action="store_true", help=_("Gesamtstände auflisten"))
+    ap.add_argument("--restore-snapshot", metavar="ID", help=_("Gesamtstand wiederherstellen (ID aus --snapshots)"))
+    ap.add_argument("--cleanup", action="store_true", help=_("Funde zum Aufräumen auflisten"))
+    ap.add_argument("--apply", action="store_true", help=_("mit --cleanup: Funde in den Papierkorb verschieben"))
     ap.add_argument("--version", action="version", version=f"%(prog)s {core.__version__}")
     args = ap.parse_args(argv)
+    if args.apply and not args.cleanup:
+        ap.error(_("--apply gehört zu --cleanup"))
     try:
         mgr = Manager(addons_dir=args.addons_dir, log=print)
         if mgr.needs_setup():
@@ -727,6 +822,14 @@ def main(argv=None):
                 return 1
             if not setup_flow(mgr):
                 return 1
+        if args.snapshot is not None:
+            return snapshot_cmd(mgr, args.snapshot)
+        if args.snapshots:
+            return snapshots_cmd(mgr)
+        if args.restore_snapshot:
+            return restore_snapshot_cmd(mgr, args.restore_snapshot)
+        if args.cleanup:
+            return cleanup_cmd(mgr, args.apply)
         if args.export:
             return export_cmd(mgr, args.export)
         if args.import_list:

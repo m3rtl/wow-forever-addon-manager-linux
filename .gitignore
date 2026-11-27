@@ -12,3 +12,8 @@ build-flatpak/
 .flatpak-builder/
 *.flatpak
 repo/
+sv_backups/
+history.jsonl
+snapshots/
+trash/
+addons_txt_backups/

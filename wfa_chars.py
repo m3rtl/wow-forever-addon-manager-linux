@@ -8,6 +8,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from wfa_i18n import _
+
 _LINE = re.compile(r"^\s*([^:]+?)\s*:\s*(enabled|disabled)\s*$", re.I)
 
 
@@ -79,7 +81,7 @@ def read_states(char) -> dict[str, bool]:
     try:
         text = _read_text(p)
     except OSError as e:
-        raise OSError("AddOns.txt von {} konnte nicht gelesen werden: {}".format(char.name, e)) from e
+        raise OSError(_("AddOns.txt von {name} konnte nicht gelesen werden: {error}").format(name=char.name, error=e)) from e
     out = {}
     for ln in text.splitlines():
         m = _LINE.match(ln)
@@ -137,7 +139,7 @@ def write_states(char, changes: dict[str, bool], backup_dir: Path | None = None)
                 pass
             raise
     except OSError as e:
-        raise OSError("AddOns.txt von {} konnte nicht geschrieben werden: {}".format(char.name, e)) from e
+        raise OSError(_("AddOns.txt von {name} konnte nicht geschrieben werden: {error}").format(name=char.name, error=e)) from e
 
 
 def write_states_all(chars, changes: dict[str, bool], backup_dir: Path | None = None):

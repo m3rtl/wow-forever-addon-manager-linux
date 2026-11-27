@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from wfa_i18n import _
+
 _SET = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
 
 
@@ -150,20 +152,20 @@ def _rotate(trash_root, keep, protect=None):
 def _apply_one(f, addons_dir, set_dir, idx):
     p = Path(f.path)
     if f.kind not in ("orphan_sv", "nested", "no_toc"):
-        raise ValueError("Unbekannte Art: {}".format(f.kind))
+        raise ValueError(_("Unbekannte Art: {kind}").format(kind=f.kind))
     if not (p.exists() or p.is_symlink()):
-        raise OSError("{} existiert nicht mehr".format(p.name))
+        raise OSError(_("{name} existiert nicht mehr").format(name=p.name))
     if f.kind != "orphan_sv" and p.parent.resolve() != Path(addons_dir).resolve():
-        raise ValueError("{} liegt nicht direkt im AddOns-Ordner".format(p.name))
+        raise ValueError(_("{name} liegt nicht direkt im AddOns-Ordner").format(name=p.name))
     dest = set_dir / "items" / "{}-{}".format(idx, p.name)
     dest.parent.mkdir(exist_ok=True)
     if f.kind == "nested":
         inner = _inner(p)
         if not inner:
-            raise OSError("Kein gueltiger innerer Ordner in {}".format(p.name))
+            raise OSError(_("Kein gueltiger innerer Ordner in {name}").format(name=p.name))
         tmp = p.parent / ".wfa-fix-{}".format(p.name)
         if tmp.exists():
-            raise OSError("Temporaerer Ordner {} existiert bereits".format(tmp.name))
+            raise OSError(_("Temporaerer Ordner {name} existiert bereits").format(name=tmp.name))
         shutil.copytree(inner, tmp, symlinks=True)
         try:
             shutil.move(str(p), str(dest))
@@ -193,9 +195,9 @@ def apply(findings, addons_dir, trash_root, keep=5) -> list[tuple[Finding, bool,
         try:
             items.append(_apply_one(f, addons_dir, set_dir, i))
             _write_manifest(set_dir, items)
-            res.append((f, True, "Verschoben: {}".format(Path(f.path).name)))
+            res.append((f, True, _("Verschoben: {name}").format(name=Path(f.path).name)))
         except (OSError, ValueError, shutil.Error) as e:
-            res.append((f, False, "{} konnte nicht verarbeitet werden: {}".format(Path(f.path).name, e)))
+            res.append((f, False, _("{name} konnte nicht verarbeitet werden: {error}").format(name=Path(f.path).name, error=e)))
     if not items:
         shutil.rmtree(set_dir, ignore_errors=True)
     _rotate(trash_root, keep, set_dir if items else None)
@@ -231,15 +233,15 @@ def restore_set(set_dir) -> list[str]:
     set_dir = Path(set_dir)
     items = _manifest(set_dir)
     if items is None:
-        raise ValueError("Der Satz {} hat kein lesbares Manifest".format(set_dir.name))
+        raise ValueError(_("Der Satz {name} hat kein lesbares Manifest").format(name=set_dir.name))
     errors, left = [], []
     for it in items:
         src, dst = set_dir / it.get("stored", ""), Path(it.get("original", ""))
         if not (src.exists() or src.is_symlink()):
-            errors.append("{}: Sicherung fehlt".format(dst.name))
+            errors.append(_("{name}: Sicherung fehlt").format(name=dst.name))
             continue
         if dst.exists() or dst.is_symlink():
-            errors.append("{}: Ziel existiert bereits".format(dst.name))
+            errors.append(_("{name}: Ziel existiert bereits").format(name=dst.name))
             left.append(it)
             continue
         try:

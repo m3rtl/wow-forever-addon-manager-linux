@@ -32,6 +32,14 @@ Inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Linux 
 - Kompatibilitätsprüfung vor jeder Installation, Hinweis wenn WoW zu laufen scheint.
 - Beim Ersetzen von Addon-Ordnern bleibt `WTF` unverändert; geschrieben wird dort nur beim ausdrücklichen Wiederherstellen.
 
+**Erweitert** (☰ → Einstellungen → „Erweiterte Funktionen anzeigen“, Standard aus; dann ☰ → Erweitert)
+- Addons je Charakter oder für alle Charaktere an- und ausschalten, ohne sie zu deinstallieren.
+- Aufräumen: Speicherbelegung, Einstellungen deinstallierter Addons, verschachtelte Ordner, Ordner ohne TOC. Alles landet erst im Papierkorb (letzte 5) und lässt sich zurücklegen.
+- Gesamtstände: alle Addons und `WTF/Account` als ein Satz sichern (letzte 3) und mit einem Klick wiederherstellen, z. B. vor einem großen Patch.
+- Geschrieben wird nur bei beendetem WoW.
+
+**Sprache**: Deutsch oder Englisch nach Systemsprache, fest einstellbar unter ☰ → Einstellungen (wirkt nach Neustart) oder per `WFA_LANG=de|en`.
+
 ## Installation
 
 **Release-Datei** (eine ausführbare Datei, aktualisiert sich selbst)
@@ -54,7 +62,7 @@ Inoffizieller Addon-Manager für **WoW: Forever** (Interface 16xxx) unter Linux 
 | Andere Version, Festhalten/Auslassen aufheben, Kanal, Zuordnen, Verlauf | Rechtsklick auf eine Zeile |
 | Protokoll, Backups, Verlauf, Addon-Liste exportieren/importieren, Einstellungen, Programm-Updates, Beenden | ☰-Menü oben rechts |
 
-Kommandozeile: `./start.sh --cli` (Menütasten u. a. `v` Version/Kanal, `h` Verlauf, `w` Backups inkl. SavedVariables), `--export PFAD|-` und `--import PFAD|TEXT`.
+Kommandozeile: `./start.sh --cli` (Menütasten u. a. `v` Version/Kanal, `h` Verlauf, `w` Backups inkl. SavedVariables), `--export PFAD|-` und `--import PFAD|TEXT`, Gesamtstände mit `--snapshot [BEZEICHNUNG]`, `--snapshots` und `--restore-snapshot ID`, Aufräumen mit `--cleanup` (nur anzeigen) und `--cleanup --apply`.
 
 ## Tray und Autostart
 
@@ -97,7 +105,10 @@ Python 3.10+, für die GUI `python3-gi` und `gir1.2-gtk-3.0`.
 ./start.sh --tray          # minimiert im Tray
 ./start.sh --check         # nur die Tabelle ausgeben
 ./build.sh                 # Einzeldatei bauen (dist/)
+python3 -m unittest discover -s tests   # Tests (offline, ohne GUI)
 ```
+
+Übersetzungen liegen in `assets/locale/<sprache>.po`; die deutschen Texte im Code sind die Schlüssel. `tests/test_i18n.py` meldet fehlende Einträge.
 
 ## CurseForge-API-Key
 
@@ -105,7 +116,7 @@ Kostenlos unter <https://console.curseforge.com>; eintragen unter ☰ → Einste
 
 ## Wo Daten gespeichert werden
 
-- Aus dem Quellcode gestartet: neben dem Programm (`config.json`, `backups/`, `sv_backups/`, `history.jsonl`, `cache/`).
+- Aus dem Quellcode gestartet: neben dem Programm (`config.json`, `backups/`, `sv_backups/`, `snapshots/`, `trash/`, `addons_txt_backups/`, `history.jsonl`, `cache/`).
 - Release-Datei und AUR-Paket: in den XDG-Ordnern (`~/.config`, `~/.local/share`, `~/.cache`, jeweils unter `wow-forever-addon-manager`).
 - Flatpak: dieselben Ordner wie die Release-Datei; nur der Cache liegt unter `~/.var/app/io.github.m3rtl.WowForeverAddonManager/`.
 - `WOW_FA_HOME=<Ordner>` überschreibt beides.

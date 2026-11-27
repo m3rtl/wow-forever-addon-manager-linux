@@ -10,6 +10,7 @@ import subprocess
 import threading
 from pathlib import Path
 
+from wfa_i18n import _
 from wfa_base import APP_NAME, install_kind
 
 # ---------------------------------------------------------------- Pfade / Config
@@ -212,7 +213,7 @@ class Config:
         try:
             loaded = json.loads(paths.config_file.read_text("utf-8"))
             if not isinstance(loaded, dict):
-                raise ValueError("kein JSON-Objekt")
+                raise ValueError(_("kein JSON-Objekt"))
         except FileNotFoundError:
             loaded = {}
         except (OSError, ValueError) as e:
@@ -222,7 +223,7 @@ class Config:
                 shutil.copy2(paths.config_file, bad)
                 os.chmod(bad, 0o600)
             if log:
-                log(f"Config nicht lesbar ({e}); Kopie in {bad.name}, starte mit Standardwerten.")
+                log(_("Config nicht lesbar ({error}); Kopie in {name}, starte mit Standardwerten.").format(error=e, name=bad.name))
         for k, (types, default) in SCHEMA.items():
             v = loaded.get(k, default)
             tt = types if isinstance(types, tuple) else (types,)
@@ -259,4 +260,4 @@ class Config:
 
 
 def mask(key):
-    return "(leer)" if not key else ("*" * max(len(key) - 4, 0) + key[-4:])
+    return _("(leer)") if not key else ("*" * max(len(key) - 4, 0) + key[-4:])

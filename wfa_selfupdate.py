@@ -11,6 +11,7 @@ from pathlib import Path
 
 import wfa_core as core
 from wfa_core import ApiError
+from wfa_i18n import _
 
 REPO = "m3rtl/wow-forever-addon-manager-linux"
 ASSET_NAME = "wow-forever-addon-manager-x86_64-linux"
@@ -93,9 +94,9 @@ def _parse_sums(text, name):
 def install(rel, progress=None, cancel=None):
     """Laedt und ersetzt sys.executable; -> Pfad der neuen Datei. Ohne gueltige Pruefsumme wird nichts ersetzt."""
     if not rel.asset_url or not rel.sums_url:
-        raise ApiError("Release enthält kein Programm-Paket oder keine Prüfsumme.", "download")
+        raise ApiError(_("Release enthält kein Programm-Paket oder keine Prüfsumme."), "download")
     if not _lock.acquire(blocking=False):
-        raise ApiError("Ein Programm-Update läuft bereits.", "busy")
+        raise ApiError(_("Ein Programm-Update läuft bereits."), "busy")
     try:
         return _install(rel, progress, cancel)
     finally:
@@ -111,7 +112,7 @@ def _install(rel, progress, cancel):
         core.download_file(rel.sums_url, tmp_sums, limit=1 << 20, cancel=cancel)
         want = _parse_sums(Path(tmp_sums).read_text("utf-8", "replace"), ASSET_NAME)
         if not want:
-            raise ApiError("Prüfsumme für das Programm-Paket fehlt in SHA256SUMS.", "download")
+            raise ApiError(_("Prüfsumme für das Programm-Paket fehlt in SHA256SUMS."), "download")
         fd, tmp_bin = tempfile.mkstemp(prefix=".wfa-new-", dir=exe.parent)
         os.close(fd)
         if progress:
@@ -122,7 +123,7 @@ def _install(rel, progress, cancel):
             for chunk in iter(lambda: f.read(1 << 20), b""):
                 h.update(chunk)
         if h.hexdigest() != want:
-            raise ApiError("Prüfsumme stimmt nicht überein – Update abgebrochen.", "download")
+            raise ApiError(_("Prüfsumme stimmt nicht überein – Update abgebrochen."), "download")
         os.chmod(tmp_bin, 0o755)
         old = exe.with_name(exe.name + ".old")
         keep_old = _state["installed"] is not None    # laufende Datei wurde schon ersetzt

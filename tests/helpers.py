@@ -13,6 +13,11 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import wfa_i18n  # noqa: E402
+
+# Die Tests pruefen die deutschen Originaltexte, unabhaengig von der Locale des Rechners.
+wfa_i18n.setup("de")
+
 
 def _blocked(*_a, **_kw):
     raise RuntimeError("Netzzugriff im Test gesperrt")

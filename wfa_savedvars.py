@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+from wfa_i18n import _
 from wfa_base import HISTORY_MAX, KEEP_BACKUPS, Result, SvSet
 
 class SavedVarsMixin:
@@ -67,10 +68,10 @@ class SavedVarsMixin:
         wtf = self.wtf_dir()
         try:
             if not wtf or not wtf.is_dir():
-                raise OSError(f"WTF-Ordner nicht gefunden ({wtf})")
+                raise OSError(_("WTF-Ordner nicht gefunden ({path})").format(path=wtf))
             files = self._sv_files(wtf)
             if not files:
-                self.log("SavedVariables-Sicherung übersprungen: keine Dateien gefunden.")
+                self.log(_("SavedVariables-Sicherung übersprungen: keine Dateien gefunden."))
                 return None
             root = self.paths.sv_backups
             root.mkdir(parents=True, exist_ok=True)
@@ -88,10 +89,10 @@ class SavedVarsMixin:
                 raise
             if prune:
                 self._prune_sv()
-            self.log(f"SavedVariables gesichert: {d.name} ({len(files)} Dateien)")
+            self.log(_("SavedVariables gesichert: {name} ({count} Dateien)").format(name=d.name, count=len(files)))
             return d.name
         except Exception as e:  # noqa: BLE001
-            self.log(f"SavedVariables-Sicherung fehlgeschlagen: {e}")
+            self.log(_("SavedVariables-Sicherung fehlgeschlagen: {error}").format(error=e))
             return None
 
     def _prune_sv(self):
@@ -122,32 +123,36 @@ class SavedVarsMixin:
     def restore_sv(self, sset, addons=None):
         """Schreibt die Dateien eines Satzes (optional nur bestimmte Addons) nach WTF zurueck; vorher Schnappschuss
         des aktuellen Stands. Nicht bei laufendem WoW."""
-        label = f"Einstellungen {sset.name}"
+        label = _("Einstellungen {name}").format(name=sset.name)
         if self.wow_running():
-            return Result(sset.name, label, False, "WoW läuft – bitte beenden, sonst überschreibt es die "
-                          "wiederhergestellten Einstellungen beim Beenden wieder.")
+            return Result(sset.name, label, False, _("WoW läuft – bitte beenden, sonst überschreibt es die "
+                                                         "wiederhergestellten Einstellungen beim Beenden wieder."))
         wtf = self.wtf_dir()
         if not wtf or not wtf.is_dir():
-            return Result(sset.name, label, False, f"WTF-Ordner nicht gefunden ({wtf}).")
+            return Result(sset.name, label, False, _("WTF-Ordner nicht gefunden ({path}).").format(path=wtf))
         want = {a.lower() for a in addons} if addons is not None else None
         files = [f for f in self._sv_files(Path(sset.path)) if want is None or f.stem.lower() in want]
         if not files:
-            return Result(sset.name, label, False, "Keine passenden Dateien im Satz.")
+            return Result(sset.name, label, False, _("Keine passenden Dateien im Satz."))
         with self._apply_lock:
             pre = self.snapshot_sv(prune=False)
             if pre is None and self._sv_files(wtf):
-                return Result(sset.name, label, False, "Aktueller Stand konnte nicht gesichert werden – abgebrochen.")
+                return Result(sset.name, label, False,
+                              _("Aktueller Stand konnte nicht gesichert werden – abgebrochen."))
             try:
                 for rel in files:
                     dest = self._ci_dest(wtf, rel)
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(Path(sset.path) / rel, dest)
             except OSError as e:
-                return Result(sset.name, label, False, f"Fehler beim Zurückschreiben: {e} (aktueller Stand: {pre})", None, pre)
+                return Result(sset.name, label, False,
+                              _("Fehler beim Zurückschreiben: {error} (aktueller Stand: {snapshot})").format(error=e, snapshot=pre),
+                              None, pre)
             self._prune_sv()
         names = sorted({f.stem for f in files}, key=str.lower)
         self.add_history("Einstellungen", "", ", ".join(names), None, None, None, None, pre)
-        return Result(sset.name, label, True, f"{len(files)} Dateien zurückgeschrieben ({len(names)} Addons)", None, pre)
+        return Result(sset.name, label, True,
+                      _("{files} Dateien zurückgeschrieben ({addons} Addons)").format(files=len(files), addons=len(names)), None, pre)
 
     # -- Update-Verlauf (JSON-Lines, neueste zuletzt)
     def add_history(self, kind, key, name, old, new, source, backup, sv=None, folders=None):
@@ -167,7 +172,7 @@ class SavedVarsMixin:
         except OSError as ex:
             with contextlib.suppress(OSError):
                 tmp.unlink()
-            self.log(f"Verlauf konnte nicht gespeichert werden: {ex}")
+            self.log(_("Verlauf konnte nicht gespeichert werden: {error}").format(error=ex))
 
     def _hist_lines(self):
         try:

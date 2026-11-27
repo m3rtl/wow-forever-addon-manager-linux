@@ -76,6 +76,12 @@
   </supports>
 
   <releases>
+    <release version="0.4.0" date="2026-11-27">
+      <description>
+        <p>English user interface, AUR package and Flatpak, optional advanced tools (addons per character, cleanup,
+          full snapshots of addons and settings), test suite.</p>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-11-26">
       <description>
         <p>Version selection and pinning, per-addon channels, required dependencies, export/import of the addon list,

@@ -7,6 +7,7 @@ import os
 import re
 import time
 
+from wfa_i18n import _
 from wfa_base import ApiError, Candidate, DepNeed, Suggestion, __version__
 from wfa_sources import CurseForge, parse_github
 from wfa_toc import _slug, clean_title, display_version, toc_dependency_names, toc_meta
@@ -16,7 +17,7 @@ class AssignMixin:
     def assign_folders(self, folders, name=None, cf_id=None, gh=None):
         """Ordner manuell einem CF-Projekt (ID) oder GitHub-Repo zuordnen. -> Paket-Key."""
         if not cf_id and not gh:
-            raise ValueError("CF-ID oder GitHub-Repo nötig")
+            raise ValueError(_("CF-ID oder GitHub-Repo nötig"))
         key = f"cf-{cf_id}" if cf_id else "gh-" + gh.replace("/", "-")
         folders = list(folders)
         with self.cfg.lock:
@@ -60,15 +61,15 @@ class AssignMixin:
                         name = self._mod_name(mid)
                     rem = cf.latest(mid, tid, self.allowed_types(f"cf-{mid}"))
                     if rem is None:
-                        err = "keine Forever-Datei bei CurseForge"
+                        err = _("keine Forever-Datei bei CurseForge")
                 else:
-                    err = "ohne CurseForge-Key nicht installierbar"
+                    err = _("ohne CurseForge-Key nicht installierbar")
             except ApiError as e:
                 err = str(e)
             name = name or f"CurseForge {mid}"
-            reason = f"benötigt von {von}"
+            reason = _("benötigt von {name}").format(name=von)
             if rem is None:
-                out.append(DepNeed(name, reason, None, err or "nicht gefunden"))
+                out.append(DepNeed(name, reason, None, err or _("nicht gefunden")))
                 continue
             mods = {m.lower() for m in rem.modules if m}
             if mods and mods <= have_dirs:   # Ordner liegen schon da (auch unzugeordnet)
@@ -89,12 +90,12 @@ class AssignMixin:
             if low in have_dirs or low in batch or low in provided or low.startswith("blizzard_"):
                 continue
             need = self._find_dep_folder(cf, tid, dep, seen) if not cf_only and cf else None
-            reason = f"benötigt von {von}"
+            reason = _("benötigt von {name}").format(name=von)
             if need:
                 seen.add(need.ident)
                 out.append(DepNeed(need.name, reason, need, via="toc"))
             else:
-                out.append(DepNeed(dep, reason, None, "fehlt, nicht automatisch gefunden", "toc"))
+                out.append(DepNeed(dep, reason, None, _("fehlt, nicht automatisch gefunden"), "toc"))
         return out
 
     def _find_dep_folder(self, cf, tid, name, seen):
@@ -108,7 +109,7 @@ class AssignMixin:
         if len(hits) != 1:
             return None
         try:
-            files, _ = cf.files(hits[0]["id"], tid)
+            files, _more = cf.files(hits[0]["id"], tid)
         except ApiError:
             return None
         newest = max(files, key=lambda x: x.get("fileDate", ""), default=None)
@@ -135,7 +136,7 @@ class AssignMixin:
         def from_cf(m, reason, folder, trusted):
             strong = False
             if verify and trusted and cf:
-                files, _ = cf.files(m["id"], tid)
+                files, _more = cf.files(m["id"], tid)
                 newest = max(files, key=lambda x: x.get("fileDate", ""), default=None)
                 strong = bool(newest) and folder.lower() in {(x.get("name") or "").lower() for x in newest.get("modules") or []}
             add(self._candidate(m), reason, strong)
@@ -148,24 +149,24 @@ class AssignMixin:
                 repo = parse_github(u if u.startswith("http") else "https://" + u)
                 if repo:
                     add(Candidate("GH", repo, repo.split("/")[1], repo.split("/")[0], "", 0, None, False,
-                                  f"https://github.com/{repo}"), "GitHub-Adresse aus TOC")
+                                  f"https://github.com/{repo}"), _("GitHub-Adresse aus TOC"))
             if not cf:
                 continue
             try:
                 cid = (meta.get("x-curse-project-id") or "").strip()
                 if cid.isdigit():
-                    from_cf(cf.get(f"/v1/mods/{int(cid)}")["data"], "Projekt-ID aus TOC", folder, True)
+                    from_cf(cf.get(f"/v1/mods/{int(cid)}")["data"], _("Projekt-ID aus TOC"), folder, True)
                 for slug in dict.fromkeys(re.findall(r"curseforge\.com/wow/addons/([\w-]+)", text, re.I)):
                     for m in cf.search(slug, tid):
                         if (m.get("slug") or "").lower() == slug.lower():
-                            from_cf(m, "CurseForge-Adresse aus TOC", folder, True)
+                            from_cf(m, _("CurseForge-Adresse aus TOC"), folder, True)
                 if names:
                     for term in dict.fromkeys((title, folder)):
                         for m in cf.search(term, tid):
                             if _slug(term) in (_slug(m.get("name")), _slug(m.get("slug"))):
-                                from_cf(m, "Name passt (CurseForge-Suche)", folder, False)
+                                from_cf(m, _("Name passt (CurseForge-Suche)"), folder, False)
             except ApiError as e:
-                self.notes.append(f"Zuordnung {folder}: {e}")
+                self.notes.append(_("Zuordnung {folder}: {error}").format(folder=folder, error=e))
         return out[:6]
 
     def assign_target(self, text):
@@ -182,8 +183,8 @@ class AssignMixin:
             for m in self._cf().search(slug.group(1), self._tid()):
                 if (m.get("slug") or "").lower() == slug.group(1).lower():
                     return self._candidate(m)
-            raise ApiError("Zu dieser CurseForge-Adresse wurde kein Projekt gefunden.")
-        raise ApiError("Bitte eine CurseForge-Projekt-ID, eine CurseForge-/GitHub-Adresse oder gh:owner/repo angeben.")
+            raise ApiError(_("Zu dieser CurseForge-Adresse wurde kein Projekt gefunden."))
+        raise ApiError(_("Bitte eine CurseForge-Projekt-ID, eine CurseForge-/GitHub-Adresse oder gh:owner/repo angeben."))
 
     def _auto_assign(self, packages):
         """Ordner mit CF-Adresse im TOC, deren Forever-Datei genau diesen Ordner enthaelt, automatisch zuordnen."""
@@ -213,7 +214,8 @@ class AssignMixin:
             if len(strong) == 1:
                 c = strong[0].cand
                 self.assign_folders(p.folders, c.name, cf_id=int(c.ident))
-                self.log(f"Automatisch zugeordnet: {folder} → {c.name} (CurseForge {c.ident}, {strong[0].reason})")
+                self.log(_("Automatisch zugeordnet: {folder} → {name} (CurseForge {ident}, {reason})").format(
+                    folder=folder, name=c.name, ident=c.ident, reason=strong[0].reason))
                 changed = True
         return changed
 
@@ -272,14 +274,15 @@ def parse_import(text):
     out = []
     if "{" in t and not re.match(r"(?i)\s*WFA1\b", t):
         try:
-            doc, _ = json.JSONDecoder().raw_decode(t[t.index("{"):])
+            doc, _end = json.JSONDecoder().raw_decode(t[t.index("{"):])
         except ValueError as e:
-            raise ApiError(f"Die Liste ist kein gültiges JSON: {e}")
+            raise ApiError(_("Die Liste ist kein gültiges JSON: {error}").format(error=e))
         if not isinstance(doc, dict) or not isinstance(doc.get("packages"), list):
-            raise ApiError("Das ist keine Addon-Liste dieses Programms.")
+            raise ApiError(_("Das ist keine Addon-Liste dieses Programms."))
         fmt = doc.get("format", 1)
         if isinstance(fmt, int) and fmt > EXPORT_FORMAT:
-            raise ApiError(f"Die Liste hat Format {fmt}; dieses Programm kennt nur Format {EXPORT_FORMAT} – bitte aktualisieren.")
+            raise ApiError(_("Die Liste hat Format {found}; dieses Programm kennt nur Format {known} – bitte aktualisieren.").format(
+                found=fmt, known=EXPORT_FORMAT))
         for p in doc["packages"]:
             m = _SRC_RE.match(str(p.get("source", "")).strip()) if isinstance(p, dict) else None
             if m:
@@ -292,14 +295,15 @@ def parse_import(text):
         w = re.search(r"(?i)\bWFA(\d+)\b:?", t)
         if w:
             if int(w.group(1)) > EXPORT_FORMAT:
-                raise ApiError(f"Die Liste hat Format {w.group(1)}; dieses Programm kennt nur Format {EXPORT_FORMAT} – bitte aktualisieren.")
+                raise ApiError(_("Die Liste hat Format {found}; dieses Programm kennt nur Format {known} – bitte aktualisieren.").format(
+                    found=w.group(1), known=EXPORT_FORMAT))
             t = t[w.end():]
         for tok in (x.strip("\"'“”„‚‘’") for x in re.split(r"[\s,;]+", t)):
             if not tok:
                 continue
             m = _SRC_RE.match(tok)
             if not m:
-                raise ApiError(f"Unbekannter Eintrag in der Liste: „{tok[:40]}“")
+                raise ApiError(_("Unbekannter Eintrag in der Liste: „{entry}“").format(entry=tok[:40]))
             e = dict(source="cf:" + m.group(1)[3:] if m.group(1)[:2].lower() == "cf" else "gh:" + m.group(1)[3:])
             if m.group(2):
                 e["channel"] = m.group(2).lower()
@@ -312,5 +316,5 @@ def parse_import(text):
                 old[k] = v
     out = list(uniq.values())
     if not out:
-        raise ApiError("Keine übertragbaren Addons in der Liste gefunden.")
+        raise ApiError(_("Keine übertragbaren Addons in der Liste gefunden."))
     return out

@@ -8,6 +8,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from wfa_i18n import _
+
 __version__ = "0.3.0"
 
 APP_NAME = "wow-forever-addon-manager"
@@ -246,7 +248,7 @@ def package_channel():
         return "Flatpak"
     if k == "package":
         txt = _read_text(Path(__file__).resolve().parent / "PACKAGED").strip()
-        return txt.upper() if txt.lower() == "aur" else (txt or "Paketverwaltung")
+        return txt.upper() if txt.lower() == "aur" else (txt or _("Paketverwaltung"))
     return ""
 
 

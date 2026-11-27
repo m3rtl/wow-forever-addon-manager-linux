@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 
+from wfa_i18n import _
 from wfa_toc import display_version
 
 def _pin_record(mode, rem):
@@ -17,8 +18,8 @@ def pin_text(pin):
     ver = display_version(ref.get("version")) or ref.get("display") or "?"
     since = (pin.get("since") or "?")[:10]
     if pin["mode"] == "hold":
-        return f"Auf Version {ver} festgehalten (seit {since}); Updates werden nicht angeboten."
-    return f"Ausgelassen bis eine Version neuer als {ver} erscheint (seit {since})."
+        return _("Auf Version {version} festgehalten (seit {since}); Updates werden nicht angeboten.").format(version=ver, since=since)
+    return _("Ausgelassen bis eine Version neuer als {version} erscheint (seit {since}).").format(version=ver, since=since)
 
 
 def _remote_newer(rem, ref):

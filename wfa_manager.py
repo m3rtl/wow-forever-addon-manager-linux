@@ -8,6 +8,7 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+from wfa_i18n import _
 from wfa_apply import ApplyMixin
 from wfa_assign import AssignMixin
 from wfa_base import ApiError, CATALOG, CURRENT, DEFAULT_CLIENT, ERROR, FOREVER_TYPE_FALLBACK, HELD, NEWER, NOKEY, NO_FOREVER, Package, SKIPPED, UNASSIGNED, UNCHECKED, UPDATE
@@ -160,7 +161,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
 
     def _cf(self):
         if not self.api_key:
-            raise ApiError("Kein CurseForge-API-Key gesetzt.", "nokey")
+            raise ApiError(_("Kein CurseForge-API-Key gesetzt."), "nokey")
         return CurseForge(self.api_key)
 
     def _tid(self):
@@ -277,9 +278,9 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         pkgs = [self._make_package(g) for g in groups]
         pkgs.sort(key=lambda p: p.name.lower())
         for f, title in unassigned:
-            st, ver, _ = forever_toc(self.addons_dir / f, self.client_interface)
+            st, ver, _t = forever_toc(self.addons_dir / f, self.client_interface)
             e = self.cfg["cf_fp_cache"].get(f)
-            note = "lokal verändert (von CurseForge nicht erkannt)" if isinstance(e, dict) and e.get("partial") else \
+            note = _("lokal verändert (von CurseForge nicht erkannt)") if isinstance(e, dict) and e.get("partial") else \
                 (title if title != f else "")
             pkgs.append(Package(f"folder:{f}", f, [f], ver, st, "–", None, UNASSIGNED, None, None, None, note,
                                 {"unassigned": True, "vfolder": f}))
@@ -290,7 +291,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         vf = g["meta"].get("vfolder")
         if vf not in folders:
             vf = min(folders, key=len)
-        st, ver, _ = forever_toc(self.addons_dir / vf, self.client_interface)
+        st, ver, _t = forever_toc(self.addons_dir / vf, self.client_interface)
         meta = dict(g["meta"], vfolder=vf)
         best = None
         for f in folders:
@@ -344,7 +345,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
     def scan(self):
         """Nur lokal: Ordner lesen, fingerprinten, anhand Cache/Katalog gruppieren."""
         if self.needs_setup():
-            raise ApiError("Kein AddOns-Ordner eingerichtet.", "setup")
+            raise ApiError(_("Kein AddOns-Ordner eingerichtet."), "setup")
         self._read_client()
         self._folders = self._addon_folders()
         self._fps = {}
@@ -422,7 +423,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
             except ApiError as e:
                 if e.kind in ("key", "forbidden"):
                     self._key_invalid = True
-                    self.notes.append("CurseForge-API-Key ungültig oder abgelehnt.")
+                    self.notes.append(_("CurseForge-API-Key ungültig oder abgelehnt."))
                 else:
                     self.notes.append(f"CurseForge: {e}")
                 if e.kind in ("key", "forbidden"):
@@ -441,7 +442,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
                     self._fill_mod_info(cf, sorted({p.cf_mod_id for p in packages if p.cf_mod_id}))
                     self._mark_missing(packages)
             except ApiError as e:
-                self.notes.append(f"CurseForge-Erkennung: {e}")
+                self.notes.append(_("CurseForge-Erkennung: {error}").format(error=e))
             for p in packages:  # Namen/Links nachziehen
                 if p.cf_mod_id:
                     p.page_url = self._mod_url(p.cf_mod_id)
@@ -467,7 +468,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         with ThreadPoolExecutor(max_workers=6) as ex:
             list(ex.map(work, packages))
         if not self.api_key and any(p.cf_mod_id and not p.meta.get("gh") for p in packages):
-            self.notes.append("Ohne CurseForge-Key sind reine CF-Pakete nicht prüfbar.")
+            self.notes.append(_("Ohne CurseForge-Key sind reine CF-Pakete nicht prüfbar."))
         self._mark_ignored(packages)
         self._mark_missing(packages)
         for p in packages:
@@ -485,21 +486,23 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         if p.meta.get("unassigned"):
             return
         allowed = self.allowed_types(p.key)
-        rem, errs = None, []
+        rem, errs, nofile = None, [], 0
         if cf and p.cf_mod_id:
             try:
                 rem = cf.latest(p.cf_mod_id, tid, allowed)
                 if rem:
                     rem.page_url = p.page_url
                 else:
-                    errs.append("CF: keine Forever-Datei")
+                    errs.append(_("CF: keine Forever-Datei"))
+                    nofile += 1
             except ApiError as e:
                 errs.append(f"CF: {e}")
         if rem is None and p.meta.get("gh"):
             try:
                 rem = gh_latest(p.meta["gh"], p.meta, allowed)
                 if rem is None:
-                    errs.append("GH: kein Forever-Release")
+                    errs.append(_("GH: kein Forever-Release"))
+                    nofile += 1
             except ApiError as e:
                 errs.append(f"GH: {e}")
         p.remote = rem
@@ -508,7 +511,7 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
         if rem is None:
             if p.cf_mod_id and not cf:
                 p.status = NOKEY
-            elif errs and all("keine Forever" in e or "kein Forever" in e for e in errs):
+            elif errs and nofile == len(errs):
                 p.status = NO_FOREVER
             elif errs:
                 p.status = ERROR

@@ -1,0 +1,876 @@
+# English translation of WoW: Forever Addon Manager (non-GUI modules).
+# Source language: German. Plural forms: n != 1.
+msgid ""
+msgstr ""
+"Project-Id-Version: wow-forever-addon-manager\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# ---------------------------------------------------------------- wfa_base.py
+
+#: wfa_base.py
+msgid "Paketverwaltung"
+msgstr "package manager"
+
+# ---------------------------------------------------------------- wfa_paths.py
+
+#: wfa_paths.py
+msgid "kein JSON-Objekt"
+msgstr "not a JSON object"
+
+#: wfa_paths.py
+msgid "Config nicht lesbar ({error}); Kopie in {name}, starte mit Standardwerten."
+msgstr "Config unreadable ({error}); copy saved as {name}, starting with defaults."
+
+#: wfa_paths.py
+msgid "(leer)"
+msgstr "(empty)"
+
+# ---------------------------------------------------------------- wfa_http.py
+
+#: wfa_http.py
+msgid "CurseForge: nicht autorisiert (HTTP 401)"
+msgstr "CurseForge: not authorized (HTTP 401)"
+
+#: wfa_http.py
+msgid "CurseForge: Zugriff verweigert (HTTP 403)"
+msgstr "CurseForge: access denied (HTTP 403)"
+
+#: wfa_http.py
+msgid "Rate-Limit erreicht ({host})"
+msgstr "Rate limit reached ({host})"
+
+#: wfa_http.py
+msgid "HTTP {code} für {host}"
+msgstr "HTTP {code} for {host}"
+
+#: wfa_http.py
+msgid "Netzwerkfehler ({reason})"
+msgstr "Network error ({reason})"
+
+#: wfa_http.py
+msgid "Ungültige Antwort (kein JSON)"
+msgstr "Invalid response (not JSON)"
+
+#: wfa_http.py
+msgid "Download nur über https erlaubt"
+msgstr "Downloads are only allowed over https"
+
+#: wfa_http.py
+msgid "Abgebrochen"
+msgstr "Cancelled"
+
+#: wfa_http.py
+msgid "keine Daten seit {seconds} s – Verbindung hängt"
+msgstr "no data for {seconds} s – connection stalled"
+
+#: wfa_http.py
+msgid "Verbindung abgebrochen ({error})"
+msgstr "Connection interrupted ({error})"
+
+#: wfa_http.py
+msgid "Download unvollständig ({got} von {total})"
+msgstr "Download incomplete ({got} of {total})"
+
+#: wfa_http.py
+msgid "Download zu groß (>300 MB)"
+msgstr "Download too large (>300 MB)"
+
+#: wfa_http.py
+msgid "Antwort ist keine Zip-Datei"
+msgstr "Response is not a zip file"
+
+#: wfa_http.py
+msgid "Zip-Datei beschädigt ({error})"
+msgstr "Zip file is corrupt ({error})"
+
+# ---------------------------------------------------------------- wfa_files.py
+
+#: wfa_files.py
+msgid "Zip entpackt zu groß"
+msgstr "Zip is too large when unpacked"
+
+#: wfa_files.py
+msgid "Unsicherer Pfad im Zip: {name}"
+msgstr "Unsafe path in zip: {name}"
+
+#: wfa_files.py
+msgid "Symlink im Zip abgelehnt: {name}"
+msgstr "Symlink in zip rejected: {name}"
+
+#: wfa_files.py
+msgid "Das ist kein AddOns-Ordner."
+msgstr "This is not an AddOns folder."
+
+#: wfa_files.py
+msgid "Warnung: Im Pfad kommt kein Ordner „_forever_“ vor – ist das wirklich WoW: Forever?"
+msgstr "Warning: the path has no “_forever_” folder – is this really WoW: Forever?"
+
+#: wfa_files.py
+msgid "Der Ordner Interface/AddOns wird angelegt."
+msgstr "The Interface/AddOns folder will be created."
+
+#: wfa_files.py
+msgid "Ordner existiert nicht."
+msgstr "Folder does not exist."
+
+#: wfa_files.py
+msgid "Im Flatpak sieht der Manager nur den gewählten Ordner. Wähle besser den Ordner „World of Warcraft“ (oberhalb von _forever_), damit Client-Version und SavedVariables erreichbar sind."
+msgstr "In Flatpak the manager only sees the folder you picked. Better pick the “World of Warcraft” folder (above _forever_) so the client version and SavedVariables are reachable."
+
+#: wfa_files.py
+msgid "Im Flatpak wird der Autostart über das Hintergrund-Portal gesetzt."
+msgstr "In Flatpak, autostart is set through the background portal."
+
+#: wfa_files.py
+msgid "Der Startmenü-Eintrag wird mit dem Paket ({package}) installiert."
+msgstr "The start menu entry is installed with the package ({package})."
+
+# ---------------------------------------------------------------- wfa_pins.py
+
+#: wfa_pins.py
+msgid "Auf Version {version} festgehalten (seit {since}); Updates werden nicht angeboten."
+msgstr "Pinned to version {version} (since {since}); updates are not offered."
+
+#: wfa_pins.py
+msgid "Ausgelassen bis eine Version neuer als {version} erscheint (seit {since})."
+msgstr "Skipped until a version newer than {version} is released (since {since})."
+
+# ---------------------------------------------------------------- wfa_manager.py
+
+#: wfa_manager.py
+msgid "Kein CurseForge-API-Key gesetzt."
+msgstr "No CurseForge API key set."
+
+#: wfa_manager.py
+msgid "lokal verändert (von CurseForge nicht erkannt)"
+msgstr "locally modified (not recognized by CurseForge)"
+
+#: wfa_manager.py
+msgid "Kein AddOns-Ordner eingerichtet."
+msgstr "No AddOns folder set up."
+
+#: wfa_manager.py
+msgid "CurseForge-API-Key ungültig oder abgelehnt."
+msgstr "CurseForge API key is invalid or was rejected."
+
+#: wfa_manager.py
+msgid "CurseForge-Erkennung: {error}"
+msgstr "CurseForge detection: {error}"
+
+#: wfa_manager.py
+msgid "Ohne CurseForge-Key sind reine CF-Pakete nicht prüfbar."
+msgstr "Without a CurseForge key, CF-only packages cannot be checked."
+
+#: wfa_manager.py
+msgid "CF: keine Forever-Datei"
+msgstr "CF: no Forever file"
+
+#: wfa_manager.py
+msgid "GH: kein Forever-Release"
+msgstr "GH: no Forever release"
+
+# ---------------------------------------------------------------- wfa_plan.py
+
+#: wfa_plan.py
+msgid "Suche ist für diesen API-Key nicht freigeschaltet"
+msgstr "Search is not enabled for this API key"
+
+#: wfa_plan.py
+msgid "Bild-Redirect auf nicht erlaubten Host"
+msgstr "Image redirect to a disallowed host"
+
+#: wfa_plan.py
+msgid "Nur direkte .zip-Links, GitHub-Repos oder CurseForge-Projekt-IDs werden unterstützt."
+msgstr "Only direct .zip links, GitHub repos or CurseForge project IDs are supported."
+
+#: wfa_plan.py
+msgid "Datei nicht gefunden."
+msgstr "File not found."
+
+#: wfa_plan.py
+msgid "Lade {name} ..."
+msgstr "Downloading {name} ..."
+
+#: wfa_plan.py
+msgid "Keine Update-Quelle bekannt."
+msgstr "No update source known."
+
+#: wfa_plan.py
+msgid "Keine Forever-Datei bei CurseForge."
+msgstr "No Forever file on CurseForge."
+
+#: wfa_plan.py
+msgid "Kein GitHub-Release mit Forever-Zip gefunden."
+msgstr "No GitHub release with a Forever zip found."
+
+#: wfa_plan.py
+msgid "Keine Versionsquelle bekannt."
+msgstr "No version source known."
+
+#: wfa_plan.py
+msgid "Kein Download-Link verfügbar (Browser-Download nötig)."
+msgstr "No download link available (browser download required)."
+
+#: wfa_plan.py
+msgid "{name}: {size} geladen über {way}"
+msgstr "{name}: {size} downloaded via {way}"
+
+#: wfa_plan.py
+msgid "{name}: Download abgebrochen"
+msgstr "{name}: download cancelled"
+
+#: wfa_plan.py
+msgid "Download abgebrochen"
+msgstr "Download cancelled"
+
+#: wfa_plan.py
+msgid "{name} – {way}: {error} – neuer Versuch {attempt}/{total} in {seconds} s"
+msgstr "{name} – {way}: {error} – retrying ({attempt}/{total}) in {seconds} s"
+
+#: wfa_plan.py
+msgid " ({attempts} Versuche)"
+msgstr " ({attempts} attempts)"
+
+#: wfa_plan.py
+msgid " – weiter mit {way}"
+msgstr " – continuing with {way}"
+
+#: wfa_plan.py
+msgid "Download fehlgeschlagen, alle Wege versucht:"
+msgstr "Download failed, all routes tried:"
+
+#: wfa_plan.py
+msgid "Zip nicht installierbar: {error}"
+msgstr "Zip cannot be installed: {error}"
+
+#: wfa_plan.py
+msgid "Im Zip wurde kein Addon-Ordner (Ordner mit passender .toc) gefunden."
+msgstr "No addon folder (folder with a matching .toc) found in the zip."
+
+#: wfa_plan.py
+msgid "Ordner „{name}“ kommt mehrfach im Zip vor; der flachste wird verwendet."
+msgstr "Folder “{name}” appears several times in the zip; the shallowest is used."
+
+#: wfa_plan.py
+msgid "Dieses Paket enthält keine für WoW: Forever (Interface 16xxx) markierte Hauptdatei – es wird vermutlich nicht geladen."
+msgstr "This package has no main file marked for WoW: Forever (Interface 16xxx) – it will probably not load."
+
+#: wfa_plan.py
+msgid "Übersprungen (werden von WoW: Forever nicht geladen): "
+msgstr "Skipped (not loaded by WoW: Forever): "
+
+# ---------------------------------------------------------------- wfa_apply.py
+
+#: wfa_apply.py
+msgid "manuell ({path})"
+msgstr "manual ({path})"
+
+#: wfa_apply.py
+msgid "automatisch (aus Browser: {source})"
+msgstr "automatic (from browser: {source})"
+
+#: wfa_apply.py
+msgid "automatisch ({source})"
+msgstr "automatic ({source})"
+
+#: wfa_apply.py
+msgid "Fehler bei der Installation: {error} (Zustand wiederhergestellt)"
+msgstr "Installation failed: {error} (previous state restored)"
+
+#: wfa_apply.py
+msgid "Konfiguration konnte nicht gespeichert werden: {error}"
+msgstr "Could not save the configuration: {error}"
+
+#: wfa_apply.py
+msgid "1 Ordner installiert"
+msgid_plural "{n} Ordner installiert"
+msgstr[0] "1 folder installed"
+msgstr[1] "{n} folders installed"
+
+#: wfa_apply.py
+msgid "Erkennung nach Installation nicht möglich: {error}"
+msgstr "Detection after installation failed: {error}"
+
+#: wfa_apply.py
+msgid "Nicht vorhanden: "
+msgstr "Not present: "
+
+#: wfa_apply.py
+msgid "{folder} benötigt {needed}"
+msgstr "{folder} requires {needed}"
+
+#: wfa_apply.py
+msgid "Keine Ordner vorhanden."
+msgstr "No folders present."
+
+#: wfa_apply.py
+msgid "Fehler: {error} (Zustand wiederhergestellt)"
+msgstr "Error: {error} (previous state restored)"
+
+#: wfa_apply.py
+msgid "1 Ordner entfernt"
+msgid_plural "{n} Ordner entfernt"
+msgstr[0] "1 folder removed"
+msgstr[1] "{n} folders removed"
+
+#: wfa_apply.py
+msgid "Sicherung ist leer oder fehlt."
+msgstr "The backup is empty or missing."
+
+#: wfa_apply.py
+msgid "Wiederhergestellt: {names}"
+msgstr "Restored: {names}"
+
+# ---------------------------------------------------------------- wfa_savedvars.py
+
+#: wfa_savedvars.py
+msgid "WTF-Ordner nicht gefunden ({path})"
+msgstr "WTF folder not found ({path})"
+
+#: wfa_savedvars.py
+msgid "SavedVariables-Sicherung übersprungen: keine Dateien gefunden."
+msgstr "SavedVariables backup skipped: no files found."
+
+#: wfa_savedvars.py
+msgid "SavedVariables gesichert: {name} ({count} Dateien)"
+msgstr "SavedVariables backed up: {name} ({count} files)"
+
+#: wfa_savedvars.py
+msgid "SavedVariables-Sicherung fehlgeschlagen: {error}"
+msgstr "SavedVariables backup failed: {error}"
+
+#: wfa_savedvars.py
+msgid "Einstellungen {name}"
+msgstr "Settings {name}"
+
+#: wfa_savedvars.py
+msgid "WoW läuft – bitte beenden, sonst überschreibt es die wiederhergestellten Einstellungen beim Beenden wieder."
+msgstr "WoW is running – please close it, otherwise it will overwrite the restored settings when it exits."
+
+#: wfa_savedvars.py
+msgid "WTF-Ordner nicht gefunden ({path})."
+msgstr "WTF folder not found ({path})."
+
+#: wfa_savedvars.py
+msgid "Keine passenden Dateien im Satz."
+msgstr "No matching files in the set."
+
+#: wfa_savedvars.py
+msgid "Aktueller Stand konnte nicht gesichert werden – abgebrochen."
+msgstr "Could not back up the current state – cancelled."
+
+#: wfa_savedvars.py
+msgid "Fehler beim Zurückschreiben: {error} (aktueller Stand: {snapshot})"
+msgstr "Error while writing back: {error} (current state: {snapshot})"
+
+#: wfa_savedvars.py
+msgid "{files} Dateien zurückgeschrieben ({addons} Addons)"
+msgstr "{files} files written back ({addons} addons)"
+
+#: wfa_savedvars.py
+msgid "Verlauf konnte nicht gespeichert werden: {error}"
+msgstr "Could not save the history: {error}"
+
+# ---------------------------------------------------------------- wfa_assign.py
+
+#: wfa_assign.py
+msgid "CF-ID oder GitHub-Repo nötig"
+msgstr "A CF ID or GitHub repo is required"
+
+#: wfa_assign.py
+msgid "keine Forever-Datei bei CurseForge"
+msgstr "no Forever file on CurseForge"
+
+#: wfa_assign.py
+msgid "ohne CurseForge-Key nicht installierbar"
+msgstr "cannot be installed without a CurseForge key"
+
+#: wfa_assign.py
+msgid "benötigt von {name}"
+msgstr "required by {name}"
+
+#: wfa_assign.py
+msgid "nicht gefunden"
+msgstr "not found"
+
+#: wfa_assign.py
+msgid "fehlt, nicht automatisch gefunden"
+msgstr "missing, not found automatically"
+
+#: wfa_assign.py
+msgid "GitHub-Adresse aus TOC"
+msgstr "GitHub address from the TOC"
+
+#: wfa_assign.py
+msgid "Projekt-ID aus TOC"
+msgstr "Project ID from the TOC"
+
+#: wfa_assign.py
+msgid "CurseForge-Adresse aus TOC"
+msgstr "CurseForge address from the TOC"
+
+#: wfa_assign.py
+msgid "Name passt (CurseForge-Suche)"
+msgstr "Name matches (CurseForge search)"
+
+#: wfa_assign.py
+msgid "Zuordnung {folder}: {error}"
+msgstr "Matching {folder}: {error}"
+
+#: wfa_assign.py
+msgid "Zu dieser CurseForge-Adresse wurde kein Projekt gefunden."
+msgstr "No project found for this CurseForge address."
+
+#: wfa_assign.py
+msgid "Bitte eine CurseForge-Projekt-ID, eine CurseForge-/GitHub-Adresse oder gh:owner/repo angeben."
+msgstr "Please enter a CurseForge project ID, a CurseForge or GitHub address, or gh:owner/repo."
+
+#: wfa_assign.py
+msgid "Automatisch zugeordnet: {folder} → {name} (CurseForge {ident}, {reason})"
+msgstr "Matched automatically: {folder} → {name} (CurseForge {ident}, {reason})"
+
+#: wfa_assign.py
+msgid "Die Liste ist kein gültiges JSON: {error}"
+msgstr "The list is not valid JSON: {error}"
+
+#: wfa_assign.py
+msgid "Das ist keine Addon-Liste dieses Programms."
+msgstr "This is not an addon list from this program."
+
+#: wfa_assign.py
+msgid "Die Liste hat Format {found}; dieses Programm kennt nur Format {known} – bitte aktualisieren."
+msgstr "The list uses format {found}; this program only knows format {known} – please update."
+
+#: wfa_assign.py
+msgid "Unbekannter Eintrag in der Liste: „{entry}“"
+msgstr "Unknown entry in the list: “{entry}”"
+
+#: wfa_assign.py
+msgid "Keine übertragbaren Addons in der Liste gefunden."
+msgstr "No transferable addons found in the list."
+
+# ---------------------------------------------------------------- wfa_chars.py
+
+#: wfa_chars.py
+msgid "AddOns.txt von {name} konnte nicht gelesen werden: {error}"
+msgstr "Could not read AddOns.txt of {name}: {error}"
+
+#: wfa_chars.py
+msgid "AddOns.txt von {name} konnte nicht geschrieben werden: {error}"
+msgstr "Could not write AddOns.txt of {name}: {error}"
+
+# ---------------------------------------------------------------- wfa_cleanup.py
+
+#: wfa_cleanup.py
+msgid "Unbekannte Art: {kind}"
+msgstr "Unknown kind: {kind}"
+
+#: wfa_cleanup.py
+msgid "{name} existiert nicht mehr"
+msgstr "{name} no longer exists"
+
+#: wfa_cleanup.py
+msgid "{name} liegt nicht direkt im AddOns-Ordner"
+msgstr "{name} is not directly inside the AddOns folder"
+
+#: wfa_cleanup.py
+msgid "Kein gueltiger innerer Ordner in {name}"
+msgstr "No valid inner folder in {name}"
+
+#: wfa_cleanup.py
+msgid "Temporaerer Ordner {name} existiert bereits"
+msgstr "Temporary folder {name} already exists"
+
+#: wfa_cleanup.py
+msgid "Verschoben: {name}"
+msgstr "Moved: {name}"
+
+#: wfa_cleanup.py
+msgid "{name} konnte nicht verarbeitet werden: {error}"
+msgstr "Could not process {name}: {error}"
+
+#: wfa_cleanup.py
+msgid "Der Satz {name} hat kein lesbares Manifest"
+msgstr "The set {name} has no readable manifest"
+
+#: wfa_cleanup.py
+msgid "{name}: Sicherung fehlt"
+msgstr "{name}: backup missing"
+
+#: wfa_cleanup.py
+msgid "{name}: Ziel existiert bereits"
+msgstr "{name}: destination already exists"
+
+# ---------------------------------------------------------------- wfa_snapshot.py
+
+#: wfa_snapshot.py
+msgid "Unzulaessiger Eintrag im Archiv: {name}"
+msgstr "Invalid entry in the archive: {name}"
+
+#: wfa_snapshot.py
+msgid "Unzulaessiger Pfad im Archiv: {name}"
+msgstr "Invalid path in the archive: {name}"
+
+#: wfa_snapshot.py
+msgid "Der Schnappschuss konnte nicht angelegt werden: {error}"
+msgstr "Could not create the snapshot: {error}"
+
+#: wfa_snapshot.py
+msgid "Reste einer frueheren Wiederherstellung ({name}) im Weg; bitte pruefen und entfernen"
+msgstr "Leftovers of an earlier restore ({name}) are in the way; please check and remove them"
+
+#: wfa_snapshot.py
+msgid "Der Schnappschuss ist unvollstaendig (addons.tar.gz fehlt)"
+msgstr "The snapshot is incomplete (addons.tar.gz is missing)"
+
+#: wfa_snapshot.py
+msgid "Das Archiv {name} ist beschaedigt: {error}"
+msgstr "The archive {name} is corrupt: {error}"
+
+#: wfa_snapshot.py
+msgid "Die Wiederherstellung ist fehlgeschlagen, der alte Stand bleibt erhalten: {error}"
+msgstr "The restore failed, the previous state is kept: {error}"
+
+#: wfa_snapshot.py
+msgid "Der Schnappschuss konnte nicht geloescht werden: {error}"
+msgstr "Could not delete the snapshot: {error}"
+
+# ---------------------------------------------------------------- wfa_newaddon.py
+
+#: wfa_newaddon.py
+msgid "Downloads"
+msgstr "Downloads"
+
+#: wfa_newaddon.py
+msgid "Beliebtheit"
+msgstr "Popularity"
+
+#: wfa_newaddon.py
+msgid "Zuletzt aktualisiert"
+msgstr "Last updated"
+
+#: wfa_newaddon.py
+msgid "Name"
+msgstr "Name"
+
+#: wfa_newaddon.py
+msgid " Mio."
+msgstr " M"
+
+#: wfa_newaddon.py
+msgid "{day}.{month}.{year}"
+msgstr "{year}-{month}-{day}"
+
+#: wfa_newaddon.py
+msgid "installiert"
+msgstr "installed"
+
+#: wfa_newaddon.py
+msgid "keine Forever-Datei"
+msgstr "no Forever file"
+
+#: wfa_newaddon.py
+msgid "Neues Addon"
+msgstr "New addon"
+
+#: wfa_newaddon.py
+msgid "Abbrechen"
+msgstr "Cancel"
+
+#: wfa_newaddon.py
+msgid "Installieren"
+msgstr "Install"
+
+#: wfa_newaddon.py
+msgid "Filtern oder suchen: Addon-Name …"
+msgstr "Filter or search: addon name …"
+
+#: wfa_newaddon.py
+msgid "Sortieren:"
+msgstr "Sort by:"
+
+#: wfa_newaddon.py
+msgid "Addon"
+msgstr "Addon"
+
+#: wfa_newaddon.py
+msgid "Autor"
+msgstr "Author"
+
+#: wfa_newaddon.py
+msgid "Aktualisiert"
+msgstr "Updated"
+
+#: wfa_newaddon.py
+msgid "Die Suche ist für diesen API-Key nicht freigeschaltet."
+msgstr "Search is not enabled for this API key."
+
+#: wfa_newaddon.py
+msgid "Im Browser suchen"
+msgstr "Search in browser"
+
+#: wfa_newaddon.py
+msgid "Lade Addons …"
+msgstr "Loading addons …"
+
+#: wfa_newaddon.py
+msgid "‹ Zurück"
+msgstr "‹ Back"
+
+#: wfa_newaddon.py
+msgid "Weiter ›"
+msgstr "Next ›"
+
+#: wfa_newaddon.py
+msgid "Seite {page}"
+msgstr "Page {page}"
+
+#: wfa_newaddon.py
+msgid "Addons"
+msgstr "Addons"
+
+#: wfa_newaddon.py
+msgid "Lade …"
+msgstr "Loading …"
+
+#: wfa_newaddon.py
+msgid "Suche …"
+msgstr "Searching …"
+
+#: wfa_newaddon.py
+msgid "1 Treffer"
+msgid_plural "{n} Treffer"
+msgstr[0] "1 result"
+msgstr[1] "{n} results"
+
+#: wfa_newaddon.py
+msgid "1 Addon"
+msgid_plural "{n} Addons"
+msgstr[0] "1 addon"
+msgstr[1] "{n} addons"
+
+#: wfa_newaddon.py
+msgid "Keine Treffer"
+msgstr "No results"
+
+#: wfa_newaddon.py
+msgid "Keine Addons"
+msgstr "No addons"
+
+#: wfa_newaddon.py
+msgid "1 Addon (Auswahl)"
+msgid_plural "{n} Addons (Auswahl)"
+msgstr[0] "1 addon (selection)"
+msgstr[1] "{n} addons (selection)"
+
+#: wfa_newaddon.py
+msgid "von {author}"
+msgstr "by {author}"
+
+#: wfa_newaddon.py
+msgid "{count} Downloads"
+msgstr "{count} downloads"
+
+#: wfa_newaddon.py
+msgid "aktualisiert {date}"
+msgstr "updated {date}"
+
+#: wfa_newaddon.py
+msgid "CurseForge-Projekt-ID, gh:Besitzer/Repo, GitHub-URL oder direkter Zip-Link:"
+msgstr "CurseForge project ID, gh:owner/repo, GitHub URL or direct zip link:"
+
+#: wfa_newaddon.py
+msgid "z. B. 3358  oder  gh:Besitzer/Repo  oder  https://…/addon.zip"
+msgstr "e.g. 3358  or  gh:owner/repo  or  https://…/addon.zip"
+
+#: wfa_newaddon.py
+msgid "Zip-Datei wählen …"
+msgstr "Choose zip file …"
+
+#: wfa_newaddon.py
+msgid "Direkt"
+msgstr "Direct"
+
+#: wfa_newaddon.py
+msgid "Zip-Archive"
+msgstr "Zip archives"
+
+#: wfa_newaddon.py
+msgid "Zip-Datei wählen"
+msgstr "Choose zip file"
+
+#: wfa_newaddon.py wfa_background.py
+msgid "Öffnen"
+msgstr "Open"
+
+# ---------------------------------------------------------------- wfa_selfupdate.py
+
+#: wfa_selfupdate.py
+msgid "Release enthält kein Programm-Paket oder keine Prüfsumme."
+msgstr "The release has no program package or no checksum."
+
+#: wfa_selfupdate.py
+msgid "Ein Programm-Update läuft bereits."
+msgstr "A program update is already running."
+
+#: wfa_selfupdate.py
+msgid "Prüfsumme für das Programm-Paket fehlt in SHA256SUMS."
+msgstr "The checksum for the program package is missing from SHA256SUMS."
+
+#: wfa_selfupdate.py
+msgid "Prüfsumme stimmt nicht überein – Update abgebrochen."
+msgstr "Checksum mismatch – update cancelled."
+
+# ---------------------------------------------------------------- wfa_portal.py
+
+#: wfa_portal.py
+msgid "Abgebrochen."
+msgstr "Cancelled."
+
+#: wfa_portal.py
+msgid "Das Hintergrund-Portal hat die Anfrage abgelehnt."
+msgstr "The background portal rejected the request."
+
+#: wfa_portal.py
+msgid "Autostart wurde nicht erlaubt (Einstellungen → Apps → Hintergrund)."
+msgstr "Autostart was not allowed (Settings → Apps → Background)."
+
+#: wfa_portal.py
+msgid "Beim Systemstart im Tray auf Addon-Updates prüfen"
+msgstr "Check for addon updates in the tray at system startup"
+
+#: wfa_portal.py
+msgid "Hintergrund-Portal nicht erreichbar: {error}"
+msgstr "Background portal not reachable: {error}"
+
+# ---------------------------------------------------------------- wfa_background.py
+
+#: wfa_background.py
+msgid "Tray nicht verfügbar: {error}"
+msgstr "Tray not available: {error}"
+
+#: wfa_background.py
+msgid "Hintergrundprüfung fehlgeschlagen: {error}"
+msgstr "Background check failed: {error}"
+
+#: wfa_background.py
+msgid "Hintergrundprüfung: {error}"
+msgstr "Background check: {error}"
+
+#: wfa_background.py
+msgid " und {n} weitere"
+msgstr " and {n} more"
+
+#: wfa_background.py
+msgid "Aktualisieren"
+msgstr "Update"
+
+#: wfa_background.py
+msgid "1 Update verfügbar"
+msgid_plural "{n} Updates verfügbar"
+msgstr[0] "1 update available"
+msgstr[1] "{n} updates available"
+
+#: wfa_background.py
+msgid "Update fehlgeschlagen: {error}"
+msgstr "Update failed: {error}"
+
+#: wfa_background.py
+msgid "Fehlgeschlagen: "
+msgstr "Failed: "
+
+#: wfa_background.py
+msgid "1 Addon aktualisiert"
+msgid_plural "{n} Addons aktualisiert"
+msgstr[0] "1 addon updated"
+msgstr[1] "{n} addons updated"
+
+#: wfa_background.py
+msgid "Aktualisierung fehlgeschlagen"
+msgstr "Update failed"
+
+#: wfa_background.py
+msgid "Auto-Update ausgesetzt: Im Flatpak ist nicht erkennbar, ob WoW läuft (Freigabe: {override})."
+msgstr "Auto-update paused: in Flatpak it cannot be detected whether WoW is running (permission: {override})."
+
+#: wfa_background.py
+msgid "Aktualisiere …"
+msgstr "Updating …"
+
+#: wfa_background.py
+msgid "1 Addon aktualisieren"
+msgid_plural "{n} Addons aktualisieren"
+msgstr[0] "Update 1 addon"
+msgstr[1] "Update {n} addons"
+
+#: wfa_background.py
+msgid "Keine Updates"
+msgstr "No updates"
+
+#: wfa_background.py
+msgid "Addon-Manager v{version} installieren"
+msgstr "Install Addon Manager v{version}"
+
+#: wfa_background.py
+msgid "Jetzt prüfen"
+msgstr "Check now"
+
+#: wfa_background.py
+msgid "App öffnen"
+msgstr "Open app"
+
+#: wfa_background.py
+msgid "Einstellungen …"
+msgstr "Settings …"
+
+#: wfa_background.py
+msgid "Protokoll …"
+msgstr "Log …"
+
+#: wfa_background.py
+msgid "Beenden"
+msgstr "Quit"
+
+#: wfa_background.py
+msgid "Alle Addons aktuell"
+msgstr "All addons up to date"
+
+#: wfa_background.py
+msgid "Zuletzt geprüft: {time}"
+msgstr "Last checked: {time}"
+
+#: wfa_background.py
+msgid "Programm-Updateprüfung: {error}"
+msgstr "Program update check: {error}"
+
+#: wfa_background.py
+msgid "Addon-Manager v{version} verfügbar"
+msgstr "Addon Manager v{version} available"
+
+#: wfa_background.py
+msgid "Eine neue Programmversion ist erschienen."
+msgstr "A new program version has been released."
+
+#: wfa_background.py
+msgid "Details"
+msgstr "Details"
+
+#: wfa_background.py
+msgid "Programm-Update fehlgeschlagen: {error}"
+msgstr "Program update failed: {error}"
+
+#: wfa_background.py
+msgid "Update installiert – Neustart"
+msgstr "Update installed – restart"
+
+#: wfa_background.py
+msgid "Version {version} ist installiert."
+msgstr "Version {version} is installed."
+
+#: wfa_background.py
+msgid "Neu starten"
+msgstr "Restart"

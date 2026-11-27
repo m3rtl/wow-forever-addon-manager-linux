@@ -11,6 +11,7 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
+from wfa_i18n import _, ngettext
 from wfa_base import ApiError, BackupSet, Candidate, KEEP_BACKUPS, Package, Result, UninstallPlan, host_spawn_available, in_flatpak
 from wfa_files import _remove
 from wfa_paths import browser_download_dirs, tilde, xdg_user_dir
@@ -62,9 +63,9 @@ class ApplyMixin:
     def download_summary(self):
         w = self.download_watch()
         if not w["auto"]:
-            return f"manuell ({tilde(self.cfg['download_dir'])})"
-        return f"automatisch (aus Browser: {w['source']})" if w["entries"] and w["entries"][0]["default"] \
-            else f"automatisch ({w['source']})"
+            return _("manuell ({path})").format(path=tilde(self.cfg["download_dir"]))
+        return _("automatisch (aus Browser: {source})").format(source=w["source"]) \
+            if w["entries"] and w["entries"][0]["default"] else _("automatisch ({source})").format(source=w["source"])
 
     def set_download_dir(self, p):
         with self.cfg.lock:
@@ -170,19 +171,20 @@ class ApplyMixin:
                     try:
                         moved = self._swap(dirs, bdir)
                     except Exception as e:
-                        results.append(Result(plan.key, plan.name, False, f"Fehler bei der Installation: {e} "
-                                              "(Zustand wiederhergestellt)", None))
+                        results.append(Result(plan.key, plan.name, False,
+                                              _("Fehler bei der Installation: {error} (Zustand wiederhergestellt)").format(error=e),
+                                              None))
                         self.discard(plan)
                         continue
                     try:
                         self._record(plan, list(dirs))
                     except Exception as e:
-                        self.log(f"Konfiguration konnte nicht gespeichert werden: {e}")
+                        self.log(_("Konfiguration konnte nicht gespeichert werden: {error}").format(error=e))
                     kind = "Automatisch" if origin == "auto" else (
                         "Installation" if not plan.old_version else "Versionswechsel" if plan.extra.get("pin") else "Update")
                     self.add_history(kind, plan.key, plan.name, plan.old_version, plan.new_version, plan.source,
                                      bdir.name if moved else None, sv, list(dirs))
-                    results.append(Result(plan.key, plan.name, True, f"{len(dirs)} Ordner installiert",
+                    results.append(Result(plan.key, plan.name, True, ngettext("1 Ordner installiert", "{n} Ordner installiert", len(dirs)).format(n=len(dirs)),
                                           bdir.name if moved else None, sv))
                     self.discard(plan)
             finally:
@@ -236,14 +238,14 @@ class ApplyMixin:
                                     sorted({self.cfg["cf_fp_cache"][n]["mod_id"] for n in names
                                             if (self.cfg["cf_fp_cache"].get(n) or {}).get("mod_id")}))
             except ApiError as e:
-                self.log(f"Erkennung nach Installation nicht möglich: {e}")
+                self.log(_("Erkennung nach Installation nicht möglich: {error}").format(error=e))
 
     def plan_uninstall(self, pkg):
         names = [n for n in pkg.folders if (self.addons_dir / n).exists() or (self.addons_dir / n).is_symlink()]
         gone = {n.lower() for n in names}
         warnings = []
         if len(names) < len(pkg.folders):
-            warnings.append("Nicht vorhanden: " + ", ".join(n for n in pkg.folders if n not in names))
+            warnings.append(_("Nicht vorhanden: ") + ", ".join(n for n in pkg.folders if n not in names))
         dependents = {}
         for f in self._addon_folders():
             if f.lower() in gone:
@@ -253,7 +255,7 @@ class ApplyMixin:
             if need:
                 dependents[f] = need
         for f, need in dependents.items():
-            warnings.append(f"{f} benötigt {', '.join(need)}")
+            warnings.append(_("{folder} benötigt {needed}").format(folder=f, needed=", ".join(need)))
         return UninstallPlan(pkg.key, pkg.name, names, dependents, warnings)
 
     def uninstall(self, plans):
@@ -264,12 +266,13 @@ class ApplyMixin:
             try:
                 for plan in plans:
                     if not plan.folders:
-                        results.append(Result(plan.key, plan.name, False, "Keine Ordner vorhanden."))
+                        results.append(Result(plan.key, plan.name, False, _("Keine Ordner vorhanden.")))
                         continue
                     try:
                         self._move_out(plan.folders, bdir)
                     except Exception as e:
-                        results.append(Result(plan.key, plan.name, False, f"Fehler: {e} (Zustand wiederhergestellt)"))
+                        results.append(Result(plan.key, plan.name, False,
+                                              _("Fehler: {error} (Zustand wiederhergestellt)").format(error=e)))
                         continue
                     rec = self.cfg["installed"].get(plan.key) or {}
                     self.add_history("Deinstallation", plan.key, plan.name, rec.get("version"), None, rec.get("source"),
@@ -279,8 +282,8 @@ class ApplyMixin:
                         self.clear_pin(plan.key)
                         self.set_channel(plan.key, None)
                     except Exception as e:
-                        self.log(f"Konfiguration konnte nicht gespeichert werden: {e}")
-                    results.append(Result(plan.key, plan.name, True, f"{len(plan.folders)} Ordner entfernt", bdir.name))
+                        self.log(_("Konfiguration konnte nicht gespeichert werden: {error}").format(error=e))
+                    results.append(Result(plan.key, plan.name, True, ngettext("1 Ordner entfernt", "{n} Ordner entfernt", len(plan.folders)).format(n=len(plan.folders)), bdir.name))
             finally:
                 with contextlib.suppress(OSError):
                     bdir.rmdir()
@@ -333,13 +336,13 @@ class ApplyMixin:
         if only is not None:
             names = [n for n in names if n in set(only)]
         if not names:
-            return Result(bset.name, bset.name, False, "Sicherung ist leer oder fehlt.")
+            return Result(bset.name, bset.name, False, _("Sicherung ist leer oder fehlt."))
         with self._apply_lock:
             bdir = self._new_backup_dir()
             try:
                 self._swap({n: Path(bset.path) / n for n in names}, bdir)
             except Exception as e:
-                return Result(bset.name, bset.name, False, f"Fehler: {e} (Zustand wiederhergestellt)")
+                return Result(bset.name, bset.name, False, _("Fehler: {error} (Zustand wiederhergestellt)").format(error=e))
             finally:
                 with contextlib.suppress(OSError):
                     bdir.rmdir()
@@ -356,4 +359,4 @@ class ApplyMixin:
             with contextlib.suppress(OSError):
                 self._prune_backups()
         self.add_history("Wiederherstellung", "", ", ".join(names), None, None, None, bdir.name, folders=names)
-        return Result(bset.name, bset.name, True, f"Wiederhergestellt: {', '.join(names)}", bdir.name)
+        return Result(bset.name, bset.name, True, _("Wiederhergestellt: {names}").format(names=", ".join(names)), bdir.name)

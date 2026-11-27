@@ -21,6 +21,7 @@ from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango  # noqa: E402
 
 import wfa_core as core  # noqa: E402
 from wfa_core import ApiError, Manager  # noqa: E402
+from wfa_i18n import _  # noqa: E402
 
 TITLE = "WoW: Forever Addon-Manager"
 APP_ID = core.APP_ID
@@ -446,7 +447,18 @@ class App:
             if cb:
                 mi.connect("activate", cb)
             menu.append(mi)
+        # Untermenue "Erweitert": nur bei Einstellung expert sichtbar, siehe apply_expert
+        sub = Gtk.Menu()
+        for label, cb in ((_("Addons je Charakter …"), self.on_expert_chars), (_("Aufräumen …"), self.on_expert_cleanup),
+                          (_("Gesamtstände …"), self.on_expert_snapshots)):
+            mi = Gtk.MenuItem(label=label)
+            mi.connect("activate", cb)
+            sub.append(mi)
+        self.expert_item = Gtk.MenuItem(label=_("Erweitert"), no_show_all=True)
+        self.expert_item.set_submenu(sub)
+        menu.insert(self.expert_item, 5)   # vor "Einstellungen …"
         menu.show_all()
+        self.apply_expert()
         menu_btn.set_popup(menu)
         hb.pack_end(menu_btn)
         hb.show_all()
@@ -1797,6 +1809,30 @@ class App:
                     self.confirm_and_apply([res])
             self.bg(lambda: mgr.resolve_input(value), done, "Prüfe Eingabe …")
 
+    # ------------------------------------------------------------ Erweiterte Funktionen
+    def apply_expert(self):
+        on = bool(self.mgr.cfg["expert"])
+        self.expert_item.set_visible(on)
+        if on:
+            self.expert_item.show_all()
+
+    def _expert(self, name):
+        try:
+            import wfa_expert
+        except ImportError as e:
+            message(self.win, _("Dialog nicht verfügbar"), f"wfa_expert: {e}", Gtk.MessageType.ERROR)
+            return
+        getattr(wfa_expert, name)(self)
+
+    def on_expert_chars(self, *_a):
+        self._expert("open_characters")
+
+    def on_expert_cleanup(self, *_a):
+        self._expert("open_cleanup")
+
+    def on_expert_snapshots(self, *_a):
+        self._expert("open_snapshots")
+
     # ------------------------------------------------------------ Backups
     def on_backups(self, *_):
         entries = [(b.created, b, ", ".join(b.folders)) for b in self.mgr.list_backups()]
@@ -2076,7 +2112,7 @@ class App:
         self.install_flow(planners, finish=fin)
 
     # ------------------------------------------------------------ Einstellungen u. a.
-    def on_settings(self, *_):
+    def on_settings(self, *_a):
         m = self.mgr
         d = make_dialog("Einstellungen", self.win, 540)
         d.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
@@ -2110,6 +2146,17 @@ class App:
         classic = check("Klassisches Theme (dunkel, Gold-Akzente)", m.cfg["classic_theme"])
         direct = check("Direkt-Download für Addons ohne API-Freigabe", m.cfg["direct_download"])
         sv = check("Vor Updates die Addon-Einstellungen (SavedVariables) sichern", m.cfg["sv_backup"])
+        section(_("Sprache"))
+        lang_row = Gtk.Box(spacing=8)
+        lang = Gtk.ComboBoxText()
+        for lid, text in (("auto", _("Automatisch")), ("de", "Deutsch"), ("en", "English")):
+            lang.append(lid, text)
+        lang.set_active_id(m.cfg["language"] if m.cfg["language"] in ("auto", "de", "en") else "auto")
+        lang_row.pack_start(lang, False, False, 0)
+        lang_hint = Gtk.Label(label=_("Wirkt nach einem Neustart"))
+        lang_hint.get_style_context().add_class("wfa-dim")
+        lang_row.pack_start(lang_hint, False, False, 0)
+        box.pack_start(lang_row, False, False, 0)
         section("AddOns-Ordner")
         path = Gtk.Label(xalign=0, selectable=True, wrap=True, label=short_path(m.addons_dir) if m.addons_dir else "–")
         box.pack_start(path, False, False, 0)
@@ -2176,13 +2223,19 @@ class App:
                 c.set_no_show_all(True)
             box.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
                                      label=f"Programm-Updates kommen über {core.package_channel()}."), False, False, 0)
+        section(_("Erweitert"))
+        expert = check(_("Erweiterte Funktionen anzeigen"), m.cfg["expert"])
+        box.pack_start(Gtk.Label(xalign=0, wrap=True, max_width_chars=70,
+                                 label=_("Blendet im Menü „Erweitert“ ein: Addons je Charakter, Aufräumen und Gesamtstände.")),
+                       False, False, 0)
         d.show_all()
         if d.run() == Gtk.ResponseType.OK:
             old_interval = m.cfg["check_interval_min"]
             new = dict(classic_theme=classic.get_active(), direct_download=direct.get_active(),
                        close_to_tray=to_tray.get_active(), check_interval_min=int(spin.get_value()),
                        auto_update=auto.get_active(), sv_backup=sv.get_active(), self_update_check=su_check.get_active(),
-                       self_auto_update=su_auto.get_active())
+                       self_auto_update=su_auto.get_active(), expert=expert.get_active(),
+                       language=lang.get_active_id() or "auto")
             theme_changed = new["classic_theme"] != bool(m.cfg["classic_theme"])
             with m.cfg.lock:
                 for k, v in new.items():
@@ -2190,6 +2243,7 @@ class App:
                 m.cfg.save()
             if theme_changed:
                 self.set_theme(new["classic_theme"])
+            self.apply_expert()
             if autostart.get_active() != autostart_on:
                 self.set_autostart(autostart.get_active(), d)
             if clear.get_active():

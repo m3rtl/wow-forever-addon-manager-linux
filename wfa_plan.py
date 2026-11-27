@@ -12,6 +12,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from wfa_i18n import _
 from wfa_base import ApiError, BROWSER_UA, CF_CDNS, CF_SITE, Candidate, DL_ATTEMPTS, DL_BACKOFF, IMAGE_HOSTS, InstallPlan, MAX_IMAGE
 from wfa_files import _expand, find_addon_dirs, safe_extract
 from wfa_http import _Redirect, _open, check_zip, download_file, fmt_size
@@ -41,7 +42,7 @@ class PlanMixin:
             res = self._cf().browse((query or "").strip(), self._tid(), sort, max(0, int(page)), page_size)
         except ApiError as e:
             if e.kind == "forbidden":
-                raise ApiError("Suche ist für diesen API-Key nicht freigeschaltet", "forbidden")
+                raise ApiError(_("Suche ist für diesen API-Key nicht freigeschaltet"), "forbidden")
             raise
         return [self._candidate(m) for m in res[:page_size]], len(res) > page_size
 
@@ -54,7 +55,7 @@ class PlanMixin:
         class _Guard(_Redirect):
             def redirect_request(self, req, fp, code, msg, headers, newurl):
                 if not allowed(newurl):
-                    raise ApiError("Bild-Redirect auf nicht erlaubten Host", "http")
+                    raise ApiError(_("Bild-Redirect auf nicht erlaubten Host"), "http")
                 return super().redirect_request(req, fp, code, msg, headers, newurl)
         try:
             if not url or not allowed(url):
@@ -108,7 +109,7 @@ class PlanMixin:
             res = self._cf().search(q, self._tid())
         except ApiError as e:
             if e.kind == "forbidden":
-                raise ApiError("Suche ist für diesen API-Key nicht freigeschaltet", "forbidden")
+                raise ApiError(_("Suche ist für diesen API-Key nicht freigeschaltet"), "forbidden")
             raise
         return [self._candidate(m) for m in res]
 
@@ -125,11 +126,11 @@ class PlanMixin:
         if t.isdigit():
             return [self._candidate(self._cf().get(f"/v1/mods/{int(t)}")["data"])]
         if re.match(r"^https?://", t):
-            raise ApiError("Nur direkte .zip-Links, GitHub-Repos oder CurseForge-Projekt-IDs werden unterstützt.")
+            raise ApiError(_("Nur direkte .zip-Links, GitHub-Repos oder CurseForge-Projekt-IDs werden unterstützt."))
         p = _expand(t)
         if t.lower().endswith(".zip") or p.is_file():
             if not p.is_file():
-                raise ApiError("Datei nicht gefunden.")
+                raise ApiError(_("Datei nicht gefunden."))
             return self.plan_zip(p)
         return self.search(t)
 
@@ -147,7 +148,7 @@ class PlanMixin:
         name = Path(urllib.parse.unquote(urllib.parse.urlparse(url).path)).stem
         st = self._new_staging()
         try:
-            self.log(f"Lade {name} ...")
+            self.log(_("Lade {name} ...").format(name=name))
             self._fetch([("Zip-URL", url, None, False)], st / "download.zip", name)
         except BaseException:
             shutil.rmtree(st, ignore_errors=True)
@@ -157,7 +158,7 @@ class PlanMixin:
     def plan_zip(self, path, hint_key=None):
         path = Path(path)
         if not path.is_file():
-            raise ApiError("Datei nicht gefunden.")
+            raise ApiError(_("Datei nicht gefunden."))
         key, name, meta = hint_key or f"zip-{path.stem}", path.stem, dict(self._meta.get(hint_key) or {})
         for spec in self._specs():
             if spec["key"] == hint_key:
@@ -167,7 +168,7 @@ class PlanMixin:
 
     def plan_update(self, pkg):
         if not pkg.remote:
-            raise ApiError("Keine Update-Quelle bekannt.", "nofile")
+            raise ApiError(_("Keine Update-Quelle bekannt."), "nofile")
         return self._plan_remote(pkg.remote, pkg.key, pkg.name, pkg.meta, pkg.cf_mod_id)
 
     def plan_candidate(self, cand, channel=None):
@@ -179,7 +180,7 @@ class PlanMixin:
                     key, meta = spec["key"], {k: spec.get(k) for k in ("vfolder", "gh") if spec.get(k)}
             rem = self._cf().latest(int(cand.ident), self._tid(), channel or self.allowed_types(key))
             if not rem:
-                raise ApiError("Keine Forever-Datei bei CurseForge.", "nofile")
+                raise ApiError(_("Keine Forever-Datei bei CurseForge."), "nofile")
             return self._plan_remote(rem, key, cand.name, meta, int(cand.ident), channel=channel)
         repo = str(cand.ident)
         meta = {}
@@ -189,7 +190,7 @@ class PlanMixin:
                 key, meta = spec["key"], {k: spec.get(k) for k in ("vfolder", "gh", "tag_prefix", "asset_regex") if spec.get(k)}
         rem = gh_latest(repo, dict(meta), channel_types(channel) if channel else self.allowed_types(key))
         if not rem:
-            raise ApiError("Kein GitHub-Release mit Forever-Zip gefunden.", "nofile")
+            raise ApiError(_("Kein GitHub-Release mit Forever-Zip gefunden."), "nofile")
         meta.setdefault("gh", repo)
         return self._plan_remote(rem, key, cand.name, meta, None, save_package=key.startswith("gh-"), channel=channel)
 
@@ -199,7 +200,7 @@ class PlanMixin:
         rem = pkg.remote
         if (rem and rem.source == "CF") or (not rem and pkg.cf_mod_id and self.api_key):
             if not pkg.cf_mod_id:
-                raise ApiError("Keine Versionsquelle bekannt.", "nofile")
+                raise ApiError(_("Keine Versionsquelle bekannt."), "nofile")
             cf = self._cf()
             cur = self._ver_cursor.get(pkg.key) if page else None
             files, more = cf.files(pkg.cf_mod_id, self._tid(), cur if cur is not None else page * 50)
@@ -210,7 +211,7 @@ class PlanMixin:
             return out, more
         if pkg.meta.get("gh"):
             return gh_releases(pkg.meta["gh"], pkg.meta, page + 1)
-        raise ApiError("Keine Versionsquelle bekannt.", "nofile")
+        raise ApiError(_("Keine Versionsquelle bekannt."), "nofile")
 
     def installed_ident(self, pkg):
         rec = self.cfg["installed"].get(pkg.key) or {}
@@ -248,10 +249,10 @@ class PlanMixin:
     def _plan_remote(self, rem, key, name, meta, mod_id, save_package=False, pin=None, channel=None):
         ways = self._download_ways(rem)
         if not ways:
-            raise ApiError("Kein Download-Link verfügbar (Browser-Download nötig).", "download")
+            raise ApiError(_("Kein Download-Link verfügbar (Browser-Download nötig)."), "download")
         st = self._new_staging()
         try:
-            self.log(f"Lade {rem.filename or rem.display} ...")
+            self.log(_("Lade {name} ...").format(name=rem.filename or rem.display))
             self._fetch(ways, st / "download.zip", name)
             info = dict(source=rem.source, ident_key="file_id" if rem.source == "CF" else "tag", ident=rem.ident,
                         version=rem.version, cf_mod_id=mod_id, file_date=rem.file_date, display=rem.display,
@@ -277,29 +278,30 @@ class PlanMixin:
                     n = download_file(url, dest, cancel=cancel, headers=hdr, progress=prog)
                     self.progress(name=name, way=label, state="verify", done=n, total=n, attempt=attempt)
                     check_zip(dest)
-                    self.log(f"{name}: {fmt_size(n)} geladen über {label}")
+                    self.log(_("{name}: {size} geladen über {way}").format(name=name, size=fmt_size(n), way=label))
                     return label
                 except ApiError as e:
                     with contextlib.suppress(OSError):
                         dest.unlink()
                     if e.kind == "cancel" or cancel.is_set():
-                        self.log(f"{name}: Download abgebrochen")
-                        raise ApiError("Download abgebrochen", "cancel") from e
+                        self.log(_("{name}: Download abgebrochen").format(name=name))
+                        raise ApiError(_("Download abgebrochen"), "cancel") from e
                     if e.transient and attempt < DL_ATTEMPTS:
                         wait = DL_BACKOFF[min(attempt, len(DL_BACKOFF)) - 1]
-                        self.log(f"{name} – {label}: {e} – neuer Versuch {attempt + 1}/{DL_ATTEMPTS} in {wait} s")
+                        self.log(_("{name} – {way}: {error} – neuer Versuch {attempt}/{total} in {seconds} s").format(
+                            name=name, way=label, error=e, attempt=attempt + 1, total=DL_ATTEMPTS, seconds=wait))
                         self.progress(name=name, way=label, state="retry", error=str(e), attempt=attempt + 1,
                                       wait=wait)
                         if cancel.wait(wait):
-                            self.log(f"{name}: Download abgebrochen")
-                            raise ApiError("Download abgebrochen", "cancel") from e
+                            self.log(_("{name}: Download abgebrochen").format(name=name))
+                            raise ApiError(_("Download abgebrochen"), "cancel") from e
                         continue
-                    tried.append(f"{label}: {e}" + (f" ({attempt} Versuche)" if attempt > 1 else ""))
-                    self.log(f"{name} – {label}: {e}" + (f" – weiter mit {nxt}" if nxt else ""))
+                    tried.append(f"{label}: {e}" + (_(" ({attempts} Versuche)").format(attempts=attempt) if attempt > 1 else ""))
+                    self.log(f"{name} – {label}: {e}" + (_(" – weiter mit {way}").format(way=nxt) if nxt else ""))
                     if nxt:
                         self.progress(name=name, way=label, state="fallback", error=str(e), next=nxt)
                     break
-        raise ApiError("Download fehlgeschlagen, alle Wege versucht:\n  " + "\n  ".join(tried), "download")
+        raise ApiError(_("Download fehlgeschlagen, alle Wege versucht:") + "\n  " + "\n  ".join(tried), "download")
 
     def _build_plan(self, zpath, st, key, name, source, meta, info):
         x = st / "x"
@@ -307,14 +309,14 @@ class PlanMixin:
             try:
                 safe_extract(zpath, x)
             except (zipfile.BadZipFile, ValueError, OSError) as e:
-                raise ApiError(f"Zip nicht installierbar: {e}")
+                raise ApiError(_("Zip nicht installierbar: {error}").format(error=e))
             found = find_addon_dirs(x)
             if not found:
-                raise ApiError("Im Zip wurde kein Addon-Ordner (Ordner mit passender .toc) gefunden.")
+                raise ApiError(_("Im Zip wurde kein Addon-Ordner (Ordner mit passender .toc) gefunden."))
             warnings, dirs = [], {}
             for d, depth in sorted(found, key=lambda t: t[1]):
                 if d.name in dirs:
-                    warnings.append(f"Ordner „{d.name}“ kommt mehrfach im Zip vor; der flachste wird verwendet.")
+                    warnings.append(_("Ordner „{name}“ kommt mehrfach im Zip vor; der flachste wird verwendet.").format(name=d.name))
                 else:
                     dirs[d.name] = d
             comp = {n: forever_toc(d, self.client_interface)[0] for n, d in dirs.items()}
@@ -323,11 +325,11 @@ class PlanMixin:
             strong = (comp[vf] == "nein") if vf in dirs else not any(c != "nein" for c in comp.values())
             if strong:
                 chosen = list(dirs)
-                warnings.append("Dieses Paket enthält keine für WoW: Forever (Interface 16xxx) markierte Hauptdatei – "
-                                "es wird vermutlich nicht geladen.")
+                warnings.append(_("Dieses Paket enthält keine für WoW: Forever (Interface 16xxx) markierte Hauptdatei – "
+                                  "es wird vermutlich nicht geladen."))
             skipped = [n for n in dirs if n not in chosen]
             if skipped:
-                warnings.append("Übersprungen (werden von WoW: Forever nicht geladen): " + ", ".join(skipped))
+                warnings.append(_("Übersprungen (werden von WoW: Forever nicht geladen): ") + ", ".join(skipped))
             vfold = vf if vf in chosen else min(chosen, key=len)
             old = forever_toc(self.addons_dir / vfold, self.client_interface)[1] if (self.addons_dir / vfold).exists() else None
             new = forever_toc(dirs[vfold], self.client_interface)[1] or info.get("version")

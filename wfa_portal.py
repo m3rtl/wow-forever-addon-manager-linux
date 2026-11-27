@@ -5,6 +5,7 @@ In der Sandbox liegt ~/.config/autostart nicht auf dem Host; das Portal legt den
 from gi.repository import Gio, GLib
 
 import wfa_core as core
+from wfa_i18n import _
 
 _BUS = "org.freedesktop.portal.Desktop"
 _PATH = "/org/freedesktop/portal/desktop"
@@ -38,20 +39,20 @@ def request_autostart(on, done, parent_window=""):
     def on_response(_c, _sender, _path, _iface, _sig, params):
         code, results = params.unpack()
         if code != 0:
-            finish(False, "Abgebrochen." if code == 1 else "Das Hintergrund-Portal hat die Anfrage abgelehnt.")
+            finish(False, _("Abgebrochen.") if code == 1 else _("Das Hintergrund-Portal hat die Anfrage abgelehnt."))
             return
         got = bool(results.get("autostart", False))
         if got == bool(on):
             finish(True, "")
         else:
-            finish(False, "Autostart wurde nicht erlaubt (Einstellungen → Apps → Hintergrund).")
+            finish(False, _("Autostart wurde nicht erlaubt (Einstellungen → Apps → Hintergrund)."))
 
     # vor dem Aufruf abonnieren, sonst kann die Antwort verloren gehen
     state["sub"] = conn.signal_subscribe(_BUS, _REQUEST, "Response", handle, None,
                                          Gio.DBusSignalFlags.NO_MATCH_RULE, on_response)
     opts = {
         "handle_token": GLib.Variant("s", token),
-        "reason": GLib.Variant("s", "Beim Systemstart im Tray auf Addon-Updates prüfen"),
+        "reason": GLib.Variant("s", _("Beim Systemstart im Tray auf Addon-Updates prüfen")),
         "autostart": GLib.Variant("b", bool(on)),
         "commandline": GLib.Variant("as", [core.APP_NAME, "--tray"]),
         "dbus-activatable": GLib.Variant("b", False),
@@ -61,7 +62,7 @@ def request_autostart(on, done, parent_window=""):
         try:
             c.call_finish(res)
         except GLib.Error as e:
-            finish(False, f"Hintergrund-Portal nicht erreichbar: {e.message}")
+            finish(False, _("Hintergrund-Portal nicht erreichbar: {error}").format(error=e.message))
 
     try:
         conn.call(_BUS, _PATH, "org.freedesktop.portal.Background", "RequestBackground",

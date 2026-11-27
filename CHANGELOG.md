@@ -6,6 +6,13 @@ Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte die
 
 ### Neu
 
+- **Englische Oberfläche**: Die Sprache richtet sich nach der Systemsprache (Deutsch bei deutscher Locale, sonst Englisch). Unter ☰ → Einstellungen → „Sprache“ lässt sie sich fest einstellen; das wirkt nach einem Neustart. `WFA_LANG=de|en` überschreibt beides.
+- **Erweiterte Funktionen** (☰ → Einstellungen → „Erweiterte Funktionen anzeigen“, Standard aus). Danach gibt es unter ☰ das Untermenü „Erweitert“:
+  - **Addons je Charakter**: Addons pro Charakter oder für alle Charaktere an- und ausschalten, ohne sie zu deinstallieren (`AddOns.txt` in `WTF`). Vor dem Schreiben wird die alte Datei gesichert.
+  - **Aufräumen**: zeigt die Speicherbelegung und findet Einstellungen deinstallierter Addons, verschachtelte Ordner (`AddOns/Foo/Foo/`) und Ordner ohne TOC. Aufgeräumtes landet im Papierkorb (letzte 5 Sätze) und lässt sich zurücklegen.
+  - **Gesamtstände**: sichert alle Addons samt `WTF/Account` als einen Satz (letzte 3) und stellt ihn mit einem Klick wieder her, z. B. vor einem großen Client-Patch. Vor dem Wiederherstellen wird der aktuelle Stand automatisch gesichert.
+  - Alles, was in `AddOns` oder `WTF` schreibt, geht nur bei beendetem WoW.
+- Kommandozeile: `--snapshot [BEZEICHNUNG]`, `--snapshots`, `--restore-snapshot ID`, `--cleanup` (nur auflisten) und `--cleanup --apply`.
 - **AUR-Paket** `wow-forever-addon-manager`: nutzt Python und GTK des Systems, damit entfällt die glibc-2.35-Vorgabe der Release-Datei. Startmenü-Eintrag und Icon bringt das Paket mit; Programm-Updates kommen über die Paketverwaltung.
 - **Flatpak** (`io.github.m3rtl.WowForeverAddonManager`, GNOME-Runtime 51), als Bundle am Release. Zugriff nur auf die üblichen Wine/Proton-Orte (Steam, Lutris, Bottles, Heroic, Wine, umu, Faugus, `~/Games`); andere Orte über das Datei-Portal (Ordner „World of Warcraft“ wählen) oder `flatpak override`. Nicht freigegebene Steam-Bibliotheken nennt der Auswahldialog samt Befehl.
 - Release-Datei, AUR-Paket und Flatpak nutzen dieselben Einstellungen, Backups und denselben Verlauf; ein Wechsel übernimmt alles.
@@ -13,6 +20,7 @@ Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte die
 
 ### Geändert
 
+- Unter der Haube: `wfa_core.py` ist in thematische Module aufgeteilt (`wfa_base`, `wfa_paths`, `wfa_http`, `wfa_toc`, `wfa_sources`, `wfa_files`, `wfa_manager` und weitere); `wfa_core` bleibt als Sammelmodul erhalten. Neu sind eine Testsuite (`python3 -m unittest discover -s tests`) und ein CI-Workflow, der sie bei jedem Push ausführt.
 - Datei- und Ordnerwahl laufen über `Gtk.FileChooserNative` (im Flatpak das Datei-Portal).
 - Flatpak: Autostart über das Hintergrund-Portal; Tray meldet sich mit dem eindeutigen D-Bus-Namen an. Ist nicht erkennbar, ob WoW läuft, meldet der Tray Updates nur, statt sie still zu installieren, und vor dem Wiederherstellen von SavedVariables kommt eine Rückfrage.
 

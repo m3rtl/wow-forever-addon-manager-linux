@@ -7,6 +7,7 @@ from gi.repository import GLib
 import wfa_core as core
 import wfa_selfupdate as selfupdate
 import wfa_tray
+from wfa_i18n import _, ngettext
 
 APP_ID = "wow-forever-addon-manager"
 TITLE = "WoW: Forever Addon-Manager"
@@ -45,7 +46,7 @@ class Background:
             self.tray.connect_availability(self._availability)
         except Exception as e:
             self.tray = None
-            self._log(f"Tray nicht verfügbar: {e}")
+            self._log(_("Tray nicht verfügbar: {error}").format(error=e))
         self.app.add_check_listener(self.on_checked)
         self._refresh()
         self.reschedule()
@@ -106,7 +107,7 @@ class Background:
         try:
             self.app.rescan(then=self._scan_done, quiet=True)
         except Exception as e:
-            self._log(f"Hintergrundprüfung fehlgeschlagen: {e}")
+            self._log(_("Hintergrundprüfung fehlgeschlagen: {error}").format(error=e))
 
     def _retry_cb(self):
         self._retry = 0
@@ -115,7 +116,7 @@ class Background:
 
     def _scan_done(self, pkgs, err):
         if err:
-            self._log(f"Hintergrundprüfung: {err}")
+            self._log(_("Hintergrundprüfung: {error}").format(error=err))
 
     def _log(self, msg):
         try:
@@ -148,10 +149,11 @@ class Background:
         if not ups:
             return
         names = [p.name for p in ups]
-        body = ", ".join(names[:5]) + (f" und {len(names) - 5} weitere" if len(names) > 5 else "")
+        body = ", ".join(names[:5]) + (_(" und {n} weitere").format(n=len(names) - 5) if len(names) > 5 else "")
         n = len(ups)
-        wfa_tray.notify(f"{n} Update{'s' if n != 1 else ''} verfügbar", body, core.asset_path("icon.svg"),
-                        [("default", "Öffnen"), ("update", "Aktualisieren"), ("open", "Öffnen")],
+        wfa_tray.notify(ngettext("1 Update verfügbar", "{n} Updates verfügbar", n).format(n=n), body,
+                        core.asset_path("icon.svg"),
+                        [("default", _("Öffnen")), ("update", _("Aktualisieren")), ("open", _("Öffnen"))],
                         self._on_notify_action)
 
     def _on_notify_action(self, aid):
@@ -176,7 +178,7 @@ class Background:
         except Exception as e:
             self._updating = False
             self._refresh()
-            self._log(f"Update fehlgeschlagen: {e}")
+            self._log(_("Update fehlgeschlagen: {error}").format(error=e))
 
     def _tray_update(self):
         """Klick im Tray: still im Hintergrund (wartet ggf., bis WoW beendet ist). Ist nicht erkennbar, ob WoW
@@ -196,14 +198,14 @@ class Background:
         ok, failed = res.get("ok") or [], res.get("failed") or []
         if ok:
             n = len(ok)
-            body = ", ".join(ok[:5]) + (f" und {n - 5} weitere" if n > 5 else "")
+            body = ", ".join(ok[:5]) + (_(" und {n} weitere").format(n=n - 5) if n > 5 else "")
             if failed:
-                body += "\nFehlgeschlagen: " + ", ".join(failed)
-            wfa_tray.notify(f"{n} Addon{'s' if n != 1 else ''} aktualisiert", body, core.asset_path("icon.svg"),
-                            [("open", "Öffnen")], lambda _a: self.app.present())
+                body += "\n" + _("Fehlgeschlagen: ") + ", ".join(failed)
+            wfa_tray.notify(ngettext("1 Addon aktualisiert", "{n} Addons aktualisiert", n).format(n=n), body,
+                            core.asset_path("icon.svg"), [("open", _("Öffnen"))], lambda _a: self.app.present())
         elif failed:
-            wfa_tray.notify("Aktualisierung fehlgeschlagen", "Fehlgeschlagen: " + ", ".join(failed),
-                            core.asset_path("icon.svg"), [("open", "Öffnen")], lambda _a: self.app.present())
+            wfa_tray.notify(_("Aktualisierung fehlgeschlagen"), _("Fehlgeschlagen: ") + ", ".join(failed),
+                            core.asset_path("icon.svg"), [("open", _("Öffnen"))], lambda _a: self.app.present())
 
     def _auto_update(self):
         if self._wow_wait or self._updating:
@@ -213,8 +215,8 @@ class Background:
             # Flatpak ohne Host-Zugriff: nicht erkennbar, ob WoW laeuft -> nur benachrichtigen
             if not self._unknown_logged:
                 self._unknown_logged = True
-                self._log("Auto-Update ausgesetzt: Im Flatpak ist nicht erkennbar, ob WoW läuft "
-                          f"(Freigabe: {core.WOW_DETECT_OVERRIDE}).")
+                self._log(_("Auto-Update ausgesetzt: Im Flatpak ist nicht erkennbar, ob WoW läuft "
+                            "(Freigabe: {override}).").format(override=core.WOW_DETECT_OVERRIDE))
             return
         if running:
             self._wow_wait = GLib.timeout_add_seconds(self.wow_wait_s, self._wow_cb)
@@ -253,28 +255,29 @@ class Background:
             return
         n = len(self.mgr.updatable(self.pkgs))
         if self._updating:
-            first = dict(label="Aktualisiere …", callback=None, enabled=False, bold=True)
+            first = dict(label=_("Aktualisiere …"), callback=None, enabled=False, bold=True)
         elif n:
-            first = dict(label=f"{n} Addon{'s' if n != 1 else ''} aktualisieren",
+            first = dict(label=ngettext("1 Addon aktualisieren", "{n} Addons aktualisieren", n).format(n=n),
                          callback=self._tray_update, bold=True)
         else:
-            first = dict(label="Keine Updates", callback=None, enabled=False, bold=True)
+            first = dict(label=_("Keine Updates"), callback=None, enabled=False, bold=True)
         items = [first]
         if self.release:
-            items.append(dict(label=f"Addon-Manager v{self.release.version} installieren",
+            items.append(dict(label=_("Addon-Manager v{version} installieren").format(version=self.release.version),
                               callback=self._self_install_clicked))
         items += [
-            dict(label="Jetzt prüfen", callback=self.check_now),
-            dict(label="App öffnen", callback=self.app.present),
-            dict(label="Einstellungen …", callback=self._settings),
-            dict(label="Protokoll …", callback=self._show_log),
+            dict(label=_("Jetzt prüfen"), callback=self.check_now),
+            dict(label=_("App öffnen"), callback=self.app.present),
+            dict(label=_("Einstellungen …"), callback=self._settings),
+            dict(label=_("Protokoll …"), callback=self._show_log),
             None,
-            dict(label="Beenden", callback=self.app.quit),
+            dict(label=_("Beenden"), callback=self.app.quit),
         ]
         self.tray.set_menu(items)
         when = time.strftime("%H:%M", self.last_check) if self.last_check else "–"
-        self.tray.set_tooltip(f"{n} Update{'s' if n != 1 else ''} verfügbar" if n else "Alle Addons aktuell",
-                              f"Zuletzt geprüft: {when}")
+        self.tray.set_tooltip(ngettext("1 Update verfügbar", "{n} Updates verfügbar", n).format(n=n) if n
+                              else _("Alle Addons aktuell"),
+                              _("Zuletzt geprüft: {time}").format(time=when))
         self.tray.set_attention(n > 0)
 
     def _settings(self):
@@ -306,7 +309,7 @@ class Background:
     def _self_checked(self, rel, err):
         self._self_busy = False
         if err:
-            self._log(f"Programm-Updateprüfung: {err}")
+            self._log(_("Programm-Updateprüfung: {error}").format(error=err))
             return False
         selfupdate.mark_checked(self.cfg)
         if rel is None or rel.version == self.cfg["self_update_skipped"] \
@@ -327,9 +330,9 @@ class Background:
         if self.cfg["self_auto_update"] and selfupdate.can_self_update():
             self._self_auto(rel)
         elif not seen:
-            wfa_tray.notify(f"Addon-Manager v{rel.version} verfügbar", "Eine neue Programmversion ist erschienen.",
-                            core.asset_path("icon.svg"),
-                            [("default", "Details"), ("update", "Aktualisieren"), ("details", "Details")],
+            wfa_tray.notify(_("Addon-Manager v{version} verfügbar").format(version=rel.version),
+                            _("Eine neue Programmversion ist erschienen."), core.asset_path("icon.svg"),
+                            [("default", _("Details")), ("update", _("Aktualisieren")), ("details", _("Details"))],
                             self._on_self_action)
         return False
 
@@ -360,14 +363,15 @@ class Background:
 
     def _self_installed(self, rel, err):
         if err:
-            self._log(f"Programm-Update fehlgeschlagen: {err}")
+            self._log(_("Programm-Update fehlgeschlagen: {error}").format(error=err))
             return False
         self.release = None
         hidden = not self.app.win.get_visible()
         if hidden and not self.app.busy:
             self.app.restart_self()
         else:
-            wfa_tray.notify("Update installiert – Neustart", f"Version {rel.version} ist installiert.",
-                            core.asset_path("icon.svg"), [("default", "Neu starten"), ("restart", "Neu starten")],
+            wfa_tray.notify(_("Update installiert – Neustart"), _("Version {version} ist installiert.").format(version=rel.version),
+                            core.asset_path("icon.svg"),
+                            [("default", _("Neu starten")), ("restart", _("Neu starten"))],
                             lambda _a: self.app.restart_self())
         return False

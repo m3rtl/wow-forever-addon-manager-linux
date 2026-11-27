@@ -11,9 +11,11 @@ from gi.repository import GdkPixbuf, GLib, Gtk, Pango  # noqa: E402
 
 import wfa_gui as G  # noqa: E402
 from wfa_core import ApiError  # noqa: E402
+from wfa_i18n import N_, _, current, ngettext  # noqa: E402
 
 PAGE_SIZE = 20
-SORTS = (("downloads", "Downloads"), ("popularity", "Beliebtheit"), ("updated", "Zuletzt aktualisiert"), ("name", "Name"))
+SORTS = (("downloads", N_("Downloads")), ("popularity", N_("Beliebtheit")), ("updated", N_("Zuletzt aktualisiert")),
+         ("name", N_("Name")))
 LOGO_SMALL, LOGO_BIG, SHOT_W, SHOT_H = 32, 96, 160, 110
 CSS = """
 .wfa-na-name { font-weight: bold; }
@@ -43,24 +45,24 @@ def _fit_square(pb, size):
 def fmt_downloads(n):
     n = int(n or 0)
     if n >= 1_000_000:
-        return f"{n / 1_000_000:.1f}".replace(".", ",") + " Mio."
-    return f"{n:,}".replace(",", ".")
+        return (f"{n / 1_000_000:.1f}".replace(".", ",") if current() == "de" else f"{n / 1_000_000:.1f}") + _(" Mio.")
+    return f"{n:,}".replace(",", ".") if current() == "de" else f"{n:,}"
 
 
 def fmt_date(iso):
     p = (iso or "")[:10].split("-")
-    return f"{p[2]}.{p[1]}.{p[0]}" if len(p) == 3 and all(p) else ""
+    return _("{day}.{month}.{year}").format(day=p[2], month=p[1], year=p[0]) if len(p) == 3 and all(p) else ""
 
 
 def _status(c):
-    return "installiert" if c.installed else ("keine Forever-Datei" if c.has_forever is False else "")
+    return _("installiert") if c.installed else (_("keine Forever-Datei") if c.has_forever is False else "")
 
 
 class NewAddonDialog(Gtk.Dialog):
     """Ergebnis in self.result: ("cand", Candidate) | ("zip", Path) | ("input", str) | ("browser", str) | None."""
 
     def __init__(self, parent, mgr):
-        super().__init__(title="Neues Addon", transient_for=parent, modal=True, use_header_bar=True)
+        super().__init__(title=_("Neues Addon"), transient_for=parent, modal=True, use_header_bar=True)
         self.mgr = mgr
         self.result = None
         self.featured_loaded = False
@@ -82,8 +84,8 @@ class NewAddonDialog(Gtk.Dialog):
         css.load_from_data(CSS.encode())
         self.get_style_context().add_provider(css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self._css = css
-        self.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        self.install_btn = G.add_button(self, "Installieren", Gtk.ResponseType.OK, suggested=True)
+        self.add_button(_("Abbrechen"), Gtk.ResponseType.CANCEL)
+        self.install_btn = G.add_button(self, _("Installieren"), Gtk.ResponseType.OK, suggested=True)
         self.install_btn.set_sensitive(False)
         box = self.get_content_area()
         box.set_spacing(8)
@@ -112,15 +114,15 @@ class NewAddonDialog(Gtk.Dialog):
     def _build_browse(self):
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         top = Gtk.Box(spacing=6)
-        self.entry = Gtk.SearchEntry(hexpand=True, placeholder_text="Filtern oder suchen: Addon-Name …")
+        self.entry = Gtk.SearchEntry(hexpand=True, placeholder_text=_("Filtern oder suchen: Addon-Name …"))
         self.entry.connect("search-changed", self._on_filter)
         self.entry.connect("activate", self._on_filter_now)
         top.pack_start(self.entry, True, True, 0)
         self.sort_box = Gtk.Box(spacing=6)
-        self.sort_box.pack_start(Gtk.Label(label="Sortieren:"), False, False, 0)
+        self.sort_box.pack_start(Gtk.Label(label=_("Sortieren:")), False, False, 0)
         self.combo = Gtk.ComboBoxText()
         for k, t in SORTS:
-            self.combo.append(k, t)
+            self.combo.append(k, _(t))
         self.combo.set_active_id("downloads")
         self.combo.connect("changed", self._on_sort)
         self.sort_box.pack_start(self.combo, False, False, 0)
@@ -130,7 +132,7 @@ class NewAddonDialog(Gtk.Dialog):
         # Kandidat, Logo, Name, Autor, Downloads, Aktualisiert, Status
         self.store = Gtk.ListStore(object, GdkPixbuf.Pixbuf, str, str, str, str, str)
         tree = self.tree = Gtk.TreeView(model=self.store)
-        col = Gtk.TreeViewColumn("Addon")
+        col = Gtk.TreeViewColumn(_("Addon"))
         col.set_expand(True)
         rp = Gtk.CellRendererPixbuf(xpad=4, ypad=2)
         col.pack_start(rp, False)
@@ -140,7 +142,7 @@ class NewAddonDialog(Gtk.Dialog):
         col.pack_start(rt, True)
         col.add_attribute(rt, "markup", 2)
         tree.append_column(col)
-        for title, idx, align in (("Autor", 3, 0), ("Downloads", 4, 1), ("Aktualisiert", 5, 0), ("", 6, 0)):
+        for title, idx, align in ((_("Autor"), 3, 0), (_("Downloads"), 4, 1), (_("Aktualisiert"), 5, 0), ("", 6, 0)):
             r = Gtk.CellRendererText(xalign=align / 2 if align else 0, xpad=6)
             c = Gtk.TreeViewColumn(title, r, text=idx)
             tree.append_column(c)
@@ -155,26 +157,26 @@ class NewAddonDialog(Gtk.Dialog):
         self.hint_box = Gtk.Box(spacing=8)
         self.hint_box.pack_start(Gtk.Label(
             xalign=0, wrap=True, hexpand=True,
-            label="Die Suche ist für diesen API-Key nicht freigeschaltet."), True, True, 0)
-        b = Gtk.Button(label="Im Browser suchen")
+            label=_("Die Suche ist für diesen API-Key nicht freigeschaltet.")), True, True, 0)
+        b = Gtk.Button(label=_("Im Browser suchen"))
         b.connect("clicked", self._browser_search)
         self.hint_box.pack_start(b, False, False, 0)
         page.pack_start(self.hint_box, False, False, 0)
 
         bar = Gtk.Box(spacing=6)
-        self.status = Gtk.Label(xalign=0, hexpand=True, label="Lade Addons …")
+        self.status = Gtk.Label(xalign=0, hexpand=True, label=_("Lade Addons …"))
         bar.pack_start(self.status, True, True, 0)
         self.pager = Gtk.Box(spacing=6)
-        self.prev_btn = Gtk.Button(label="‹ Zurück")
-        self.next_btn = Gtk.Button(label="Weiter ›")
-        self.page_lbl = Gtk.Label(label="Seite 1")
+        self.prev_btn = Gtk.Button(label=_("‹ Zurück"))
+        self.next_btn = Gtk.Button(label=_("Weiter ›"))
+        self.page_lbl = Gtk.Label(label=_("Seite {page}").format(page=1))
         self.prev_btn.connect("clicked", lambda *_: self._goto(self.page - 1))
         self.next_btn.connect("clicked", lambda *_: self._goto(self.page + 1))
         for w in (self.prev_btn, self.page_lbl, self.next_btn):
             self.pager.pack_start(w, False, False, 0)
         bar.pack_end(self.pager, False, False, 0)
         page.pack_start(bar, False, False, 0)
-        self.stack.add_titled(page, "browse", "Addons")
+        self.stack.add_titled(page, "browse", _("Addons"))
 
     def _on_filter(self, *_):
         if self._debounce:
@@ -207,7 +209,7 @@ class NewAddonDialog(Gtk.Dialog):
     def _load(self):
         self.gen += 1
         gen = self.gen
-        self.status.set_text("Lade …" if not self.query else "Suche …")
+        self.status.set_text(_("Lade …") if not self.query else _("Suche …"))
         self.hint_box.hide()
         self.prev_btn.set_sensitive(False)
         self.next_btn.set_sensitive(False)
@@ -239,8 +241,9 @@ class NewAddonDialog(Gtk.Dialog):
             self.has_more = more
             self._fill(cands)
             n = len(cands)
-            self.status.set_text((f"{n} Treffer" if q else f"{n} Addons") if n else
-                                 ("Keine Treffer" if q else "Keine Addons"))
+            self.status.set_text(
+                (ngettext("1 Treffer", "{n} Treffer", n) if q else ngettext("1 Addon", "{n} Addons", n)).format(n=n)
+                if n else (_("Keine Treffer") if q else _("Keine Addons")))
             self._finish_load()
             return False
         G.run_in_thread(lambda: self.mgr.browse(q, sort, page, PAGE_SIZE), done)
@@ -257,7 +260,8 @@ class NewAddonDialog(Gtk.Dialog):
                 self.status.set_text(G.err_text(err))
             else:
                 self._fill(res)
-                self.status.set_text(f"{len(res)} Addons (Auswahl)")
+                self.status.set_text(
+                    ngettext("1 Addon (Auswahl)", "{n} Addons (Auswahl)", len(res)).format(n=len(res)))
             self._finish_load()
             return False
         G.run_in_thread(self.mgr.featured, done)
@@ -268,7 +272,7 @@ class NewAddonDialog(Gtk.Dialog):
 
     def _finish_load(self):
         self.loaded = self.featured_loaded = True
-        self.page_lbl.set_text(f"Seite {self.page + 1}")
+        self.page_lbl.set_text(_("Seite {page}").format(page=self.page + 1))
         self.prev_btn.set_sensitive(self.page > 0 and not self.fallback)
         self.next_btn.set_sensitive(self.has_more and not self.fallback)
 
@@ -355,10 +359,10 @@ class NewAddonDialog(Gtk.Dialog):
         t.get_style_context().add_class("wfa-na-tip-title")
         col.pack_start(t, False, False, 0)
         if c.author:
-            col.pack_start(Gtk.Label(label=f"von {c.author}", xalign=0), False, False, 0)
-        meta = [f"{fmt_downloads(c.downloads)} Downloads"]
+            col.pack_start(Gtk.Label(label=_("von {author}").format(author=c.author), xalign=0), False, False, 0)
+        meta = [_("{count} Downloads").format(count=fmt_downloads(c.downloads))]
         if c.updated:
-            meta.append(f"aktualisiert {fmt_date(c.updated)}")
+            meta.append(_("aktualisiert {date}").format(date=fmt_date(c.updated)))
         m = Gtk.Label(label=" · ".join(meta), xalign=0, wrap=True, max_width_chars=48)
         m.get_style_context().add_class("wfa-na-muted")
         col.pack_start(m, False, False, 0)
@@ -394,22 +398,22 @@ class NewAddonDialog(Gtk.Dialog):
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         page.pack_start(Gtk.Label(
             xalign=0, wrap=True,
-            label="CurseForge-Projekt-ID, gh:Besitzer/Repo, GitHub-URL oder direkter Zip-Link:"), False, False, 0)
-        self.dentry = Gtk.Entry(placeholder_text="z. B. 3358  oder  gh:Besitzer/Repo  oder  https://…/addon.zip")
+            label=_("CurseForge-Projekt-ID, gh:Besitzer/Repo, GitHub-URL oder direkter Zip-Link:")), False, False, 0)
+        self.dentry = Gtk.Entry(placeholder_text=_("z. B. 3358  oder  gh:Besitzer/Repo  oder  https://…/addon.zip"))
         self.dentry.connect("changed", lambda *_: self._update_btn())
         self.dentry.connect("activate", lambda *_: self.install_btn.get_sensitive() and self.response(Gtk.ResponseType.OK))
         page.pack_start(self.dentry, False, False, 0)
-        b = Gtk.Button(label="Zip-Datei wählen …", halign=Gtk.Align.START)
+        b = Gtk.Button(label=_("Zip-Datei wählen …"), halign=Gtk.Align.START)
         b.connect("clicked", self._pick_zip)
         page.pack_start(b, False, False, 0)
-        self.stack.add_titled(page, "direct", "Direkt")
+        self.stack.add_titled(page, "direct", _("Direkt"))
 
     def _pick_zip(self, *_):
         f = Gtk.FileFilter()
-        f.set_name("Zip-Archive")
+        f.set_name(_("Zip-Archive"))
         f.add_pattern("*.zip")
         f.add_pattern("*.ZIP")
-        path = G.choose_file(self, "Zip-Datei wählen", Gtk.FileChooserAction.OPEN, "Öffnen", filters=(f,))
+        path = G.choose_file(self, _("Zip-Datei wählen"), Gtk.FileChooserAction.OPEN, _("Öffnen"), filters=(f,))
         if path:
             self.result = ("zip", Path(path))
             self.response(Gtk.ResponseType.OK)

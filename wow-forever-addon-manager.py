@@ -5,7 +5,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-CLI_FLAGS = {"--cli", "--check", "--addons-dir", "--version", "-h", "--help"}
+CLI_FLAGS = {"--cli", "--check", "--addons-dir", "--snapshot", "--snapshots", "--restore-snapshot",
+             "--cleanup", "--apply", "--version", "-h", "--help"}
 
 
 def _wants_cli(argv):

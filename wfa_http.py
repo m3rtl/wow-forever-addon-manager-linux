@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
+from wfa_i18n import _
 from wfa_base import ApiError, DL_TIMEOUT, MAX_DOWNLOAD, UA
 
 # ---------------------------------------------------------------- HTTP
@@ -56,14 +57,14 @@ def _open(url, headers=None, timeout=25, data=None, opener=None):
     except urllib.error.HTTPError as e:
         if host == "api.curseforge.com":
             if e.code == 401:
-                raise ApiError("CurseForge: nicht autorisiert (HTTP 401)", "key")
+                raise ApiError(_("CurseForge: nicht autorisiert (HTTP 401)"), "key")
             if e.code == 403:
-                raise ApiError("CurseForge: Zugriff verweigert (HTTP 403)", "forbidden")
+                raise ApiError(_("CurseForge: Zugriff verweigert (HTTP 403)"), "forbidden")
         if e.code == 429 or (e.code == 403 and host == "api.github.com"):
-            raise ApiError("Rate-Limit erreicht (%s)" % host, "rate")
-        raise ApiError(f"HTTP {e.code} für {host}", "http", e.code)
+            raise ApiError(_("Rate-Limit erreicht ({host})").format(host=host), "rate")
+        raise ApiError(_("HTTP {code} für {host}").format(code=e.code, host=host), "http", e.code)
     except (urllib.error.URLError, OSError, TimeoutError) as e:
-        raise ApiError(f"Netzwerkfehler ({getattr(e, 'reason', e)})", "net")
+        raise ApiError(_("Netzwerkfehler ({reason})").format(reason=getattr(e, "reason", e)), "net")
 
 
 def http_json(url, headers=None, body=None):
@@ -76,7 +77,7 @@ def http_json(url, headers=None, body=None):
         try:
             return json.loads(r.read().decode("utf-8"))
         except ValueError:
-            raise ApiError("Ungültige Antwort (kein JSON)", "other")
+            raise ApiError(_("Ungültige Antwort (kein JSON)"), "other")
 
 
 def fmt_size(n):
@@ -92,46 +93,46 @@ def download_file(url, dest, limit=MAX_DOWNLOAD, cancel=None, headers=None, prog
     """Laedt url nach dest -> Bytes. progress(geladen, gesamt|None) nach jedem Block.
     Fehler als ApiError: stall (timeout s ohne Daten), net (Abbruch, unvollstaendig), cancel, http, ..."""
     if urllib.parse.urlparse(url).scheme != "https":
-        raise ApiError("Download nur über https erlaubt", "download")
+        raise ApiError(_("Download nur über https erlaubt"), "download")
     with _open(url, headers, timeout=timeout) as r:
         size = r.headers.get("Content-Length")
         size = int(size) if size and size.isdigit() else None
         if size and size > limit:
-            raise ApiError("Download zu groß (>300 MB)", "other")
+            raise ApiError(_("Download zu groß (>300 MB)"), "other")
         total = 0
         if progress:
             progress(0, size)
         with open(dest, "wb") as f:
             while True:
                 if cancel is not None and cancel.is_set():
-                    raise ApiError("Abgebrochen", "cancel")
+                    raise ApiError(_("Abgebrochen"), "cancel")
                 try:
                     chunk = r.read(1 << 16)
                 except (TimeoutError, socket.timeout) as e:
-                    raise ApiError(f"keine Daten seit {timeout} s – Verbindung hängt", "stall") from e
+                    raise ApiError(_("keine Daten seit {seconds} s – Verbindung hängt").format(seconds=timeout), "stall") from e
                 except (OSError, http.client.HTTPException) as e:
-                    raise ApiError(f"Verbindung abgebrochen ({e.__class__.__name__})", "net") from e
+                    raise ApiError(_("Verbindung abgebrochen ({error})").format(error=e.__class__.__name__), "net") from e
                 if not chunk:
                     break
                 total += len(chunk)
                 if total > limit:
-                    raise ApiError("Download zu groß (>300 MB)", "other")
+                    raise ApiError(_("Download zu groß (>300 MB)"), "other")
                 f.write(chunk)
                 if progress:
                     progress(total, size)
     if size is not None and total < size:
-        raise ApiError(f"Download unvollständig ({fmt_size(total)} von {fmt_size(size)})", "net")
+        raise ApiError(_("Download unvollständig ({got} von {total})").format(got=fmt_size(total), total=fmt_size(size)), "net")
     return total
 
 
 def check_zip(path):
     """Keine Zip -> kind=download (falsche Antwort, naechster Weg); CRC-Fehler -> kind=corrupt (neuer Versuch)."""
     if not zipfile.is_zipfile(path):
-        raise ApiError("Antwort ist keine Zip-Datei", "download")
+        raise ApiError(_("Antwort ist keine Zip-Datei"), "download")
     try:
         with zipfile.ZipFile(path) as z:
             bad = z.testzip()
     except Exception as e:  # noqa: BLE001 - jede Lese-/Entpack-Ausnahme heisst: Datei kaputt
-        raise ApiError(f"Zip-Datei beschädigt ({e})", "corrupt") from e
+        raise ApiError(_("Zip-Datei beschädigt ({error})").format(error=e), "corrupt") from e
     if bad:
-        raise ApiError(f"Zip-Datei beschädigt ({bad})", "corrupt")
+        raise ApiError(_("Zip-Datei beschädigt ({error})").format(error=bad), "corrupt")
