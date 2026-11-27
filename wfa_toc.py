@@ -244,7 +244,7 @@ def _collect(path, out):
         return
     out.append(path)
     try:
-        txt = open(path, encoding="utf-8", errors="replace").read()
+        txt = Path(path).read_text(encoding="utf-8", errors="replace")
     except OSError:
         return
     if path.lower().endswith(".xml"):

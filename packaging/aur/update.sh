@@ -1,10 +1,10 @@
 #!/bin/sh
 # Setzt pkgver und sha256sums im PKGBUILD auf ein veroeffentlichtes Tag und erzeugt .SRCINFO neu.
-# Aufruf: packaging/aur/update.sh [VERSION]   (Standard: __version__ aus wfa_core.py)
+# Aufruf: packaging/aur/update.sh [VERSION]   (Standard: __version__ aus wfa_base.py)
 # Danach PKGBUILD und .SRCINFO ins AUR-Repo (ssh://aur@aur.archlinux.org/wow-forever-addon-manager.git) kopieren.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-ver=${1:-$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$here/../../wfa_core.py")}
+ver=${1:-$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$here/../../wfa_base.py")}
 url="https://github.com/m3rtl/wow-forever-addon-manager-linux/archive/refs/tags/v$ver.tar.gz"
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
