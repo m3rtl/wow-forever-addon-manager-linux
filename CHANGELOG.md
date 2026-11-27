@@ -2,6 +2,32 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
+## Unveröffentlicht
+
+### Neu
+
+- **Updates vor dem Spielstart**: `--update` aktualisiert veraltete Addons ohne Rückfragen (nicht bei laufendem WoW; Exit-Code 0 ok, 1 Fehler, 2 übersprungen), `--quiet` zeigt nur Zusammenfassung und Fehler, `--run CMD` startet danach das Spiel und impliziert `--update`. Der Lauf ist zeitlich begrenzt, damit er den Spielstart nicht aufhält. Der Dialog unter ☰ → Einstellungen → „Hintergrund“ → „Updates vor dem Spielstart …“ zeigt fertige Zeilen zum Kopieren und speichert ein Startskript („Startskript speichern …“):
+  - **Steam**, Startoptionen: `<Programm> --update --quiet --run %command%`
+  - **Lutris**: „Pre-launch script“ auf das Startskript setzen und „Wait for pre-launch script completion“ einschalten. **Heroic**: Skript vor dem Start im Reiter Erweitert.
+  - **Flatpak**: `flatpak run io.github.m3rtl.WowForeverAddonManager --update --quiet ; %command%`, ohne `--run`.
+- **Automatische Gesamtstände**: vor einem Update ab 5 Addons und bei neuer WoW-Version (☰ → Einstellungen → „Automatische Gesamtstände“, Standard an). Es bleiben die letzten 2 automatischen Stände, eigene werden nie verdrängt. Nach einem Client-Update weist ein Hinweis darauf hin.
+- **Fehleranalyse** (☰ → Erweitert → „Fehleranalyse …“, `--errors [ADDON]`): wertet !BugGrabber aus, gruppiert nach Addon und zeigt Fehler seit dem letzten Update. „Zurücksetzen …“ stellt das Backup des Updates her.
+- **Addon-Sets** (Dialog „Addons je Charakter und Sets …“, `--sets`, `--set NAME`, `--char NAME-REALM`): Zusammenstellungen speichern und auf einen oder alle Charaktere anwenden; Abhängigkeiten werden mit eingeschaltet.
+- **Hinweise**: „⚠ verwaist“ (CurseForge-Projekt inaktiv, aufgegeben oder gelöscht, GitHub-Repo archiviert), „◷ lange kein Update“ (seit 180 Tagen keine neue Forever-Datei und TOC älter als der Client; Einstellung „Hinweis „lange kein Update“ nach“, 0 = aus) und Konflikte (geteilte oder doppelte Ordner, „⚠“ am Namen) mit Tooltip und Zählung in der Summenzeile. Doppelte Ordner lassen sich unter „Aufräumen …“ entfernen.
+- **Mehrere Installationen**: Umschalter in der Kopfzeile (ab zwei Installationen), Verwaltung unter ☰ → Einstellungen → „Installationen“ („Hinzufügen …“, „Umbenennen …“, „Entfernen“, „Aktivieren“). Kommandozeile: `--installations`, `--use NAME|PFAD`, Taste `i` im Menü.
+
+### Geändert
+
+- „Gesamtstände …“ steht jetzt im ☰-Hauptmenü statt unter „Erweitert“, weil automatische Stände für alle entstehen. Der Dialog hat die Spalte „Art“ (manuell/automatisch).
+- Der Menüeintrag „Addons je Charakter“ heißt jetzt „Addons je Charakter und Sets …“.
+- „AddOns-Ordner“ in den Einstellungen ist jetzt der Abschnitt „Installationen“ (statt „Ändern …“ jetzt „Hinzufügen …“).
+- Backups, SavedVariables-Sätze, Gesamtstände und Papierkorb merken sich die Installation; alte Sätze gehören zur bisherigen Installation. Die Listen zeigen nur Sätze der aktiven Installation.
+- CurseForge-Projektstatus und GitHub-Archivstatus werden höchstens einmal am Tag abgefragt.
+
+### Behoben
+
+- Die Erkennung „WoW läuft“ schließt jetzt den eigenen Prozess und dessen Eltern aus. Bei Startoptionen, deren Kommandozeile `Wow.exe` enthält (`--update --run …/Wow.exe`), galt WoW sonst fälschlich als gestartet.
+
 ## 0.4.0 – 2026-11-27
 
 ### Neu
