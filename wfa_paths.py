@@ -201,6 +201,12 @@ SCHEMA = {
     "autostart_portal": (bool, False),   # Flatpak: Autostart ueber das Hintergrund-Portal eingerichtet
     "expert": (bool, False),             # Erweiterte Funktionen im Menue zeigen
     "language": (str, "auto"),           # auto, de oder en (wfa_i18n)
+    "installations": (list, []),         # weitere Installationen: [{"name": str, "path": AddOns-Ordner}]
+    "auto_snapshot_min": (int, 5),       # Gesamtstand vor Updates ab so vielen Addons, 0 = aus
+    "auto_snapshot_client": (bool, True),  # Gesamtstand, wenn sich die Client-Version aendert
+    "client_seen": (dict, {}),           # AddOns-Ordner -> zuletzt gesehene Client-Version
+    "addon_sets": (dict, {}),            # Name -> {"folders": [...], "created": ISO-Zeit}
+    "stale_days": (int, 180),            # ohne neue Datei seit so vielen Tagen gilt ein Addon als verwaist
 }
 
 
