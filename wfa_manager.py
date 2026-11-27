@@ -112,14 +112,24 @@ class Manager(PlanMixin, ApplyMixin, SavedVarsMixin, AssignMixin):
             if self._add_inst(normalize_addons_dir(cfgd), legacy=first):
                 with contextlib.suppress(OSError):
                     self.cfg.save()
+        self.legacy_install()   # Zuordnung alter Saetze sofort festschreiben
 
     def legacy_install(self):
         """AddOns-Pfad (str), dem Saetze ohne Installations-Kennung zugeordnet werden; sonst None."""
+        # einmal festgelegt und gemerkt, damit Entfernen eines Eintrags die alten Saetze nicht umhaengt
+        fixed = self.cfg.d.get("legacy_install")
+        if isinstance(fixed, str) and fixed:
+            return fixed
         lst = self._inst_list()
-        for e in lst:
-            if e.get("legacy"):
-                return str(normalize_addons_dir(e["path"]))
-        return str(normalize_addons_dir(lst[0]["path"])) if lst else None
+        e = next((e for e in lst if e.get("legacy")), lst[0] if lst else None)
+        if e is None:
+            return None
+        q = str(normalize_addons_dir(e["path"]))
+        with self.cfg.lock:
+            self.cfg["legacy_install"] = q
+            with contextlib.suppress(OSError):
+                self.cfg.save()
+        return q
 
     def install_id(self):
         """Kennung der aktiven Installation (AddOns-Pfad) oder None."""

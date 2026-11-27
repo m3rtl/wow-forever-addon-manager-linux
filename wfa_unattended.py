@@ -84,6 +84,7 @@ def run_update(manager, log=print, quiet=False, timeout=None) -> UnattendedResul
     res = UnattendedResult()
     say = (lambda s: None) if quiet else log
     limit = TOTAL_TIMEOUT_S if timeout is None else timeout
+    manager.dl_cancel.clear()   # ein frueheres Zeitlimit darf diesen Lauf nicht abbrechen
 
     def summary():
         n = len(res.updated)

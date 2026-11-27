@@ -205,3 +205,29 @@ class PerInstallationRecords(InstCase):
         self.assertEqual(hits[0].parents[3].joinpath(".wfa-install").read_text(), str(self.a))
         wfa_chars.write_states_all([ch], {"A": True}, self.tmp / "bk2")        # alte Ablage unveraendert
         self.assertTrue((self.tmp / "bk2" / "ACC" / "Realm" / "Char" / "AddOns.txt").is_file())
+
+
+class RefuterFixTests(InstCase):
+    def test_symlink_does_not_duplicate(self):
+        m = self.setup_two()
+        wow = self.b.parents[2]                       # .../b ("World of Warcraft"-Ebene)
+        os.symlink(wow, self.tmp / "lnk")
+        ok, _hint = m.add_installation(self.tmp / "lnk")
+        self.assertFalse(ok)
+        self.assertEqual(len(m.installations()), 2)
+
+    def test_removing_original_keeps_old_sets_away_from_others(self):
+        write(self.wfa_home / "config.json", json.dumps({"addons_dir": str(self.a)}))
+        m = self.manager()
+        legacy = m.legacy_install()
+        self.assertEqual(m.add_installation(self.b)[0], True)
+        self.assertEqual(m.switch_installation(self.b)[0], True)
+        self.assertTrue(m.remove_installation(self.a))
+        self.assertEqual(m.legacy_install(), legacy)
+        self.assertNotEqual(m.legacy_install(), m.install_id())
+
+    def test_snapshot_suffix_sorts_numerically(self):
+        S = wfa_snapshot.Snapshot
+        ids = ["20261127-120000", "20261127-120000-2", "20261127-120000-9", "20261127-120000-10"]
+        snaps = [mock.Mock(spec=S, id=i) for i in ids]
+        self.assertEqual([s.id for s in sorted(snaps, key=wfa_snapshot._id_key, reverse=True)][0], "20261127-120000-10")

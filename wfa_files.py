@@ -169,6 +169,8 @@ def find_forever_installs():
 
 def normalize_addons_dir(p):
     p = _expand(str(p))
+    with contextlib.suppress(OSError, RuntimeError):   # Symlinks aufloesen, sonst doppelte Installationen
+        p = p.resolve()
     if p.name.lower() not in ("_forever_", "interface", "addons"):
         # z. B. "World of Warcraft" gewaehlt; ein zusaetzliches Interface daneben (alter Client) aendert nichts
         sub = SavedVarsMixin._ci_child(p, "_forever_")

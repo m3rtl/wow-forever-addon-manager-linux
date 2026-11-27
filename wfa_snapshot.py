@@ -105,8 +105,16 @@ def list_snapshots(snap_root, install=None, legacy=None) -> list[Snapshot]:
             continue
     if install is not None:
         out = [s for s in out if owner(s, legacy) == str(install)]
-    out.sort(key=lambda s: s.id, reverse=True)
+    out.sort(key=_id_key, reverse=True)
     return out
+
+
+def _id_key(s):
+    """ID "JJJJMMTT-HHMMSS[-n]" nach Zeit und dann numerischem Suffix (-10 nach -9)."""
+    parts = s.id.split("-")
+    if len(parts) >= 3 and parts[-1].isdigit():
+        return ("-".join(parts[:-1]), int(parts[-1]))
+    return (s.id, 0)
 
 
 def _rotate(snap_root, keep, protect=(), keep_auto=2, legacy=None):
