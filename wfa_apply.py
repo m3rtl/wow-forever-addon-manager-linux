@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import re
 import shutil
 import subprocess
@@ -17,6 +18,22 @@ from wfa_files import _remove
 from wfa_paths import browser_download_dirs, tilde, xdg_user_dir
 from wfa_sources import CurseForge
 from wfa_toc import toc_dependencies
+
+def _own_pids():
+    """PID dieses Prozesses und aller Vorfahren (aus /proc)."""
+    out, pid = set(), os.getpid()
+    while pid > 1 and pid not in out:
+        out.add(pid)
+        try:
+            with open(f"/proc/{pid}/stat", "rb") as f:
+                pid = int(f.read().rsplit(b")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            break
+    return out
+
+
+INSTALL_MARK = ".wfa-install"   # Kennung der Installation in Ordner-Backups und SavedVariables-Saetzen
+
 
 class ApplyMixin:
     # -- Browser
@@ -109,10 +126,15 @@ class ApplyMixin:
                 return None
             cmd = ["flatpak-spawn", "--host"] + cmd
         try:
-            rc = subprocess.run(cmd, capture_output=True, timeout=5).returncode
+            proc = subprocess.run(cmd, capture_output=True, timeout=5)
+            rc = proc.returncode
         except Exception:
             return None if in_flatpak() else False
         if rc in (0, 1):
+            if rc == 0 and not in_flatpak():
+                # eigener Prozess und Eltern (z. B. Steam-Startoption "wfa --update --run .../Wow.exe") zaehlen nicht
+                pids = {int(x) for x in proc.stdout.split() if x.isdigit()}
+                return bool(pids - _own_pids()) if pids else True
             return rc == 0
         return None if in_flatpak() else False
 
@@ -124,12 +146,44 @@ class ApplyMixin:
             n += 1
             d = self.paths.backups / f"{base}-{n}"
         d.mkdir()
+        self._mark_set(d)
         return d
 
+    # Kennung der Installation: Datei INSTALL_MARK im Satz (Saetze ohne Datei sind alt und gehoeren zu legacy_install())
+    def _mark_set(self, d):
+        with contextlib.suppress(OSError):
+            (d / INSTALL_MARK).write_text(str(self.addons_dir or ""), "utf-8")
+
+    def _set_owner(self, d):
+        try:
+            return (Path(d) / INSTALL_MARK).read_text("utf-8").strip()
+        except OSError:
+            return self.legacy_install() or ""
+
+    def _mine(self, d):
+        o = self._set_owner(d)
+        return not o or o == str(self.addons_dir)
+
+    @staticmethod
+    def _rm_empty_set(d):
+        """Entfernt einen Satz, der nur noch die Kennung enthaelt."""
+        with contextlib.suppress(OSError):
+            if [c.name for c in Path(d).iterdir()] == [INSTALL_MARK]:
+                (Path(d) / INSTALL_MARK).unlink()
+            Path(d).rmdir()
+
+    def _prune_sets(self, root, key=lambda p: p.name):
+        """Je Installation die neuesten KEEP_BACKUPS Saetze behalten."""
+        sets = sorted((p for p in root.iterdir() if p.is_dir()), key=key) if root.exists() else []
+        groups = {}
+        for p in sets:
+            groups.setdefault(self._set_owner(p), []).append(p)
+        for lst in groups.values():
+            for p in lst[:-KEEP_BACKUPS]:
+                shutil.rmtree(p, ignore_errors=True)
+
     def _prune_backups(self):
-        sets = sorted(p for p in self.paths.backups.iterdir() if p.is_dir()) if self.paths.backups.exists() else []
-        for p in sets[:-KEEP_BACKUPS]:
-            shutil.rmtree(p, ignore_errors=True)
+        self._prune_sets(self.paths.backups)
 
     def _swap(self, items, bdir):
         """Ersetzt Ordner im AddOns-Ordner (alt -> bdir, neu -> AddOns). Rollback bei jedem Abbruch,
@@ -163,6 +217,10 @@ class ApplyMixin:
         origin="auto": Hintergrund-Update (nur fuer den Verlauf)."""
         results = []
         with self._apply_lock:
+            need = int(self.cfg["auto_snapshot_min"] or 0)
+            n = sum(1 for p in plans if p.extra.get("dirs"))
+            if need > 0 and n >= need:
+                self.auto_snapshot(ngettext("Vor dem Update von 1 Addon", "Vor dem Update von {n} Addons", n).format(n=n), "bulk", {"n": n})
             sv = self.snapshot_sv() if self.cfg["sv_backup"] and any(p.extra.get("dirs") for p in plans) else None
             bdir = self._new_backup_dir()
             try:
@@ -190,8 +248,7 @@ class ApplyMixin:
             finally:
                 for plan in plans:
                     self.discard(plan)
-                with contextlib.suppress(OSError):
-                    bdir.rmdir()  # leerer Satz
+                self._rm_empty_set(bdir)  # leerer Satz
                 with contextlib.suppress(OSError):
                     self._prune_backups()
         return results
@@ -285,8 +342,7 @@ class ApplyMixin:
                         self.log(_("Konfiguration konnte nicht gespeichert werden: {error}").format(error=e))
                     results.append(Result(plan.key, plan.name, True, ngettext("1 Ordner entfernt", "{n} Ordner entfernt", len(plan.folders)).format(n=len(plan.folders)), bdir.name))
             finally:
-                with contextlib.suppress(OSError):
-                    bdir.rmdir()
+                self._rm_empty_set(bdir)
                 with contextlib.suppress(OSError):
                     self._prune_backups()
         return results
@@ -323,16 +379,20 @@ class ApplyMixin:
         root = self.paths.backups
         out = []
         for p in sorted((x for x in root.iterdir() if x.is_dir()), reverse=True) if root.exists() else []:
+            if not self._mine(p):
+                continue
             try:
                 created = datetime.strptime(p.name[:15], "%Y%m%d-%H%M%S").timestamp()
             except ValueError:
                 created = p.stat().st_mtime
-            out.append(BackupSet(p.name, p, created, sorted(x.name for x in p.iterdir())))
+            out.append(BackupSet(p.name, p, created, sorted(x.name for x in p.iterdir() if x.name != INSTALL_MARK)))
         return out
 
     def restore(self, bset, only=None):
         """Stellt den Satz wieder her; `only` (Ordnernamen) beschraenkt auf diese Ordner des Satzes."""
-        names = sorted(x.name for x in Path(bset.path).iterdir()) if Path(bset.path).is_dir() else []
+        if not self._mine(bset.path):
+            return Result(bset.name, bset.name, False, _("Die Sicherung gehört zu einer anderen Installation."))
+        names = sorted(x.name for x in Path(bset.path).iterdir() if x.name != INSTALL_MARK) if Path(bset.path).is_dir() else []
         if only is not None:
             names = [n for n in names if n in set(only)]
         if not names:
@@ -344,10 +404,8 @@ class ApplyMixin:
             except Exception as e:
                 return Result(bset.name, bset.name, False, _("Fehler: {error} (Zustand wiederhergestellt)").format(error=e))
             finally:
-                with contextlib.suppress(OSError):
-                    bdir.rmdir()
-            with contextlib.suppress(OSError):
-                Path(bset.path).rmdir()
+                self._rm_empty_set(bdir)
+            self._rm_empty_set(bset.path)
             with self.cfg.lock:
                 for k, rec in list(self.cfg["installed"].items()):
                     if set(rec.get("folders", [])) & set(names):

@@ -2998,3 +2998,131 @@ msgstr "Start menu entry created: {path}"
 #: wfa_base.py
 msgid "Release"
 msgstr "Release"
+
+# ---------------------------------------------------------------- Spur A (Installationen, Gesamtstand, Update vor Spielstart)
+
+#: wfa_apply.py
+msgid "Vor dem Update von 1 Addon"
+msgid_plural "Vor dem Update von {n} Addons"
+msgstr[0] "Before updating 1 addon"
+msgstr[1] "Before updating {n} addons"
+
+#: wfa_apply.py
+msgid "Die Sicherung gehört zu einer anderen Installation."
+msgstr "The backup belongs to a different installation."
+
+#: wfa_background.py
+msgid "Client {old} -> {new}"
+msgstr "Client {old} -> {new}"
+
+#: wfa_background.py
+msgid "Ein Gesamtstand wurde automatisch gesichert."
+msgstr "A full snapshot was saved automatically."
+
+#: wfa_background.py
+msgid "WoW-Client aktualisiert"
+msgstr "WoW client updated"
+
+#: wfa_cleanup.py
+msgid "Der Satz {name} gehört zu einer anderen Installation ({path})"
+msgstr "The set {name} belongs to a different installation ({path})"
+
+#: wfa_cli.py
+msgid "Programm konnte nicht gestartet werden: {error}"
+msgstr "Could not start the program: {error}"
+
+#: wfa_cli.py
+msgid "veraltete Addons ohne Rückfragen aktualisieren (nicht bei laufendem WoW); Exit-Code 0 ok, 1 Fehler, 2 übersprungen"
+msgstr "update outdated addons without prompting (not while WoW is running); exit code 0 ok, 1 error, 2 skipped"
+
+#: wfa_cli.py
+msgid "mit --update: nur Zusammenfassung und Fehler ausgeben"
+msgstr "with --update: print only the summary and errors"
+
+#: wfa_cli.py
+msgid "nach dem Update CMD starten (impliziert --update), z. B. Steam-Startoption: wfa --update --run %%command%%"
+msgstr "start CMD after the update (implies --update), e.g. Steam launch option: wfa --update --run %%command%%"
+
+#: wfa_cli.py
+msgid "--run braucht einen Befehl"
+msgstr "--run needs a command"
+
+#: wfa_cli.py
+msgid "--quiet gehört zu --update"
+msgstr "--quiet belongs to --update"
+
+#: wfa_manager.py
+msgid "Diese Installation ist schon eingetragen."
+msgstr "This installation is already listed."
+
+#: wfa_manager.py
+msgid "Diese Installation ist nicht eingetragen."
+msgstr "This installation is not listed."
+
+#: wfa_manager.py
+msgid "Automatischer Gesamtstand fehlgeschlagen: {error}"
+msgstr "Automatic full snapshot failed: {error}"
+
+#: wfa_savedvars.py
+msgid "Der Satz gehört zu einer anderen Installation."
+msgstr "The set belongs to a different installation."
+
+#: wfa_snapshot.py
+msgid "Der Gesamtstand gehört zu einer anderen Installation ({path})."
+msgstr "The full snapshot belongs to a different installation ({path})."
+
+#: wfa_unattended.py
+msgid "Abhängigkeit wird mitinstalliert: {name}"
+msgstr "Dependency will be installed too: {name}"
+
+#: wfa_unattended.py
+msgid "1 Addon aktualisiert: {names}"
+msgid_plural "{n} Addons aktualisiert: {names}"
+msgstr[0] "1 addon updated: {names}"
+msgstr[1] "{n} addons updated: {names}"
+
+#: wfa_unattended.py
+msgid "Alle Addons aktuell."
+msgstr "All addons are up to date."
+
+#: wfa_unattended.py
+msgid "Fehler bei {name}: {error}"
+msgstr "Error with {name}: {error}"
+
+#: wfa_unattended.py
+msgid "Einrichtung"
+msgstr "Setup"
+
+#: wfa_unattended.py
+msgid "WoW läuft: keine Aktualisierung."
+msgstr "WoW is running: no update."
+
+#: wfa_unattended.py
+msgid "1 Update gefunden."
+msgid_plural "{n} Updates gefunden."
+msgstr[0] "1 update found."
+msgstr[1] "{n} updates found."
+
+#: wfa_unattended.py
+msgid "erfordert eine Bestätigung, übersprungen"
+msgstr "requires confirmation, skipped"
+
+#: wfa_unattended.py
+msgid "WoW"
+msgstr "WoW"
+
+#: wfa_unattended.py
+msgid "WoW wurde währenddessen gestartet, nichts installiert."
+msgstr "WoW was started in the meantime, nothing installed."
+
+#: wfa_unattended.py
+msgid "Zeitlimit"
+msgstr "Time limit"
+
+#: wfa_unattended.py
+msgid "Netzwerk zu langsam: nach {s} s abgebrochen."
+msgstr "Network too slow: aborted after {s} s."
+
+#: wfa_unattended.py
+msgid "Prüfung"
+msgstr "Check"

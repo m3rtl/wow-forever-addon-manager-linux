@@ -129,10 +129,22 @@ class Background:
         self.pkgs = list(pkgs)
         self.last_check = time.localtime()
         self._refresh()
+        self._notify_client_change()
         ups = self.mgr.updatable(self.pkgs)
         self._notify_updates(ups)
         if ups and self.cfg["auto_update"]:
             self._auto_update()
+
+    def _notify_client_change(self):
+        """Der Manager erkennt beim Scan eine neue Client-Version (und sichert dann automatisch): einmal melden."""
+        ch = self.mgr.take_client_change()
+        if not ch:
+            return
+        body = _("Client {old} -> {new}").format(old=ch[0], new=ch[1])
+        if self.cfg["auto_snapshot_client"]:
+            body += "\n" + _("Ein Gesamtstand wurde automatisch gesichert.")
+        wfa_tray.notify(_("WoW-Client aktualisiert"), body, core.asset_path("icon.svg"),
+                        [("default", _("Öffnen")), ("open", _("Öffnen"))], lambda _a: self.app.present())
 
     def _sig(self, ups):
         return sorted(f"{p.key}={p.remote.version if p.remote else ''}" for p in ups)

@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from wfa_i18n import N_, _
-from wfa_base import HISTORY_MAX, KEEP_BACKUPS, Result, SvSet
+from wfa_base import HISTORY_MAX, Result, SvSet
 
 class SavedVarsMixin:
     # -- SavedVariables-Schnappschuesse (nur WTF/Account/*/SavedVariables und .../<Realm>/<Char>/SavedVariables)
@@ -84,6 +84,7 @@ class SavedVarsMixin:
                 for rel in files:
                     (d / rel).parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(wtf / rel, d / rel)
+                self._mark_set(d)
             except BaseException:
                 shutil.rmtree(d, ignore_errors=True)
                 raise
@@ -97,6 +98,7 @@ class SavedVarsMixin:
 
     def _prune_sv(self):
         root = self.paths.sv_backups
+
         def age(p):
             try:
                 t = datetime.strptime(p.name[:15], "%Y%m%d-%H%M%S").timestamp()
@@ -104,14 +106,14 @@ class SavedVarsMixin:
                 t = p.stat().st_mtime
             suffix = p.name[16:]
             return t, int(suffix) if suffix.isdigit() else 0, p.name
-        sets = sorted((p for p in root.iterdir() if p.is_dir()), key=age) if root.exists() else []
-        for p in sets[:-KEEP_BACKUPS]:
-            shutil.rmtree(p, ignore_errors=True)
+        self._prune_sets(root, age)
 
     def list_sv_backups(self):
         root = self.paths.sv_backups
         out = []
         for p in sorted((x for x in root.iterdir() if x.is_dir()), reverse=True) if root.exists() else []:
+            if not self._mine(p):
+                continue
             try:
                 created = datetime.strptime(p.name[:15], "%Y%m%d-%H%M%S").timestamp()
             except ValueError:
@@ -127,6 +129,8 @@ class SavedVarsMixin:
         if self.wow_running():
             return Result(sset.name, label, False, _("WoW läuft – bitte beenden, sonst überschreibt es die "
                                                          "wiederhergestellten Einstellungen beim Beenden wieder."))
+        if not self._mine(sset.path):
+            return Result(sset.name, label, False, _("Der Satz gehört zu einer anderen Installation."))
         wtf = self.wtf_dir()
         if not wtf or not wtf.is_dir():
             return Result(sset.name, label, False, _("WTF-Ordner nicht gefunden ({path}).").format(path=wtf))
@@ -158,6 +162,8 @@ class SavedVarsMixin:
     def add_history(self, kind, key, name, old, new, source, backup, sv=None, folders=None):
         e = dict(ts=time.strftime("%Y-%m-%dT%H:%M:%S"), kind=kind, key=key, name=name, old=old, new=new,
                  source=source, backup=backup, sv=sv)
+        if self.addons_dir:
+            e["install"] = str(self.addons_dir)
         if folders is not None:
             e["folders"] = list(folders)
         hist = self.paths.history
