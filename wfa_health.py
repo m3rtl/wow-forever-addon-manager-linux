@@ -6,12 +6,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from wfa_i18n import _
+from wfa_i18n import N_, _
 from wfa_toc import clean_title, toc_meta
 
 # CurseForge ModStatus laut CurseForge-API-Doku (UNVERIFIZIERT, im Projekt nicht belegt):
 # 7 = Inactive, 8 = Abandoned, 9 = Deleted
-CF_ABANDONED = {7: "Inactive", 8: "Abandoned", 9: "Deleted"}
+CF_ABANDONED = {7: N_("inaktiv"), 8: N_("aufgegeben"), 9: N_("gelöscht")}
 FOREVER_OUTDATED = "veraltet"   # Package.forever: TOC-Interface unter dem des Clients
 
 
@@ -62,21 +62,21 @@ def assess(pkgs, cfg, client_interface, now=None) -> dict[str, Health]:
     now = now or datetime.now()
     if now.tzinfo:
         now = now.astimezone(timezone.utc).replace(tzinfo=None)
-    days = cfg["stale_days"] if isinstance(cfg["stale_days"], int) and cfg["stale_days"] > 0 else 180
+    days = cfg["stale_days"] if isinstance(cfg["stale_days"], int) and cfg["stale_days"] >= 0 else 180   # 0 = aus
     out = {}
     for p in pkgs:
         info = _info(p, cfg)
         h = Health()
         h.last_file = _date(info.get("last_file")) or _date(getattr(p.remote, "file_date", ""))
         if info.get("status") in CF_ABANDONED:
-            h.reasons.append(_("Projekt auf CurseForge als {state} markiert").format(state=CF_ABANDONED[info["status"]]))
+            h.reasons.append(_("Projekt auf CurseForge als {state} markiert").format(state=_(CF_ABANDONED[info["status"]])))
         if info.get("available") is False:
             h.reasons.append(_("Projekt auf CurseForge nicht mehr verfügbar"))
         if info.get("archived") is True:
             h.reasons.append(_("GitHub-Repository ist archiviert"))
         if h.reasons:
             h.status = "abandoned"
-        elif h.last_file and (now - h.last_file).days >= days and p.forever == FOREVER_OUTDATED:
+        elif days and h.last_file and (now - h.last_file).days >= days and p.forever == FOREVER_OUTDATED:
             h.status = "stale"
             h.reasons.append(_("Seit {days} Tagen keine neue Forever-Datei und TOC älter als der Client").format(
                 days=(now - h.last_file).days))
@@ -119,5 +119,7 @@ def conflicts(pkgs, addons_dir) -> list[Conflict]:
                 or ((pa.meta or {}).get("gh") and (pa.meta or {}).get("gh") == (pb.meta or {}).get("gh")))
             if same_src or _base(fa) == _base(fb):
                 seen.add((fa, fb))
-                out.append(Conflict("duplicate", sorted([fa, fb], key=str.lower), sorted({pa.key, pb.key})))
+                # zu behaltender Ordner zuerst: Name ohne Suffix, sonst der kuerzere
+                keep = sorted([fa, fb], key=lambda f: (re.sub(r"[^a-z0-9]", "", f.lower()) != _base(f), len(f), f.lower()))
+                out.append(Conflict("duplicate", keep, sorted({pa.key, pb.key})))
     return out
