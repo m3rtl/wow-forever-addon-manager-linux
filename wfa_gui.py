@@ -1737,7 +1737,7 @@ class App:
                         for r in results:
                             (col["installed"] if r.ok else col["errors"]).append(r.name if r.ok else (r.name, r.message))
                     self.rescan(quiet=True, then=lambda *_a: report(col, False))
-                self.bg(lambda: self.apply_plans(plans, origin="auto"), applied, _("Installiere Updates …"))
+                self.bg(lambda: self.run_apply(plans, origin="auto"), applied, _("Installiere Updates …"))
             else:
                 self.present()
                 self.install_flow(planners, finish=fin_interactive, planned=(plans, errs))
@@ -1750,7 +1750,7 @@ class App:
             return (plans if running else self.auto_deps(plans)), errs, running
         self.bg(work, planned, _("Lade Updates …"))
 
-    def apply_plans(self, plans, origin=None):
+    def run_apply(self, plans, origin=None):
         """Worker: mgr.apply; ein dabei angelegter automatischer Gesamtstand kommt ins Protokoll."""
         m = self.mgr
         need = int(m.cfg["auto_snapshot_min"] or 0)
@@ -1912,7 +1912,7 @@ class App:
                 d2.run()
                 d2.destroy()
             self.rescan(after)
-        self.bg(lambda: self.apply_plans(keep), finished, _("Installiere …"))
+        self.bg(lambda: self.run_apply(keep), finished, _("Installiere …"))
 
     # ------------------------------------------------------------ Browser
     def on_browser_selected(self, *_a):

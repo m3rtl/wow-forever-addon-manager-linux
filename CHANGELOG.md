@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen am WoW: Forever Addon-Manager. Die Abschnitte dienen zugleich als Text der GitHub-Releases.
 
+## 0.5.3 – 2026-11-28
+
+### Behoben
+
+- Installieren und Aktualisieren schlug seit 0.5.0 mit „Unerwarteter Fehler: App.apply_plans() missing 2 required positional arguments“ ab. Betroffen waren Updates und Neuinstallationen aus dem Programmfenster sowie die automatischen Updates im Hintergrund. Die Updates vor dem Spielstart über die Kommandozeile (`--update`) liefen weiter.
+
 ## 0.5.2 – 2026-11-27
 
 ### Neu
